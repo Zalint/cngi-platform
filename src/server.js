@@ -2,6 +2,7 @@ require('dotenv').config();
 const app = require('./app');
 const fs = require('fs');
 const path = require('path');
+const initDatabase = require('../db/init');
 
 const PORT = process.env.PORT || 3000;
 
@@ -9,41 +10,45 @@ const PORT = process.env.PORT || 3000;
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('📁 Created uploads directory');
+    console.log('Created uploads directory');
 }
 
-// Démarrer le serveur
-const server = app.listen(PORT, () => {
-    console.log('');
-    console.log('🚀 ================================');
-    console.log(`🚀 CNGI Platform Server Running`);
-    console.log(`🚀 Environment: ${process.env.NODE_ENV}`);
-    console.log(`🚀 Port: ${PORT}`);
-    console.log(`🚀 URL: http://localhost:${PORT}`);
-    console.log('🚀 ================================');
-    console.log('');
-});
-
-// Gestion des erreurs non capturées
-process.on('unhandledRejection', (err) => {
-    console.error('❌ UNHANDLED REJECTION! Shutting down...');
-    console.error(err.name, err.message);
-    server.close(() => {
-        process.exit(1);
+// Initialiser la base de données puis démarrer le serveur
+initDatabase().then(() => {
+    const server = app.listen(PORT, () => {
+        console.log('');
+        console.log('================================');
+        console.log(`CNGI Platform Server Running`);
+        console.log(`Environment: ${process.env.NODE_ENV}`);
+        console.log(`Port: ${PORT}`);
+        console.log(`URL: http://localhost:${PORT}`);
+        console.log('================================');
+        console.log('');
     });
-});
 
-process.on('uncaughtException', (err) => {
-    console.error('❌ UNCAUGHT EXCEPTION! Shutting down...');
-    console.error(err.name, err.message);
+    // Gestion des erreurs non capturées
+    process.on('unhandledRejection', (err) => {
+        console.error('UNHANDLED REJECTION! Shutting down...');
+        console.error(err.name, err.message);
+        server.close(() => {
+            process.exit(1);
+        });
+    });
+
+    process.on('SIGTERM', () => {
+        console.log('SIGTERM received. Shutting down gracefully...');
+        server.close(() => {
+            console.log('Process terminated');
+        });
+    });
+}).catch((err) => {
+    console.error('Failed to initialize database:', err);
     process.exit(1);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('👋 SIGTERM received. Shutting down gracefully...');
-    server.close(() => {
-        console.log('✅ Process terminated');
-    });
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION! Shutting down...');
+    console.error(err.name, err.message);
+    process.exit(1);
 });
 
