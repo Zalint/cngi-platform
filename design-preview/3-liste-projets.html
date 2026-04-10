@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNGI - Gestion des projets</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: #1e3c72;
+            color: white;
+            padding: 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 30px 20px;
+            background: rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .sidebar-header h2 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-header p {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+
+        .menu-item {
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .menu-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border-left-color: #4fc3f7;
+        }
+
+        .menu-item-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .sidebar-footer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .logout-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            width: 100%;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            padding: 0;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            background: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .top-bar h1 {
+            font-size: 28px;
+            color: #1e3c72;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* Content Area */
+        .content-area {
+            padding: 40px;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-filter {
+            display: flex;
+            gap: 15px;
+            flex: 1;
+            max-width: 600px;
+        }
+
+        .search-box {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #2a5298;
+        }
+
+        .filter-select {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            background: white;
+        }
+
+        .btn-primary {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(42, 82, 152, 0.3);
+        }
+
+        /* Projects Grid */
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .project-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .project-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 16px;
+        }
+
+        .project-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-bottom: 6px;
+        }
+
+        .project-structure {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .project-description {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .project-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .meta-icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        .project-progress {
+            margin-bottom: 16px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .progress-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .progress-value {
+            color: #1e3c72;
+            font-weight: 700;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4285f4, #34a853);
+            transition: width 0.3s;
+        }
+
+        .project-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-en-cours {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-termine {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+
+        .status-retard {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .project-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: #f5f5f5;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 16px;
+        }
+
+        .btn-icon:hover {
+            background: #e0e0e0;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .empty-state p {
+            color: #666;
+            margin-bottom: 24px;
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 30px;
+        }
+
+        .stat-item {
+            flex: 1;
+            text-align: center;
+            padding: 16px;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .stat-item:nth-child(1) .stat-value { color: #4285f4; }
+        .stat-item:nth-child(2) .stat-value { color: #34a853; }
+        .stat-item:nth-child(3) .stat-value { color: #ea4335; }
+        .stat-item:nth-child(4) .stat-value { color: #fbbc04; }
+
+        .stat-label {
+            font-size: 13px;
+            color: #666;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>CNGI</h2>
+            <p>Plateforme de suivi des actions</p>
+        </div>
+
+        <div class="sidebar-menu">
+            <a href="2-dashboard-directeur.html" class="menu-item">
+                <span class="menu-item-icon">📊</span>
+                <span>Tableau de bord</span>
+            </a>
+            <a href="3-liste-projets.html" class="menu-item active">
+                <span class="menu-item-icon">📋</span>
+                <span>Projets</span>
+            </a>
+            <a href="4-formulaire-projet.html" class="menu-item">
+                <span class="menu-item-icon">📝</span>
+                <span>Formulaires</span>
+            </a>
+            <a href="#" class="menu-item">
+                <span class="menu-item-icon">🗺️</span>
+                <span>Carte</span>
+            </a>
+            <a href="#" class="menu-item">
+                <span class="menu-item-icon">👥</span>
+                <span>Intervenants</span>
+            </a>
+            <a href="5-administration.html" class="menu-item">
+                <span class="menu-item-icon">⚙️</span>
+                <span>Administration</span>
+            </a>
+        </div>
+
+        <div class="sidebar-footer">
+            <a href="1-login.html" class="logout-btn">🚪 Déconnexion</a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <h1>Gestion des projets</h1>
+            <div class="user-profile">
+                <div class="user-info">
+                    <div class="user-name">Mamadou Diallo</div>
+                    <div class="user-role">Utilisateur - DPGI</div>
+                </div>
+                <div class="user-avatar">MD</div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Stats Bar -->
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-value">15</div>
+                    <div class="stat-label">Total projets</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">8</div>
+                    <div class="stat-label">En cours</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">2</div>
+                    <div class="stat-label">En retard</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">5</div>
+                    <div class="stat-label">Terminés</div>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <div class="search-filter">
+                    <input type="text" class="search-box" placeholder="🔍 Rechercher un projet...">
+                    <select class="filter-select">
+                        <option>Tous les statuts</option>
+                        <option>En cours</option>
+                        <option>Terminé</option>
+                        <option>En retard</option>
+                    </select>
+                    <select class="filter-select">
+                        <option>Toutes structures</option>
+                        <option>DPGI</option>
+                        <option>ONAS</option>
+                        <option>BNSP</option>
+                        <option>CETUD</option>
+                    </select>
+                </div>
+                <a href="4-formulaire-projet.html" class="btn-primary">
+                    <span>➕</span>
+                    <span>Nouveau projet</span>
+                </a>
+            </div>
+
+            <!-- Projects Grid -->
+            <div class="projects-grid">
+                <!-- Project Card 1 -->
+                <div class="project-card">
+                    <div class="project-header">
+                        <div>
+                            <div class="project-title">Tournées d'observation</div>
+                            <span class="project-structure">DPGI</span>
+                        </div>
+                    </div>
+                    <div class="project-description">
+                        Inspection des zones à risque d'inondation dans la région de Dakar, identification des points critiques
+                    </div>
+                    <div class="project-meta">
+                        <div class="meta-item">
+                            <span class="meta-icon">👤</span>
+                            <span>Chef de projet: Cheikh Sy</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📅</span>
+                            <span>Échéance: 15/06/2024</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📍</span>
+                            <span>Dakar - Plateau, Médina</span>
+                        </div>
+                    </div>
+                    <div class="project-progress">
+                        <div class="progress-header">
+                            <span class="progress-label">Avancement</span>
+                            <span class="progress-value">65%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 65%;"></div>
+                        </div>
+                    </div>
+                    <div class="project-footer">
+                        <span class="status-badge status-en-cours">En cours</span>
+                        <div class="project-actions">
+                            <button class="btn-icon" title="Voir">👁️</button>
+                            <button class="btn-icon" title="Modifier">✏️</button>
+                            <button class="btn-icon" title="Supprimer">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project Card 2 -->
+                <div class="project-card">
+                    <div class="project-header">
+                        <div>
+                            <div class="project-title">Création de bassins de rétention</div>
+                            <span class="project-structure">ONAS</span>
+                        </div>
+                    </div>
+                    <div class="project-description">
+                        Construction de bassins de rétention d'eau dans les zones sensibles pour prévenir les inondations
+                    </div>
+                    <div class="project-meta">
+                        <div class="meta-item">
+                            <span class="meta-icon">👤</span>
+                            <span>Chef de projet: Ousmane Diop</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📅</span>
+                            <span>Échéance: 30/04/2024</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📍</span>
+                            <span>Guédiawaye, Pikine</span>
+                        </div>
+                    </div>
+                    <div class="project-progress">
+                        <div class="progress-header">
+                            <span class="progress-label">Avancement</span>
+                            <span class="progress-value">45%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 45%;"></div>
+                        </div>
+                    </div>
+                    <div class="project-footer">
+                        <span class="status-badge status-retard">En retard</span>
+                        <div class="project-actions">
+                            <button class="btn-icon" title="Voir">👁️</button>
+                            <button class="btn-icon" title="Modifier">✏️</button>
+                            <button class="btn-icon" title="Supprimer">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project Card 3 -->
+                <div class="project-card">
+                    <div class="project-header">
+                        <div>
+                            <div class="project-title">Confection de digues</div>
+                            <span class="project-structure">BNSP</span>
+                        </div>
+                    </div>
+                    <div class="project-description">
+                        Édification de digues de protection le long des cours d'eau à risque
+                    </div>
+                    <div class="project-meta">
+                        <div class="meta-item">
+                            <span class="meta-icon">👤</span>
+                            <span>Chef de projet: Moussa Ndao</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📅</span>
+                            <span>Échéance: 12/06/2024</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📍</span>
+                            <span>Dakar - Patte d'oie</span>
+                        </div>
+                    </div>
+                    <div class="project-progress">
+                        <div class="progress-header">
+                            <span class="progress-label">Avancement</span>
+                            <span class="progress-value">30%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 30%;"></div>
+                        </div>
+                    </div>
+                    <div class="project-footer">
+                        <span class="status-badge status-en-cours">En cours</span>
+                        <div class="project-actions">
+                            <button class="btn-icon" title="Voir">👁️</button>
+                            <button class="btn-icon" title="Modifier">✏️</button>
+                            <button class="btn-icon" title="Supprimer">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project Card 4 -->
+                <div class="project-card">
+                    <div class="project-header">
+                        <div>
+                            <div class="project-title">Reconstruction de voirie</div>
+                            <span class="project-structure">CETUD</span>
+                        </div>
+                    </div>
+                    <div class="project-description">
+                        Réhabilitation des voiries endommagées suite aux inondations de 2023
+                    </div>
+                    <div class="project-meta">
+                        <div class="meta-item">
+                            <span class="meta-icon">👤</span>
+                            <span>Chef de projet: Amadou Kane</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📅</span>
+                            <span>Échéance: 20/05/2024</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📍</span>
+                            <span>Rufisque, Keur Massar</span>
+                        </div>
+                    </div>
+                    <div class="project-progress">
+                        <div class="progress-header">
+                            <span class="progress-label">Avancement</span>
+                            <span class="progress-value">55%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 55%;"></div>
+                        </div>
+                    </div>
+                    <div class="project-footer">
+                        <span class="status-badge status-en-cours">En cours</span>
+                        <div class="project-actions">
+                            <button class="btn-icon" title="Voir">👁️</button>
+                            <button class="btn-icon" title="Modifier">✏️</button>
+                            <button class="btn-icon" title="Supprimer">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project Card 5 -->
+                <div class="project-card">
+                    <div class="project-header">
+                        <div>
+                            <div class="project-title">Curage de canaux</div>
+                            <span class="project-structure">ONAS</span>
+                        </div>
+                    </div>
+                    <div class="project-description">
+                        Nettoyage et curage des réseaux d'assainissement pour faciliter l'évacuation des eaux
+                    </div>
+                    <div class="project-meta">
+                        <div class="meta-item">
+                            <span class="meta-icon">👤</span>
+                            <span>Chef de projet: Fatou Mbaye</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📅</span>
+                            <span>Terminé: 10/03/2024</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📍</span>
+                            <span>Dakar - HLM, Yoff</span>
+                        </div>
+                    </div>
+                    <div class="project-progress">
+                        <div class="progress-header">
+                            <span class="progress-label">Avancement</span>
+                            <span class="progress-value">100%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                    <div class="project-footer">
+                        <span class="status-badge status-termine">Terminé</span>
+                        <div class="project-actions">
+                            <button class="btn-icon" title="Voir">👁️</button>
+                            <button class="btn-icon" title="Rapport">📄</button>
+                            <button class="btn-icon" title="Archiver">📦</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project Card 6 -->
+                <div class="project-card">
+                    <div class="project-header">
+                        <div>
+                            <div class="project-title">Pose de stations de pompage</div>
+                            <span class="project-structure">ONAS</span>
+                        </div>
+                    </div>
+                    <div class="project-description">
+                        Installation de stations de pompage dans les zones basses pour évacuation rapide des eaux
+                    </div>
+                    <div class="project-meta">
+                        <div class="meta-item">
+                            <span class="meta-icon">👤</span>
+                            <span>Chef de projet: Aïssatou Sow</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📅</span>
+                            <span>Échéance: 25/07/2024</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-icon">📍</span>
+                            <span>Guédiawaye</span>
+                        </div>
+                    </div>
+                    <div class="project-progress">
+                        <div class="progress-header">
+                            <span class="progress-label">Avancement</span>
+                            <span class="progress-value">20%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 20%;"></div>
+                        </div>
+                    </div>
+                    <div class="project-footer">
+                        <span class="status-badge status-en-cours">En cours</span>
+                        <div class="project-actions">
+                            <button class="btn-icon" title="Voir">👁️</button>
+                            <button class="btn-icon" title="Modifier">✏️</button>
+                            <button class="btn-icon" title="Supprimer">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

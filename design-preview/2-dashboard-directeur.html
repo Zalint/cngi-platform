@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNGI - Tableau de bord</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: #1e3c72;
+            color: white;
+            padding: 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 30px 20px;
+            background: rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .sidebar-header h2 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-header p {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+
+        .menu-item {
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .menu-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border-left-color: #4fc3f7;
+        }
+
+        .menu-item-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .sidebar-footer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            padding: 0;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            background: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .top-bar h1 {
+            font-size: 28px;
+            color: #1e3c72;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* Content Area */
+        .content-area {
+            padding: 40px;
+        }
+
+        /* Metrics Cards */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 28px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .metric-value {
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .metric-card:nth-child(1) .metric-value { color: #4285f4; }
+        .metric-card:nth-child(2) .metric-value { color: #ea4335; }
+        .metric-card:nth-child(3) .metric-value { color: #34a853; }
+        .metric-card:nth-child(4) .metric-value { color: #fbbc04; }
+        .metric-card:nth-child(5) .metric-value { color: #9c27b0; }
+
+        .metric-label {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        /* Chart Section */
+        .chart-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 40px;
+        }
+
+        .chart-header {
+            margin-bottom: 24px;
+        }
+
+        .chart-header h2 {
+            font-size: 20px;
+            color: #1e3c72;
+            margin-bottom: 8px;
+        }
+
+        .chart-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* Map */
+        .map-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 40px;
+        }
+
+        .map-placeholder {
+            width: 100%;
+            height: 400px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .map-markers {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-marker {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .map-marker:hover {
+            transform: scale(1.2);
+        }
+
+        .marker-1 { background: #4285f4; top: 35%; left: 25%; }
+        .marker-2 { background: #34a853; top: 25%; left: 45%; }
+        .marker-3 { background: #ea4335; top: 50%; left: 60%; }
+        .marker-4 { background: #fbbc04; top: 40%; left: 75%; }
+        .marker-5 { background: #9c27b0; top: 60%; left: 35%; }
+
+        /* Projects Table */
+        .projects-table {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f8f9fa;
+        }
+
+        th {
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        td {
+            padding: 18px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #555;
+            font-size: 14px;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-en-cours {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-termine {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+
+        .status-retard {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .progress-bar {
+            width: 100px;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4285f4, #34a853);
+            transition: width 0.3s;
+        }
+
+        /* Chart Mock */
+        .chart-bars {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            height: 300px;
+            padding: 20px 0;
+        }
+
+        .chart-bar {
+            flex: 1;
+            max-width: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .bar {
+            width: 60px;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px 8px 0 0;
+            position: relative;
+            transition: transform 0.3s;
+        }
+
+        .bar:hover {
+            transform: scaleY(1.05);
+        }
+
+        .bar-label {
+            font-size: 13px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .bar-value {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-weight: 700;
+            color: #1e3c72;
+            font-size: 16px;
+        }
+
+        .logout-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>CNGI</h2>
+            <p>Plateforme de suivi des actions</p>
+        </div>
+
+        <div class="sidebar-menu">
+            <a href="2-dashboard-directeur.html" class="menu-item active">
+                <span class="menu-item-icon">📊</span>
+                <span>Tableau de bord</span>
+            </a>
+            <a href="3-liste-projets.html" class="menu-item">
+                <span class="menu-item-icon">📋</span>
+                <span>Projets</span>
+            </a>
+            <a href="4-formulaire-projet.html" class="menu-item">
+                <span class="menu-item-icon">📝</span>
+                <span>Formulaires</span>
+            </a>
+            <a href="#" class="menu-item">
+                <span class="menu-item-icon">🗺️</span>
+                <span>Carte</span>
+            </a>
+            <a href="#" class="menu-item">
+                <span class="menu-item-icon">👥</span>
+                <span>Intervenants</span>
+            </a>
+            <a href="5-administration.html" class="menu-item">
+                <span class="menu-item-icon">⚙️</span>
+                <span>Administration</span>
+            </a>
+        </div>
+
+        <div class="sidebar-footer">
+            <a href="1-login.html" class="logout-btn">🚪 Déconnexion</a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <h1>Tableau de bord</h1>
+            <div class="user-profile">
+                <div class="user-info">
+                    <div class="user-name">Directeur Général</div>
+                    <div class="user-role">Directeur</div>
+                </div>
+                <div class="user-avatar">DG</div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Metrics Grid -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value">16</div>
+                    <div class="metric-label">Actions en cours</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">5</div>
+                    <div class="metric-label">Ouvrages retardés</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">8</div>
+                    <div class="metric-label">Ouvrages réalisés</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">12</div>
+                    <div class="metric-label">Intervenemis</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">12</div>
+                    <div class="metric-label">Intervenants</div>
+                </div>
+            </div>
+
+            <!-- Map Section -->
+            <div class="map-container">
+                <div class="chart-header">
+                    <h2>Carte des ouvrages</h2>
+                    <p>Localisation géographique des projets en cours</p>
+                </div>
+                <div class="map-placeholder">
+                    <div class="map-markers">
+                        <div class="map-marker marker-1" title="Projet DPGI"></div>
+                        <div class="map-marker marker-2" title="Projet ONAS"></div>
+                        <div class="map-marker marker-3" title="Projet BNSP"></div>
+                        <div class="map-marker marker-4" title="Projet CETUD"></div>
+                        <div class="map-marker marker-5" title="Projet AGEROUTE"></div>
+                    </div>
+                    <span style="z-index: 10;">🗺️ Carte interactive (Leaflet/MapLibre sera intégré ici)</span>
+                </div>
+            </div>
+
+            <!-- Chart Section -->
+            <div class="chart-section">
+                <div class="chart-header">
+                    <h2>Actions réalisées par partie prenante</h2>
+                    <p>Distribution des projets par structure</p>
+                </div>
+                <div class="chart-bars">
+                    <div class="chart-bar">
+                        <div class="bar" style="height: 240px; background: linear-gradient(180deg, #4285f4, #1976d2);">
+                            <span class="bar-value">9</span>
+                        </div>
+                        <div class="bar-label">DPGI</div>
+                    </div>
+                    <div class="chart-bar">
+                        <div class="bar" style="height: 200px; background: linear-gradient(180deg, #34a853, #2e7d32);">
+                            <span class="bar-value">7</span>
+                        </div>
+                        <div class="bar-label">ONAS</div>
+                    </div>
+                    <div class="chart-bar">
+                        <div class="bar" style="height: 160px; background: linear-gradient(180deg, #fbbc04, #f57f17);">
+                            <span class="bar-value">6</span>
+                        </div>
+                        <div class="bar-label">BNSP</div>
+                    </div>
+                    <div class="chart-bar">
+                        <div class="bar" style="height: 140px; background: linear-gradient(180deg, #ea4335, #c62828);">
+                            <span class="bar-value">5</span>
+                        </div>
+                        <div class="bar-label">CETUD</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projects Table -->
+            <div class="projects-table">
+                <div class="chart-header">
+                    <h2>Suivi des projets</h2>
+                    <p>Liste des actions en cours avec leur état d'avancement</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Structure</th>
+                            <th>État</th>
+                            <th>Avancement</th>
+                            <th>Échéance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Tournées d'observation</td>
+                            <td>DPGI</td>
+                            <td><span class="status-badge status-en-cours">En cours</span></td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 65%;"></div>
+                                </div>
+                            </td>
+                            <td>15/06/2024</td>
+                        </tr>
+                        <tr>
+                            <td>Création de bassin de rétention</td>
+                            <td>ONAS</td>
+                            <td><span class="status-badge status-en-cours">En cours</span></td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 45%;"></div>
+                                </div>
+                            </td>
+                            <td>30/04/2024</td>
+                        </tr>
+                        <tr>
+                            <td>Confection de digues</td>
+                            <td>BNSP</td>
+                            <td><span class="status-badge status-en-cours">En cours</span></td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 30%;"></div>
+                                </div>
+                            </td>
+                            <td>12/06/2024</td>
+                        </tr>
+                        <tr>
+                            <td>Reconstruction de voirie</td>
+                            <td>CETUD</td>
+                            <td><span class="status-badge status-en-cours">En cours</span></td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 55%;"></div>
+                                </div>
+                            </td>
+                            <td>20/05/2024</td>
+                        </tr>
+                        <tr>
+                            <td>Curage de canaux</td>
+                            <td>ONAS</td>
+                            <td><span class="status-badge status-termine">Terminé</span></td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 100%;"></div>
+                                </div>
+                            </td>
+                            <td>10/03/2024</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

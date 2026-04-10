@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNGI - Aperçu des Maquettes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .header p {
+            font-size: 20px;
+            opacity: 0.9;
+        }
+
+        .header .subtitle {
+            margin-top: 12px;
+            font-size: 16px;
+            opacity: 0.7;
+        }
+
+        .pages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+
+        .page-card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+            text-decoration: none;
+            display: block;
+        }
+
+        .page-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .page-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e3c72;
+            margin-bottom: 12px;
+        }
+
+        .page-description {
+            font-size: 15px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .page-role {
+            display: inline-block;
+            padding: 6px 14px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin-bottom: 50px;
+        }
+
+        .info-section h2 {
+            color: #1e3c72;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        .info-section p {
+            color: #555;
+            line-height: 1.8;
+            margin-bottom: 16px;
+        }
+
+        .credentials-box {
+            background: #f8f9fa;
+            border-left: 4px solid #2a5298;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .credentials-box h3 {
+            color: #1e3c72;
+            font-size: 18px;
+            margin-bottom: 16px;
+        }
+
+        .credential-item {
+            margin-bottom: 12px;
+            font-size: 15px;
+            color: #333;
+        }
+
+        .credential-item strong {
+            color: #1e3c72;
+            font-weight: 600;
+        }
+
+        .features-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .feature-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .feature-text {
+            font-size: 14px;
+            color: #555;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            padding: 30px;
+            opacity: 0.8;
+        }
+
+        .btn-start {
+            display: inline-block;
+            padding: 16px 32px;
+            background: white;
+            color: #1e3c72;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            margin-top: 30px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎨 Maquettes CNGI</h1>
+            <p>Plateforme de suivi des actions d'inondations</p>
+            <p class="subtitle">Prévisualisation des interfaces - Design Preview</p>
+            <a href="1-login.html" class="btn-start">🚀 Démarrer la démo</a>
+        </div>
+
+        <!-- Info Section -->
+        <div class="info-section">
+            <h2>📖 À propos des maquettes</h2>
+            <p>
+                Bienvenue dans les maquettes fonctionnelles de la plateforme CNGI. Ces pages HTML/CSS statiques 
+                vous permettent de visualiser et de tester le design de l'application avant le développement complet.
+            </p>
+            <p>
+                Toutes les pages sont entièrement navigables et interactives. Vous pouvez cliquer sur les boutons, 
+                remplir les formulaires et naviguer entre les différentes vues pour avoir une expérience complète 
+                de l'interface utilisateur.
+            </p>
+
+            <div class="credentials-box">
+                <h3>🔑 Identifiants de connexion</h3>
+                <div class="credential-item">
+                    <strong>Admin:</strong> admin / mha@2024
+                </div>
+                <div class="credential-item">
+                    <strong>Utilisateur:</strong> user / mha@2024
+                </div>
+                <div class="credential-item">
+                    <strong>Directeur:</strong> directeur / mha@2024
+                </div>
+            </div>
+
+            <h2 style="margin-top: 40px;">✨ Fonctionnalités présentées</h2>
+            <div class="features-list">
+                <div class="feature-item">
+                    <span class="feature-icon">✅</span>
+                    <span class="feature-text">Système d'authentification avec 3 rôles distincts</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📊</span>
+                    <span class="feature-text">Tableaux de bord avec métriques et graphiques</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📋</span>
+                    <span class="feature-text">Gestion complète des projets et actions</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📝</span>
+                    <span class="feature-text">Formulaires détaillés de saisie de données</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🗺️</span>
+                    <span class="feature-text">Carte interactive des ouvrages</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">⚙️</span>
+                    <span class="feature-text">Interface d'administration complète</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pages Grid -->
+        <h2 style="color: white; text-align: center; margin-bottom: 30px; font-size: 32px;">
+            📄 Parcourir les pages
+        </h2>
+        
+        <div class="pages-grid">
+            <!-- Page 1 -->
+            <a href="1-login.html" class="page-card">
+                <span class="page-icon">🔐</span>
+                <h3 class="page-title">1. Page de connexion</h3>
+                <p class="page-description">
+                    Interface d'authentification avec support des 3 rôles utilisateurs. 
+                    Design moderne avec identifiants de test pré-remplis.
+                </p>
+                <span class="page-role">Tous les rôles</span>
+            </a>
+
+            <!-- Page 2 -->
+            <a href="2-dashboard-directeur.html" class="page-card">
+                <span class="page-icon">📊</span>
+                <h3 class="page-title">2. Tableau de bord</h3>
+                <p class="page-description">
+                    Vue d'ensemble avec métriques clés, carte des ouvrages, graphiques statistiques 
+                    et liste des projets en cours.
+                </p>
+                <span class="page-role" style="background: #fff3e0; color: #f57c00;">Directeur / Admin</span>
+            </a>
+
+            <!-- Page 3 -->
+            <a href="3-liste-projets.html" class="page-card">
+                <span class="page-icon">📋</span>
+                <h3 class="page-title">3. Liste des projets</h3>
+                <p class="page-description">
+                    Vue grille des projets avec filtres avancés, recherche, et cartes détaillées 
+                    montrant l'avancement de chaque action.
+                </p>
+                <span class="page-role">Utilisateur / Admin</span>
+            </a>
+
+            <!-- Page 4 -->
+            <a href="4-formulaire-projet.html" class="page-card">
+                <span class="page-icon">📝</span>
+                <h3 class="page-title">4. Formulaire de projet</h3>
+                <p class="page-description">
+                    Formulaire CANEVAS complet pour la saisie des projets avec localités, sites, 
+                    mesures, financements et calendrier.
+                </p>
+                <span class="page-role">Utilisateur / Admin</span>
+            </a>
+
+            <!-- Page 5 -->
+            <a href="5-administration.html" class="page-card">
+                <span class="page-icon">⚙️</span>
+                <h3 class="page-title">5. Administration</h3>
+                <p class="page-description">
+                    Interface complète de gestion : utilisateurs, structures, formulaires. 
+                    Tableaux avec actions CRUD et modals interactifs.
+                </p>
+                <span class="page-role" style="background: #fce4ec; color: #c2185b;">Admin uniquement</span>
+            </a>
+
+            <!-- Info Card -->
+            <div class="page-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); cursor: default;">
+                <span class="page-icon">💡</span>
+                <h3 class="page-title" style="color: white;">Prochaines étapes</h3>
+                <p class="page-description" style="color: rgba(255,255,255,0.9);">
+                    Ces maquettes serviront de base pour le développement complet avec backend Node.js, 
+                    PostgreSQL et intégration des cartes interactives.
+                </p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>🎨 Maquettes Design Preview - CNGI Platform</p>
+            <p style="margin-top: 8px; font-size: 14px;">
+                Conception pour la gestion et la prévention des inondations au Sénégal
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+

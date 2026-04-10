@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNGI - Formulaire de Projet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: #1e3c72;
+            color: white;
+            padding: 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 30px 20px;
+            background: rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .sidebar-header h2 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-header p {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+
+        .menu-item {
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .menu-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border-left-color: #4fc3f7;
+        }
+
+        .menu-item-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .sidebar-footer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .logout-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            width: 100%;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            padding: 0;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            background: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .top-bar h1 {
+            font-size: 28px;
+            color: #1e3c72;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* Content Area */
+        .content-area {
+            padding: 40px;
+            max-width: 1400px;
+        }
+
+        /* Form Container */
+        .form-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            padding: 40px;
+        }
+
+        .form-header {
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .form-header h2 {
+            color: #1e3c72;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .form-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* Form Sections */
+        .form-section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            color: #1e3c72;
+            font-weight: 600;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e3f2fd;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-icon {
+            font-size: 20px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .form-grid-full {
+            grid-column: 1 / -1;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .required {
+            color: #ea4335;
+            margin-left: 4px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #2a5298;
+            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-group small {
+            color: #666;
+            font-size: 12px;
+        }
+
+        /* Table in Form */
+        .form-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .form-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .form-table td {
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .form-table input,
+        .form-table select,
+        .form-table textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .form-table textarea {
+            min-height: 60px;
+        }
+
+        .btn-add-row {
+            margin-top: 12px;
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border: 2px dashed #c0c0c0;
+            border-radius: 6px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .btn-add-row:hover {
+            background: #e3f2fd;
+            border-color: #2a5298;
+            color: #2a5298;
+        }
+
+        /* File Upload */
+        .file-upload {
+            border: 2px dashed #c0c0c0;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-upload:hover {
+            background: #f8f9fa;
+            border-color: #2a5298;
+        }
+
+        .file-upload-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
+        }
+
+        /* Form Actions */
+        .form-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: flex-end;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .btn-cancel {
+            padding: 14px 32px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #555;
+        }
+
+        .btn-cancel:hover {
+            border-color: #c0c0c0;
+            background: #f8f9fa;
+        }
+
+        .btn-save {
+            padding: 14px 32px;
+            background: white;
+            border: 2px solid #2a5298;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #2a5298;
+        }
+
+        .btn-save:hover {
+            background: #f8f9fa;
+        }
+
+        .btn-submit {
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: white;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(42, 82, 152, 0.3);
+        }
+
+        /* Checkbox & Radio */
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-item input[type="checkbox"],
+        .checkbox-item input[type="radio"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        /* Progress Tracker */
+        .progress-tracker {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+
+        .progress-step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #e0e0e0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .progress-step.active .step-number {
+            background: #2a5298;
+            border-color: #2a5298;
+            color: white;
+        }
+
+        .progress-step.completed .step-number {
+            background: #34a853;
+            border-color: #34a853;
+            color: white;
+        }
+
+        .step-label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .progress-step.active .step-label {
+            color: #2a5298;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>CNGI</h2>
+            <p>Plateforme de suivi des actions</p>
+        </div>
+
+        <div class="sidebar-menu">
+            <a href="2-dashboard-directeur.html" class="menu-item">
+                <span class="menu-item-icon">📊</span>
+                <span>Tableau de bord</span>
+            </a>
+            <a href="3-liste-projets.html" class="menu-item">
+                <span class="menu-item-icon">📋</span>
+                <span>Projets</span>
+            </a>
+            <a href="4-formulaire-projet.html" class="menu-item active">
+                <span class="menu-item-icon">📝</span>
+                <span>Formulaires</span>
+            </a>
+            <a href="#" class="menu-item">
+                <span class="menu-item-icon">🗺️</span>
+                <span>Carte</span>
+            </a>
+            <a href="#" class="menu-item">
+                <span class="menu-item-icon">👥</span>
+                <span>Intervenants</span>
+            </a>
+            <a href="5-administration.html" class="menu-item">
+                <span class="menu-item-icon">⚙️</span>
+                <span>Administration</span>
+            </a>
+        </div>
+
+        <div class="sidebar-footer">
+            <a href="1-login.html" class="logout-btn">🚪 Déconnexion</a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <h1>Nouveau Projet</h1>
+            <div class="user-profile">
+                <div class="user-info">
+                    <div class="user-name">Jean Dupont</div>
+                    <div class="user-role">Utilisateur - DPGI</div>
+                </div>
+                <div class="user-avatar">JD</div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Progress Tracker -->
+            <div class="progress-tracker">
+                <div class="progress-steps">
+                    <div class="progress-step active">
+                        <div class="step-number">1</div>
+                        <div class="step-label">Informations générales</div>
+                    </div>
+                    <div class="progress-step">
+                        <div class="step-number">2</div>
+                        <div class="step-label">Localités & Sites</div>
+                    </div>
+                    <div class="progress-step">
+                        <div class="step-number">3</div>
+                        <div class="step-label">Mesures & Actions</div>
+                    </div>
+                    <div class="progress-step">
+                        <div class="step-number">4</div>
+                        <div class="step-label">Financement</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Container -->
+            <div class="form-container">
+                <div class="form-header">
+                    <h2>Fiche d'évaluation des plans d'action</h2>
+                    <p>Gestion et prévention des inondations - Hivernage 2024</p>
+                </div>
+
+                <form>
+                    <!-- Section: Informations Générales -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="section-icon">📋</span>
+                            Informations générales du projet
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Structure <span class="required">*</span></label>
+                                <select required>
+                                    <option value="">Sélectionnez une structure</option>
+                                    <option value="AGEROUTE" selected>AGEROUTE</option>
+                                    <option value="DPGI">DPGI</option>
+                                    <option value="ONAS">ONAS</option>
+                                    <option value="BNSP">BNSP</option>
+                                    <option value="CETUD">CETUD</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Descriptif du projet <span class="required">*</span></label>
+                                <input type="text" placeholder="Ex: Travaux généraux d'assainissement" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Impacts attendus</label>
+                                <input type="text" placeholder="Ex: Réseau de drainage routier des eaux pluviales">
+                            </div>
+                            <div class="form-group">
+                                <label>État d'avancement <span class="required">*</span></label>
+                                <select required>
+                                    <option value="">Sélectionnez un état</option>
+                                    <option value="0">0% - Non démarré</option>
+                                    <option value="25">25% - En démarrage</option>
+                                    <option value="50">50% - En cours</option>
+                                    <option value="75">75% - Avancé</option>
+                                    <option value="100">100% - Terminé</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Localités -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="section-icon">📍</span>
+                            Localités
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Région <span class="required">*</span></label>
+                                <select required>
+                                    <option value="">Sélectionnez une région</option>
+                                    <option value="Dakar" selected>Dakar</option>
+                                    <option value="Thiès">Thiès</option>
+                                    <option value="Saint-Louis">Saint-Louis</option>
+                                    <option value="Kaolack">Kaolack</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Département <span class="required">*</span></label>
+                                <select required>
+                                    <option value="">Sélectionnez un département</option>
+                                    <option value="Dakar" selected>Dakar</option>
+                                    <option value="Pikine">Pikine</option>
+                                    <option value="Guédiawaye">Guédiawaye</option>
+                                    <option value="Rufisque">Rufisque</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Commune</label>
+                                <input type="text" placeholder="Ex: Communes de la région de Dakar">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Sites & Mesures -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="section-icon">🗺️</span>
+                            Sites et mesures préconisées
+                        </h3>
+                        <div class="form-group">
+                            <table class="form-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 20%;">Site</th>
+                                        <th style="width: 20%;">Descriptif du site</th>
+                                        <th style="width: 35%;">Mesure(s) préconisée(s)</th>
+                                        <th style="width: 15%;">Coordonnées GPS</th>
+                                        <th style="width: 10%;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><input type="text" placeholder="Nom du site" value="Boulevard de l'Arsenal"></td>
+                                        <td><input type="text" placeholder="Description" value="Point bas en face Dakar Marine"></td>
+                                        <td>
+                                            <textarea placeholder="Mesures...">- Mise en place d'un dispositif pour le pompage des eaux
+- Camions hydrocureurs
+- Désensablement de l'axe
+- Curage du réseau</textarea>
+                                        </td>
+                                        <td><input type="text" placeholder="14.123, -17.456"></td>
+                                        <td><button type="button" class="btn-cancel" style="padding: 8px;">❌</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><input type="text" placeholder="Nom du site" value="Corniche Ouest"></td>
+                                        <td><input type="text" placeholder="Description" value="Traversée Rfm"></td>
+                                        <td>
+                                            <textarea placeholder="Mesures...">- Surveillance et maintenance de l'ouvrage</textarea>
+                                        </td>
+                                        <td><input type="text" placeholder="14.123, -17.456"></td>
+                                        <td><button type="button" class="btn-cancel" style="padding: 8px;">❌</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <button type="button" class="btn-add-row">➕ Ajouter un site</button>
+                        </div>
+                    </div>
+
+                    <!-- Section: Financement -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="section-icon"></span>
+                            Financement
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Coût Fcfa TTC</label>
+                                <input type="number" placeholder="Ex: 188437675" value="188437675">
+                                <small>Montant en Francs CFA</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Source de financement</label>
+                                <select>
+                                    <option value="">Sélectionnez une source</option>
+                                    <option value="FERA" selected>FERA</option>
+                                    <option value="BM">Banque Mondiale</option>
+                                    <option value="BAD">BAD</option>
+                                    <option value="Budget National">Budget National</option>
+                                    <option value="Autre">Autre</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Disponibilité</label>
+                                <div class="checkbox-group">
+                                    <div class="checkbox-item">
+                                        <input type="radio" name="availability" id="avail-yes" value="OUI" checked>
+                                        <label for="avail-yes">OUI - Fonds disponibles</label>
+                                    </div>
+                                    <div class="checkbox-item">
+                                        <input type="radio" name="availability" id="avail-no" value="NON">
+                                        <label for="avail-no">NON - Fonds non disponibles</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Dates -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="section-icon">📅</span>
+                            Calendrier
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Date de début <span class="required">*</span></label>
+                                <input type="date" value="2025-06-01" required>
+                                <small>Format: YYYY-MM-DD ou DD/MM/YYYY</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Date de fin prévue <span class="required">*</span></label>
+                                <input type="date" value="2025-10-31" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Contraintes -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="section-icon">⚠️</span>
+                            Contraintes et mesures attendues
+                        </h3>
+                        <div class="form-grid form-grid-full">
+                            <div class="form-group">
+                                <label>Contraintes identifiées</label>
+                                <textarea placeholder="Décrivez les contraintes du projet...">Occupations anarchiques, encombrement du réseau d'assainissement et vol de grilles d'avaloirs</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Mesures attendues</label>
+                                <textarea placeholder="Décrivez les mesures à prendre...">RAS</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Documents -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="section-icon">📎</span>
+                            Documents joints
+                        </h3>
+                        <div class="form-group">
+                            <label class="file-upload">
+                                <div class="file-upload-icon">📄</div>
+                                <div><strong>Cliquez pour ajouter des fichiers</strong></div>
+                                <div style="font-size: 13px; color: #666; margin-top: 8px;">
+                                    PDF, Word, Excel, Images (max 10 MB par fichier)
+                                </div>
+                                <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="form-actions">
+                        <button type="button" class="btn-cancel" onclick="window.location.href='3-liste-projets.html'">Annuler</button>
+                        <button type="button" class="btn-save">💾 Enregistrer le brouillon</button>
+                        <button type="submit" class="btn-submit">✅ Soumettre le projet</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulation de l'ajout de lignes
+        document.querySelectorAll('.btn-add-row').forEach(btn => {
+            btn.addEventListener('click', function() {
+                alert('Fonctionnalité d\'ajout de ligne - sera implémentée dans l\'application complète');
+            });
+        });
+
+        // Simulation de la soumission
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (confirm('Êtes-vous sûr de vouloir soumettre ce projet ?')) {
+                alert('Projet soumis avec succès !');
+                window.location.href = '3-liste-projets.html';
+            }
+        });
+    </script>
+</body>
+</html>
