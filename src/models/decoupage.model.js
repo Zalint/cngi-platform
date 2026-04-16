@@ -47,21 +47,22 @@ class DecoupageModel {
      */
     static async search(query, limit = 15) {
         const result = await db.query(`
-            SELECT DISTINCT region, departement, arrondissement, commune
-            FROM decoupage
-            WHERE commune ILIKE $1
-               OR arrondissement ILIKE $1
-               OR departement ILIKE $1
-               OR region ILIKE $1
-            ORDER BY
-                CASE
-                    WHEN commune ILIKE $2 THEN 1
-                    WHEN arrondissement ILIKE $2 THEN 2
-                    WHEN departement ILIKE $2 THEN 3
-                    WHEN region ILIKE $2 THEN 4
-                    ELSE 5
-                END,
-                region, departement, arrondissement, commune
+            SELECT region, departement, arrondissement, commune FROM (
+                SELECT DISTINCT region, departement, arrondissement, commune,
+                    CASE
+                        WHEN commune ILIKE $2 THEN 1
+                        WHEN arrondissement ILIKE $2 THEN 2
+                        WHEN departement ILIKE $2 THEN 3
+                        WHEN region ILIKE $2 THEN 4
+                        ELSE 5
+                    END AS rank
+                FROM decoupage
+                WHERE commune ILIKE $1
+                   OR arrondissement ILIKE $1
+                   OR departement ILIKE $1
+                   OR region ILIKE $1
+            ) sub
+            ORDER BY rank, region, departement, arrondissement, commune
             LIMIT $3
         `, ['%' + query + '%', query + '%', limit]);
         return result.rows;
