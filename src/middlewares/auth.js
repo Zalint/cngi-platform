@@ -19,6 +19,7 @@ const protect = async (req, res, next) => {
             // Récupérer l'utilisateur depuis la base de données
             const result = await db.query(
                 `SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.role, u.structure_id, u.is_active,
+                        u.territorial_level, u.territorial_value,
                         s.name as structure_name, s.code as structure_code
                  FROM users u
                  LEFT JOIN structures s ON u.structure_id = s.id

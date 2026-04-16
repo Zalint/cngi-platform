@@ -54,7 +54,7 @@ const validateUsername = (username) => {
  * @returns {boolean} - true si valide
  */
 const isValidRole = (role) => {
-    const validRoles = ['admin', 'utilisateur', 'directeur'];
+    const validRoles = ['admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial'];
     return validRoles.includes(role);
 };
 

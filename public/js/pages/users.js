@@ -114,15 +114,17 @@ const UsersPage = {
 
                                 <div class="form-group">
                                     <label>Rôle *</label>
-                                    <select id="role" class="form-control" required>
+                                    <select id="role" class="form-control" required onchange="UsersPage.onRoleChange(this.value)">
                                         <option value="">-- Sélectionner un rôle --</option>
                                         <option value="admin">Administrateur</option>
                                         <option value="utilisateur">Utilisateur</option>
                                         <option value="directeur">Directeur</option>
+                                        <option value="superviseur">Superviseur</option>
+                                        <option value="commandement_territorial">Commandement territorial</option>
                                     </select>
                                 </div>
 
-                                <div class="form-group">
+                                <div class="form-group" id="structure-group">
                                     <label>Structure</label>
                                     <select id="structure_id" class="form-control">
                                         <option value="">-- Aucune structure --</option>
@@ -130,6 +132,24 @@ const UsersPage = {
                                             <option value="${s.id}">${s.name} (${s.code})</option>
                                         `).join('')}
                                     </select>
+                                </div>
+
+                                <div id="territorial-section" style="display:none;">
+                                    <div class="form-group">
+                                        <label>Niveau territorial *</label>
+                                        <select id="territorial_level" class="form-control" onchange="UsersPage.onTerritorialLevelChange(this.value)">
+                                            <option value="">-- Choisir le niveau --</option>
+                                            <option value="region">Région</option>
+                                            <option value="departement">Département</option>
+                                            <option value="arrondissement">Arrondissement</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Territoire *</label>
+                                        <select id="territorial_value" class="form-control">
+                                            <option value="">-- Choisir --</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <div class="form-group">
@@ -169,9 +189,60 @@ const UsersPage = {
         const labels = {
             'admin': 'Administrateur',
             'utilisateur': 'Utilisateur',
-            'directeur': 'Directeur'
+            'directeur': 'Directeur',
+            'superviseur': 'Superviseur',
+            'commandement_territorial': 'Commandement territorial'
         };
         return labels[role] || role;
+    },
+
+    onRoleChange(role) {
+        const structureGroup = document.getElementById('structure-group');
+        const territorialSection = document.getElementById('territorial-section');
+        if (role === 'commandement_territorial') {
+            if (structureGroup) structureGroup.style.display = 'none';
+            if (territorialSection) territorialSection.style.display = 'block';
+            document.getElementById('structure_id').value = '';
+        } else {
+            if (structureGroup) structureGroup.style.display = 'block';
+            if (territorialSection) territorialSection.style.display = 'none';
+        }
+    },
+
+    async onTerritorialLevelChange(level) {
+        const valueSel = document.getElementById('territorial_value');
+        if (!valueSel) return;
+        valueSel.innerHTML = '<option value="">-- Choisir --</option>';
+        if (!level) return;
+
+        try {
+            let items = [];
+            if (level === 'region') {
+                const res = await API.decoupage.getRegions();
+                items = res.data || [];
+            } else if (level === 'departement') {
+                const regions = await API.decoupage.getRegions();
+                for (const region of (regions.data || [])) {
+                    const res = await API.decoupage.getDepartements(region);
+                    items = items.concat(res.data || []);
+                }
+            } else if (level === 'arrondissement') {
+                const regions = await API.decoupage.getRegions();
+                for (const region of (regions.data || [])) {
+                    const depts = await API.decoupage.getDepartements(region);
+                    for (const dept of (depts.data || [])) {
+                        const res = await API.decoupage.getArrondissements(dept);
+                        items = items.concat(res.data || []);
+                    }
+                }
+            }
+            items.sort();
+            items.forEach(item => {
+                valueSel.innerHTML += `<option value="${item}">${item}</option>`;
+            });
+        } catch (err) {
+            console.error('Error loading territorial values:', err);
+        }
     },
 
     showCreateModal() {
@@ -205,6 +276,16 @@ const UsersPage = {
             document.getElementById('structure_id').value = user.structure_id || '';
             document.getElementById('is_active').checked = user.is_active;
 
+            // Handle territorial fields for commandement_territorial
+            this.onRoleChange(user.role);
+            if (user.role === 'commandement_territorial') {
+                document.getElementById('territorial_level').value = user.territorial_level || '';
+                if (user.territorial_level) {
+                    await this.onTerritorialLevelChange(user.territorial_level);
+                    document.getElementById('territorial_value').value = user.territorial_value || '';
+                }
+            }
+
             document.getElementById('userModal').style.display = 'flex';
         } catch (error) {
             console.error('Error loading user:', error);
@@ -220,14 +301,17 @@ const UsersPage = {
     async saveUser(event) {
         event.preventDefault();
 
+        const role = document.getElementById('role').value;
         const userData = {
             username: document.getElementById('username').value.trim(),
             email: document.getElementById('email').value.trim(),
             first_name: document.getElementById('first_name').value.trim(),
             last_name: document.getElementById('last_name').value.trim() || null,
-            role: document.getElementById('role').value,
-            structure_id: document.getElementById('structure_id').value || null,
-            is_active: document.getElementById('is_active').checked
+            role: role,
+            structure_id: role === 'commandement_territorial' ? null : (document.getElementById('structure_id').value || null),
+            is_active: document.getElementById('is_active').checked,
+            territorial_level: role === 'commandement_territorial' ? (document.getElementById('territorial_level').value || null) : null,
+            territorial_value: role === 'commandement_territorial' ? (document.getElementById('territorial_value').value || null) : null
         };
 
         const password = document.getElementById('password').value;

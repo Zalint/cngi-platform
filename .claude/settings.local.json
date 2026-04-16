@@ -24,7 +24,9 @@
       "Bash(node -e \"require\\('./src/models/decoupage.model'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('dotenv'\\).config\\(\\); require\\('./db/init'\\)\\(\\).then\\(\\(\\) => { console.log\\('OK'\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\('FAIL:', e.message\\); process.exit\\(1\\); }\\)\")",
       "Bash(node -e \"require\\('dotenv'\\).config\\(\\); require\\('./db/init'\\)\\(\\).then\\(\\(\\) => { console.log\\('DB OK'\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\('FAIL:', e.message\\); process.exit\\(1\\); }\\)\")",
-      "Bash(node -e \"require\\('./src/models/config.model'\\); require\\('./src/controllers/config.controller'\\); require\\('./src/routes/config.routes'\\); console.log\\('Config module OK'\\)\")"
+      "Bash(node -e \"require\\('./src/models/config.model'\\); require\\('./src/controllers/config.controller'\\); require\\('./src/routes/config.routes'\\); console.log\\('Config module OK'\\)\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const db = require\\('./src/config/db'\\); db.query\\(\\\\\"SELECT column_name FROM information_schema.columns WHERE table_name='users' ORDER BY ordinal_position\\\\\"\\).then\\(r => { console.log\\(r.rows.map\\(x=>x.column_name\\).join\\(', '\\)\\); process.exit\\(0\\); }\\)\")",
+      "Bash(node -e \"require\\('./src/models/project.model'\\); require\\('./src/models/dashboard.model'\\); require\\('./src/controllers/projects.controller'\\); console.log\\('All modules OK'\\)\")"
     ]
   }
 }

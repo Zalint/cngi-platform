@@ -2,8 +2,16 @@ const DashboardModel = require('../models/dashboard.model');
 
 exports.getMetrics = async (req, res, next) => {
     try {
-        const structureId = (req.user.role === 'utilisateur' || req.user.role === 'directeur') ? req.user.structure_id : req.query.structure_id;
-        const metrics = await DashboardModel.getMetrics(structureId);
+        let metrics;
+
+        if (req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value) {
+            metrics = await DashboardModel.getMetricsByTerritory(req.user.territorial_level, req.user.territorial_value);
+        } else {
+            // superviseur and admin see all; utilisateur/directeur see their structure
+            const structureId = (req.user.role === 'utilisateur' || req.user.role === 'directeur') ? req.user.structure_id : req.query.structure_id;
+            metrics = await DashboardModel.getMetrics(structureId);
+        }
+
         res.json({ success: true, data: metrics });
     } catch (error) {
         next(error);

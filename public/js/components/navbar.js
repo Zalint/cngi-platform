@@ -73,7 +73,9 @@ const Navbar = {
         const roleLabels = {
             'admin': 'Administrateur',
             'utilisateur': 'Utilisateur',
-            'directeur': 'Directeur'
+            'directeur': 'Directeur',
+            'superviseur': 'Superviseur',
+            'commandement_territorial': 'Cmdt territorial'
         };
 
         return `

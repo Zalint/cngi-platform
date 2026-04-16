@@ -44,10 +44,18 @@ const App = {
                         if (params.length === 0) {
                             content = await ProjectsPage.render();
                         } else if (params[0] === 'new') {
-                            content = await ProjectFormPage.render();
+                            if (Auth.hasAnyRole('superviseur', 'commandement_territorial')) {
+                                content = '<div class="alert alert-error">Accès refusé</div>';
+                            } else {
+                                content = await ProjectFormPage.render();
+                            }
                         } else if (params[1] === 'edit') {
-                            const projectId = parseInt(params[0]);
-                            content = await ProjectFormPage.render(projectId);
+                            if (Auth.hasAnyRole('superviseur', 'commandement_territorial')) {
+                                content = '<div class="alert alert-error">Accès refusé</div>';
+                            } else {
+                                const projectId = parseInt(params[0]);
+                                content = await ProjectFormPage.render(projectId);
+                            }
                         } else {
                             const projectId = parseInt(params[0]);
                             content = await ProjectDetailPage.render(projectId);
@@ -55,7 +63,9 @@ const App = {
                         break;
                     
                     case 'forms':
-                        if (params.length === 0) {
+                        if (Auth.hasAnyRole('superviseur', 'commandement_territorial')) {
+                            content = '<div class="alert alert-error">Accès refusé</div>';
+                        } else if (params.length === 0) {
                             content = await FormsPage.render();
                         } else if (params[0] === 'new') {
                             content = await FormBuilderPage.render();

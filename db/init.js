@@ -31,13 +31,26 @@ async function initDatabase() {
                 email VARCHAR(255) UNIQUE,
                 first_name VARCHAR(100),
                 last_name VARCHAR(100),
-                role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'utilisateur', 'directeur')),
+                role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial')),
                 structure_id INTEGER REFERENCES structures(id) ON DELETE SET NULL,
+                territorial_level VARCHAR(20),
+                territorial_value VARCHAR(100),
                 is_active BOOLEAN DEFAULT true,
                 last_login TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        `);
+        // Migration: update role CHECK constraint for existing DBs
+        await client.query(`
+            DO $$ BEGIN
+                ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+                ALTER TABLE users ADD CONSTRAINT users_role_check
+                    CHECK (role IN ('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial'));
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS territorial_level VARCHAR(20);
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS territorial_value VARCHAR(100);
+            EXCEPTION WHEN others THEN NULL;
+            END $$
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`);

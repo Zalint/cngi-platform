@@ -52,6 +52,7 @@ const DashboardPage = {
     async loadData() {
         const user = Auth.getUser();
         const structureId = (user.role === 'utilisateur' || user.role === 'directeur') ? user.structure_id : null;
+        // superviseur and commandement_territorial use structureId = null (backend handles territorial filtering)
 
         // Pour le directeur, charger aussi les projets détaillés
         if (user.role === 'directeur') {

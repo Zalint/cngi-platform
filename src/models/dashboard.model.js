@@ -243,6 +243,50 @@ class DashboardModel {
         const result = await db.query(query, params);
         return result.rows[0];
     }
+    /**
+     * Récupérer les métriques filtrées par territoire
+     */
+    static async getMetricsByTerritory(level, value) {
+        const allowedColumns = ['region', 'departement', 'arrondissement'];
+        if (!allowedColumns.includes(level)) {
+            throw new Error(`Invalid territorial level: ${level}. Must be one of: ${allowedColumns.join(', ')}`);
+        }
+
+        const territoryFilter = `WHERE p.id IN (
+            SELECT DISTINCT project_id FROM localities WHERE ${level} = $1
+            UNION
+            SELECT DISTINCT project_id FROM sites WHERE ${level} = $1
+        )`;
+
+        const result = await db.query(`
+            SELECT
+                COUNT(*) as total_projects,
+                COUNT(CASE WHEN p.status = 'demarrage' THEN 1 END) as projets_demarrage,
+                COUNT(CASE WHEN p.status = 'en_cours' THEN 1 END) as actions_en_cours,
+                COUNT(CASE WHEN p.status = 'termine' THEN 1 END) as ouvrages_realises,
+                COUNT(CASE WHEN p.status = 'retard' THEN 1 END) as ouvrages_retardes,
+                AVG(p.progress_percentage) as avg_progress
+            FROM projects p
+            ${territoryFilter}
+        `, [value]);
+
+        const projectStats = result.rows[0];
+
+        const sitesResult = await db.query(`
+            SELECT COUNT(*) as total_sites FROM sites
+            WHERE project_id IN (
+                SELECT DISTINCT project_id FROM localities WHERE ${level} = $1
+                UNION
+                SELECT DISTINCT project_id FROM sites WHERE ${level} = $1
+            )
+        `, [value]);
+
+        return {
+            ...projectStats,
+            total_sites: parseInt(sitesResult.rows[0].total_sites),
+            total_stakeholders: 0
+        };
+    }
 }
 
 module.exports = DashboardModel;

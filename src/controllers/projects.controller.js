@@ -5,9 +5,18 @@ const { validateProjectData, validateProjectDataForUpdate } = require('../utils/
 exports.getAllProjects = async (req, res, next) => {
     try {
         let projects;
-        
-        // Si utilisateur ou directeur, filtrer par sa structure via project_structures
-        if ((req.user.role === 'utilisateur' || req.user.role === 'directeur') && req.user.structure_id) {
+
+        if (req.user.role === 'superviseur') {
+            // Superviseur voit tous les projets (comme admin)
+            const filters = {};
+            if (req.query.structure_id) filters.structure_id = req.query.structure_id;
+            if (req.query.status) filters.status = req.query.status;
+            projects = await ProjectModel.findAll(filters);
+        } else if (req.user.role === 'commandement_territorial') {
+            // Commandement territorial voit les projets de son territoire
+            projects = await ProjectModel.findByTerritory(req.user.territorial_level, req.user.territorial_value);
+        } else if ((req.user.role === 'utilisateur' || req.user.role === 'directeur') && req.user.structure_id) {
+            // Si utilisateur ou directeur, filtrer par sa structure via project_structures
             projects = await ProjectStructure.getProjectsByStructure(req.user.structure_id);
         } else {
             // Admin voit tous les projets
@@ -16,7 +25,7 @@ exports.getAllProjects = async (req, res, next) => {
             if (req.query.status) filters.status = req.query.status;
             projects = await ProjectModel.findAll(filters);
         }
-        
+
         res.json({ success: true, count: projects.length, data: projects });
     } catch (error) {
         next(error);

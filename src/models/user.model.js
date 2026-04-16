@@ -63,17 +63,17 @@ class UserModel {
      * Créer un nouvel utilisateur
      */
     static async create(userData) {
-        const { username, password, email, first_name, last_name, role, structure_id } = userData;
-        
+        const { username, password, email, first_name, last_name, role, structure_id, territorial_level, territorial_value } = userData;
+
         // Hasher le mot de passe
         const password_hash = await bcrypt.hash(password, 10);
-        
+
         const result = await db.query(`
-            INSERT INTO users (username, password_hash, email, first_name, last_name, role, structure_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id, username, email, first_name, last_name, role, structure_id, is_active, created_at
-        `, [username, password_hash, email, first_name, last_name, role, structure_id || null]);
-        
+            INSERT INTO users (username, password_hash, email, first_name, last_name, role, structure_id, territorial_level, territorial_value)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING id, username, email, first_name, last_name, role, structure_id, territorial_level, territorial_value, is_active, created_at
+        `, [username, password_hash, email, first_name, last_name, role, structure_id || null, territorial_level || null, territorial_value || null]);
+
         return result.rows[0];
     }
 
@@ -81,8 +81,8 @@ class UserModel {
      * Mettre à jour un utilisateur
      */
     static async update(id, userData) {
-        const { email, first_name, last_name, role, structure_id, is_active } = userData;
-        
+        const { email, first_name, last_name, role, structure_id, is_active, territorial_level, territorial_value } = userData;
+
         const result = await db.query(`
             UPDATE users
             SET email = COALESCE($1, email),
@@ -90,11 +90,13 @@ class UserModel {
                 last_name = COALESCE($3, last_name),
                 role = COALESCE($4, role),
                 structure_id = COALESCE($5, structure_id),
-                is_active = COALESCE($6, is_active)
-            WHERE id = $7
-            RETURNING id, username, email, first_name, last_name, role, structure_id, is_active, updated_at
-        `, [email, first_name, last_name, role, structure_id, is_active, id]);
-        
+                is_active = COALESCE($6, is_active),
+                territorial_level = COALESCE($7, territorial_level),
+                territorial_value = COALESCE($8, territorial_value)
+            WHERE id = $9
+            RETURNING id, username, email, first_name, last_name, role, structure_id, territorial_level, territorial_value, is_active, updated_at
+        `, [email, first_name, last_name, role, structure_id, is_active, territorial_level, territorial_value, id]);
+
         return result.rows[0];
     }
 

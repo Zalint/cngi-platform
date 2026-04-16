@@ -47,6 +47,30 @@ class ProjectModel {
     }
 
     /**
+     * Récupérer les projets par territoire (region, departement, arrondissement)
+     */
+    static async findByTerritory(level, value) {
+        const allowedColumns = ['region', 'departement', 'arrondissement'];
+        if (!allowedColumns.includes(level)) {
+            throw new Error(`Invalid territorial level: ${level}. Must be one of: ${allowedColumns.join(', ')}`);
+        }
+
+        const column = level;
+        const result = await db.query(`
+            SELECT DISTINCT p.*, s.name as structure_name, s.code as structure_code
+            FROM projects p
+            LEFT JOIN structures s ON p.structure_id = s.id
+            WHERE p.id IN (
+                SELECT DISTINCT project_id FROM localities WHERE ${column} = $1
+                UNION
+                SELECT DISTINCT project_id FROM sites WHERE ${column} = $1
+            )
+            ORDER BY p.created_at DESC
+        `, [value]);
+        return result.rows;
+    }
+
+    /**
      * Récupérer un projet par ID avec toutes ses informations
      */
     static async findById(id) {
