@@ -65,7 +65,7 @@ class DecoupageModel {
             LIMIT $3
         `, ['%' + query + '%', query + '%', limit]);
         return result.rows;
-    },
+    }
 
     /**
      * Recuperer toutes les entrees avec filtres optionnels et pagination
