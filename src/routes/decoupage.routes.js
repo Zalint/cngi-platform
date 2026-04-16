@@ -7,6 +7,7 @@ const { protect, authorize } = require('../middlewares/auth');
 router.use(protect);
 
 // Public routes (authenticated users)
+router.get('/level/:level', decoupageController.getAllByLevel);
 router.get('/search', decoupageController.search);
 router.get('/regions', decoupageController.getRegions);
 router.get('/departements', decoupageController.getDepartements);

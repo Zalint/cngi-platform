@@ -3,11 +3,10 @@
 const ProjectStructuresPage = {
     async render() {
         return `
-            <div class="container">
-                <div class="page-header">
-                    <h1>📊 Gestion des Mappings Projet-Structure</h1>
-                    <p class="subtitle">Assignez les projets aux différentes structures</p>
-                </div>
+            ${Navbar.render()}
+            <div class="main-content with-sidebar">
+                ${Navbar.renderTopBar('Rattacher une structure')}
+                <div class="content-area">
 
                 <div id="loading" class="loading">Chargement...</div>
                 <div id="error" class="error-message" style="display: none;"></div>
@@ -31,11 +30,14 @@ const ProjectStructuresPage = {
                         </div>
                     </div>
                 </div>
+
+                </div>
             </div>
         `;
     },
 
     async afterRender() {
+        Navbar.updateActiveMenu();
         await this.loadData();
         this.attachEventListeners();
     },

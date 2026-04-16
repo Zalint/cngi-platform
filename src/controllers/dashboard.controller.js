@@ -20,8 +20,13 @@ exports.getMetrics = async (req, res, next) => {
 
 exports.getProjectsByStructure = async (req, res, next) => {
     try {
-        const structureId = (req.user.role === 'utilisateur' || req.user.role === 'directeur') ? req.user.structure_id : req.query.structure_id;
-        const data = await DashboardModel.getProjectsByStructure(structureId);
+        let data;
+        if (req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value) {
+            data = await DashboardModel.getProjectsByStructureByTerritory(req.user.territorial_level, req.user.territorial_value);
+        } else {
+            const structureId = (req.user.role === 'utilisateur' || req.user.role === 'directeur') ? req.user.structure_id : req.query.structure_id;
+            data = await DashboardModel.getProjectsByStructure(structureId);
+        }
         res.json({ success: true, data });
     } catch (error) {
         next(error);
@@ -30,8 +35,13 @@ exports.getProjectsByStructure = async (req, res, next) => {
 
 exports.getMapData = async (req, res, next) => {
     try {
-        const structureId = (req.user.role === 'utilisateur' || req.user.role === 'directeur') ? req.user.structure_id : req.query.structure_id;
-        const sites = await DashboardModel.getMapData(structureId);
+        let sites;
+        if (req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value) {
+            sites = await DashboardModel.getMapDataByTerritory(req.user.territorial_level, req.user.territorial_value);
+        } else {
+            const structureId = (req.user.role === 'utilisateur' || req.user.role === 'directeur') ? req.user.structure_id : req.query.structure_id;
+            sites = await DashboardModel.getMapData(structureId);
+        }
         res.json({ success: true, count: sites.length, data: sites });
     } catch (error) {
         next(error);
@@ -41,8 +51,13 @@ exports.getMapData = async (req, res, next) => {
 exports.getRecentProjects = async (req, res, next) => {
     try {
         const limit = req.query.limit || 10;
-        const structureId = (req.user.role === 'utilisateur' || req.user.role === 'directeur') ? req.user.structure_id : req.query.structure_id;
-        const projects = await DashboardModel.getRecentProjects(limit, structureId);
+        let projects;
+        if (req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value) {
+            projects = await DashboardModel.getRecentProjectsByTerritory(req.user.territorial_level, req.user.territorial_value, limit);
+        } else {
+            const structureId = (req.user.role === 'utilisateur' || req.user.role === 'directeur') ? req.user.structure_id : req.query.structure_id;
+            projects = await DashboardModel.getRecentProjects(limit, structureId);
+        }
         res.json({ success: true, data: projects });
     } catch (error) {
         next(error);

@@ -178,7 +178,7 @@ const ProjectsPage = {
 
     afterRender() {
         Navbar.updateActiveMenu();
-        
+
         // Ajouter les event listeners pour les filtres
         const searchInput = document.getElementById('search-projects');
         const statusFilter = document.getElementById('filter-status');
@@ -192,6 +192,14 @@ const ProjectsPage = {
         }
         if (structureFilter) {
             structureFilter.addEventListener('change', () => this.applyFilters());
+        }
+
+        // Auto-filter from dashboard KPI click
+        const savedStatus = sessionStorage.getItem('projectStatusFilter');
+        if (savedStatus && statusFilter) {
+            statusFilter.value = savedStatus;
+            sessionStorage.removeItem('projectStatusFilter');
+            this.applyFilters();
         }
     },
 

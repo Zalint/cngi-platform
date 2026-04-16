@@ -35,9 +35,18 @@ const DashboardPage = {
                     <div class="content-area">
                         ${this.renderAlertBanner()}
                         ${this.renderMetrics()}
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                        <div id="dashboard-view-toggle" style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+                            <div style="display:flex;background:#f0f4f8;border-radius:8px;overflow:hidden;">
+                                <button onclick="DashboardPage.switchView('map')" id="view-btn-map" style="padding:8px 16px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:#202B5D;color:white;">Carte & Structures</button>
+                                <button onclick="DashboardPage.switchView('gantt')" id="view-btn-gantt" style="padding:8px 16px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:#62718D;">Planning Gantt</button>
+                            </div>
+                        </div>
+                        <div id="view-map" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
                             <div>${this.renderMap()}</div>
                             <div>${this.renderChart()}</div>
+                        </div>
+                        <div id="view-gantt" style="display:none;margin-bottom:24px;">
+                            ${this.renderGantt()}
                         </div>
                         ${this.renderRecentProjects()}
                     </div>
@@ -105,24 +114,24 @@ const DashboardPage = {
 
         return `
             <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
-                <div class="metric-card">
+                <div class="metric-card" onclick="DashboardPage.goToProjects('')" style="cursor:pointer;" title="Voir tous les projets">
                     <div class="metric-value">${total}</div>
                     <div class="metric-label">Total projets</div>
                 </div>
-                <div class="metric-card">
+                <div class="metric-card" onclick="DashboardPage.goToProjects('demarrage')" style="cursor:pointer;" title="Voir les projets en démarrage">
                     <div class="metric-value">${m.projets_demarrage || 0}</div>
                     <div class="metric-label">Démarrage</div>
                 </div>
-                <div class="metric-card">
+                <div class="metric-card" onclick="DashboardPage.goToProjects('en_cours')" style="cursor:pointer;" title="Voir les projets en cours">
                     <div class="metric-value">${enCours}</div>
                     <div class="metric-label">En cours</div>
                 </div>
-                <div class="metric-card">
+                <div class="metric-card" onclick="DashboardPage.goToProjects('termine')" style="cursor:pointer;" title="Voir les projets terminés">
                     <div class="metric-value">${termines}</div>
                     <div class="metric-label">Terminés</div>
                     <div style="font-size: 11px; color: #27ae60; margin-top: 4px; font-weight: 600;">${pctTermines}% du total</div>
                 </div>
-                <div class="metric-card">
+                <div class="metric-card" onclick="DashboardPage.goToProjects('retard')" style="cursor:pointer;" title="Voir les projets en retard">
                     <div class="metric-value">${m.ouvrages_retardes || 0}</div>
                     <div class="metric-label">En retard</div>
                 </div>
@@ -138,7 +147,10 @@ const DashboardPage = {
         const rows = this.data.recentProjects.map(project => `
             <tr onclick="window.location.hash='#/projects/${project.id}'">
                 <td>${project.title}</td>
-                <td><span class="project-structure">${project.structure_code || 'N/A'}</span></td>
+                <td>
+                    <span class="project-structure">${project.structure_code || 'N/A'}</span>
+                    ${project.secondary_structures ? `<div style="margin-top:4px;">${project.secondary_structures.split(',').map(s => `<span style="display:inline-block;padding:2px 6px;background:#f0f4f8;color:#8896AB;border-radius:8px;font-size:10px;font-weight:600;margin-right:3px;">${s}</span>`).join('')}</div>` : ''}
+                </td>
                 <td><span class="status-badge status-${project.status}">${this.getStatusLabel(project.status)}</span></td>
                 <td>
                     <div style="display:flex;align-items:center;gap:10px;">
@@ -268,6 +280,106 @@ const DashboardPage = {
         } else if (bounds.length === 1) {
             this.map.setView(bounds[0], 13);
         }
+    },
+
+    renderGantt() {
+        const projects = this.data.recentProjects || [];
+        if (projects.length === 0) return '';
+
+        // Filter projects with dates
+        const withDates = projects.filter(p => p.start_date && p.deadline_date);
+        if (withDates.length === 0) return '';
+
+        // Calculate date range
+        const allStarts = withDates.map(p => new Date(p.start_date).getTime());
+        const allEnds = withDates.map(p => new Date(p.deadline_date).getTime());
+        const minDate = new Date(Math.min(...allStarts));
+        const maxDate = new Date(Math.max(...allEnds));
+
+        // Extend range by 1 month on each side
+        const rangeStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+        const rangeEnd = new Date(maxDate.getFullYear(), maxDate.getMonth() + 2, 0);
+        const totalDays = (rangeEnd - rangeStart) / (1000 * 60 * 60 * 24);
+
+        // Generate month headers
+        const months = [];
+        const cursor = new Date(rangeStart);
+        while (cursor <= rangeEnd) {
+            const monthStart = new Date(cursor);
+            const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+            const startOffset = Math.max(0, (monthStart - rangeStart) / (1000 * 60 * 60 * 24));
+            const width = ((Math.min(monthEnd, rangeEnd) - Math.max(monthStart, rangeStart)) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+            const label = monthStart.toLocaleDateString('fr-FR', { month: 'short', year: cursor.getFullYear() !== new Date().getFullYear() ? '2-digit' : undefined });
+            months.push({ label, left: (startOffset / totalDays) * 100, width });
+            cursor.setMonth(cursor.getMonth() + 1);
+        }
+
+        // Today marker
+        const today = new Date();
+        const todayPos = ((today - rangeStart) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+
+        const statusColors = {
+            'en_cours': '#3794C4',
+            'termine': '#27ae60',
+            'retard': '#e74c3c',
+            'demarrage': '#f39c12',
+            'annule': '#8896AB'
+        };
+
+        const rows = withDates.map(p => {
+            const start = new Date(p.start_date);
+            const end = new Date(p.deadline_date);
+            const left = ((start - rangeStart) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+            const width = ((end - start) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+            const color = statusColors[p.status] || '#3794C4';
+            const progress = p.progress_percentage || 0;
+
+            return `
+                <div style="display:flex;align-items:center;height:36px;border-bottom:1px solid #f0f4f8;">
+                    <div style="width:200px;flex-shrink:0;padding:0 12px;font-size:12px;font-weight:600;color:#202B5D;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.title}">
+                        ${p.title}
+                    </div>
+                    <div style="flex:1;position:relative;height:100%;">
+                        <div style="position:absolute;left:${left}%;width:${Math.max(width, 0.5)}%;top:8px;height:20px;border-radius:4px;background:#e8ecf1;overflow:hidden;" title="${p.title} — ${progress}%">
+                            <div style="width:${progress}%;height:100%;background:${color};border-radius:4px;transition:width 0.3s;"></div>
+                        </div>
+                        <span style="position:absolute;left:${left + width + 0.5}%;top:10px;font-size:10px;font-weight:700;color:${color};">${progress}%</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="card" id="gantt-container">
+                <div class="card-header">
+                    <h2>Planning des projets</h2>
+                    <p>Diagramme de Gantt — vue calendaire</p>
+                </div>
+                <div style="overflow-x:auto;">
+                    <div style="min-width:800px;">
+                        <!-- Month headers -->
+                        <div style="display:flex;align-items:center;height:30px;border-bottom:2px solid #dce3ed;">
+                            <div style="width:200px;flex-shrink:0;padding:0 12px;font-size:11px;font-weight:700;color:#8896AB;">PROJET</div>
+                            <div style="flex:1;position:relative;height:100%;">
+                                ${months.map(m => `
+                                    <div style="position:absolute;left:${m.left}%;width:${m.width}%;height:100%;border-left:1px solid #e8ecf1;padding:0 6px;font-size:10px;font-weight:600;color:#8896AB;display:flex;align-items:center;">
+                                        ${m.label}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <!-- Project rows -->
+                        ${rows}
+                        <!-- Today marker -->
+                        ${todayPos >= 0 && todayPos <= 100 ? `
+                            <div style="position:relative;height:0;">
+                                <div style="position:absolute;left:calc(200px + ${todayPos}% * (100% - 200px) / 100);top:-${(withDates.length) * 36 + 30}px;width:2px;height:${(withDates.length) * 36 + 30}px;background:#e74c3c;opacity:0.5;z-index:1;pointer-events:none;"></div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
     },
 
     renderChart() {
@@ -445,6 +557,38 @@ const DashboardPage = {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         }).format(amount) + ' FCFA';
+    },
+
+    switchView(view) {
+        const mapDiv = document.getElementById('view-map');
+        const ganttDiv = document.getElementById('view-gantt');
+        const btnMap = document.getElementById('view-btn-map');
+        const btnGantt = document.getElementById('view-btn-gantt');
+        if (!mapDiv || !ganttDiv) return;
+
+        if (view === 'gantt') {
+            mapDiv.style.display = 'none';
+            ganttDiv.style.display = 'block';
+            btnMap.style.background = 'transparent'; btnMap.style.color = '#62718D';
+            btnGantt.style.background = '#202B5D'; btnGantt.style.color = 'white';
+        } else {
+            mapDiv.style.display = 'grid';
+            ganttDiv.style.display = 'none';
+            btnMap.style.background = '#202B5D'; btnMap.style.color = 'white';
+            btnGantt.style.background = 'transparent'; btnGantt.style.color = '#62718D';
+            // Re-init map (Leaflet needs resize after show)
+            setTimeout(() => { if (this.map) this.map.invalidateSize(); }, 100);
+        }
+    },
+
+    goToProjects(status) {
+        sessionStorage.setItem('projectStatusFilter', status || '');
+        if (window.location.hash === '#/projects') {
+            // Already on projects page, force re-render
+            App.router();
+        } else {
+            window.location.hash = '#/projects';
+        }
     },
 
     getStatusLabel(status) {

@@ -114,15 +114,21 @@ class DashboardModel {
      */
     static async getRecentProjects(limit = 10, structureId = null) {
         let query = `
-            SELECT 
+            SELECT
                 p.id,
                 p.title,
                 p.status,
                 p.progress_percentage,
+                p.start_date,
                 p.deadline_date,
                 p.created_at,
                 s.name as structure_name,
-                s.code as structure_code
+                s.code as structure_code,
+                (SELECT string_agg(s2.code, ',' ORDER BY s2.code)
+                 FROM project_structures ps2
+                 JOIN structures s2 ON ps2.structure_id = s2.id
+                 WHERE ps2.project_id = p.id AND s2.id != p.structure_id
+                ) as secondary_structures
             FROM projects p
             LEFT JOIN structures s ON p.structure_id = s.id
         `;
@@ -243,6 +249,68 @@ class DashboardModel {
         const result = await db.query(query, params);
         return result.rows[0];
     }
+    /**
+     * Helper: territorial project filter subquery
+     */
+    static _territorySubquery(level) {
+        const allowed = ['region', 'departement', 'arrondissement'];
+        if (!allowed.includes(level)) throw new Error('Invalid territorial level');
+        return `(SELECT DISTINCT project_id FROM localities WHERE ${level} = $1
+                 UNION
+                 SELECT DISTINCT project_id FROM sites WHERE ${level} = $1)`;
+    }
+
+    static async getRecentProjectsByTerritory(level, value, limit = 10) {
+        const sub = this._territorySubquery(level);
+        const result = await db.query(`
+            SELECT p.id, p.title, p.status, p.progress_percentage, p.start_date, p.deadline_date, p.created_at,
+                   s.name as structure_name, s.code as structure_code,
+                   (SELECT string_agg(s2.code, ',' ORDER BY s2.code)
+                    FROM project_structures ps2
+                    JOIN structures s2 ON ps2.structure_id = s2.id
+                    WHERE ps2.project_id = p.id AND s2.id != p.structure_id
+                   ) as secondary_structures
+            FROM projects p
+            LEFT JOIN structures s ON p.structure_id = s.id
+            WHERE p.id IN ${sub}
+            ORDER BY p.created_at DESC LIMIT $2
+        `, [value, limit]);
+        return result.rows;
+    }
+
+    static async getMapDataByTerritory(level, value) {
+        const sub = this._territorySubquery(level);
+        const result = await db.query(`
+            SELECT si.id, si.name, si.description, si.latitude, si.longitude,
+                   p.id as project_id, p.title as project_title, p.status as project_status,
+                   st.name as structure_name, st.code as structure_code
+            FROM sites si
+            INNER JOIN projects p ON si.project_id = p.id
+            INNER JOIN structures st ON p.structure_id = st.id
+            WHERE si.latitude IS NOT NULL AND si.longitude IS NOT NULL
+              AND p.id IN ${sub}
+            ORDER BY si.id
+        `, [value]);
+        return result.rows;
+    }
+
+    static async getProjectsByStructureByTerritory(level, value) {
+        const sub = this._territorySubquery(level);
+        const result = await db.query(`
+            SELECT s.id, s.name, s.code,
+                   COUNT(p.id) as total_projects,
+                   COUNT(CASE WHEN p.status = 'en_cours' THEN 1 END) as en_cours,
+                   COUNT(CASE WHEN p.status = 'termine' THEN 1 END) as termine,
+                   COUNT(CASE WHEN p.status = 'retard' THEN 1 END) as retard
+            FROM projects p
+            JOIN structures s ON p.structure_id = s.id
+            WHERE p.id IN ${sub}
+            GROUP BY s.id, s.name, s.code
+            ORDER BY total_projects DESC
+        `, [value]);
+        return result.rows;
+    }
+
     /**
      * Récupérer les métriques filtrées par territoire
      */

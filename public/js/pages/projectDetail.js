@@ -85,7 +85,15 @@ const ProjectDetailPage = {
                     <div>
                         <h2 style="font-size: 24px; color: #1e3c72; margin-bottom: 8px;">${p.title}</h2>
                         <div style="color: #666; margin-bottom: 12px;">
-                            Structure: <span style="font-weight: 600;">${p.structure_name || 'N/A'}</span>
+                            Structure principale: <span style="font-weight: 600;">${p.structure_name || 'N/A'}</span>
+                            ${p.assigned_structures && p.assigned_structures.length > 0 ? `
+                                <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+                                    <span style="display:inline-block;padding:4px 12px;background:#202B5D;color:white;border-radius:12px;font-size:11px;font-weight:700;">${p.structure_code || 'N/A'}</span>
+                                    ${p.assigned_structures.filter(s => s.id !== p.structure_id).map(s => `
+                                        <span style="display:inline-block;padding:3px 10px;background:#f0f4f8;color:#8896AB;border-radius:12px;font-size:10px;font-weight:600;">${s.code}</span>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
                         </div>
                         <span class="status-badge status-${p.status}">${statusLabel}</span>
                     </div>

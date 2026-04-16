@@ -1098,6 +1098,21 @@ tbody tr:hover {
 }
 
 /* ==========================================
+   GANTT FULLSCREEN
+   ========================================== */
+
+.gantt-fullscreen {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9999 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    overflow-y: auto !important;
+    max-height: 100vh !important;
+    box-shadow: none !important;
+}
+
+/* ==========================================
    TOAST NOTIFICATIONS
    ========================================== */
 

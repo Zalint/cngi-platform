@@ -144,8 +144,18 @@ class ProjectModel {
         const financing = await db.query(`
             SELECT * FROM financing WHERE project_id = $1
         `, [id]);
-        project.funding = financing.rows;  // Utiliser 'funding' au lieu de 'financing' pour cohérence frontend
-        
+        project.funding = financing.rows;
+
+        // Récupérer les structures rattachées
+        const assignedStructures = await db.query(`
+            SELECT s.id, s.name, s.code
+            FROM project_structures ps
+            JOIN structures s ON ps.structure_id = s.id
+            WHERE ps.project_id = $1
+            ORDER BY s.name
+        `, [id]);
+        project.assigned_structures = assignedStructures.rows;
+
         return project;
     }
 

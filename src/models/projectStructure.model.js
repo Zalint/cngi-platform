@@ -79,6 +79,7 @@ const ProjectStructure = {
                 await client.query(`
                     INSERT INTO project_structures (project_id, structure_id, assigned_by_user_id)
                     VALUES ${values}
+                    ON CONFLICT (project_id, structure_id) DO NOTHING
                 `, [projectId, ...structureIds, assignedByUserId]);
             }
 

@@ -12,6 +12,16 @@ class DecoupageModel {
     }
 
     /**
+     * Recuperer toutes les valeurs distinctes d'un niveau (region, departement, arrondissement)
+     */
+    static async getAllByLevel(level) {
+        const allowed = ['region', 'departement', 'arrondissement'];
+        if (!allowed.includes(level)) throw new Error('Invalid level');
+        const result = await db.query(`SELECT DISTINCT ${level} FROM decoupage ORDER BY ${level}`);
+        return result.rows.map(r => r[level]);
+    }
+
+    /**
      * Recuperer les departements d'une region
      */
     static async getDepartements(region) {

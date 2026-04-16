@@ -50,7 +50,9 @@ const UsersPage = {
                                                 <td>${user.email}</td>
                                                 <td>${user.first_name} ${user.last_name || ''}</td>
                                                 <td>${this.getRoleLabel(user.role)}</td>
-                                                <td>${user.structure_name || 'N/A'}</td>
+                                                <td>${user.role === 'commandement_territorial' && user.territorial_value
+                                                    ? '<span style="font-size:11px;color:#3794C4;font-weight:600;">' + (user.territorial_level === 'region' ? 'Rég.' : user.territorial_level === 'departement' ? 'Dép.' : 'Arr.') + '</span> ' + user.territorial_value
+                                                    : (user.structure_name || 'N/A')}</td>
                                                 <td>
                                                     ${user.is_active ? 
                                                         '<span style="color: #4caf50;">✓ Actif</span>' : 
@@ -216,28 +218,8 @@ const UsersPage = {
         if (!level) return;
 
         try {
-            let items = [];
-            if (level === 'region') {
-                const res = await API.decoupage.getRegions();
-                items = res.data || [];
-            } else if (level === 'departement') {
-                const regions = await API.decoupage.getRegions();
-                for (const region of (regions.data || [])) {
-                    const res = await API.decoupage.getDepartements(region);
-                    items = items.concat(res.data || []);
-                }
-            } else if (level === 'arrondissement') {
-                const regions = await API.decoupage.getRegions();
-                for (const region of (regions.data || [])) {
-                    const depts = await API.decoupage.getDepartements(region);
-                    for (const dept of (depts.data || [])) {
-                        const res = await API.decoupage.getArrondissements(dept);
-                        items = items.concat(res.data || []);
-                    }
-                }
-            }
-            items.sort();
-            items.forEach(item => {
+            const res = await API.decoupage.getAllByLevel(level);
+            (res.data || []).forEach(item => {
                 valueSel.innerHTML += `<option value="${item}">${item}</option>`;
             });
         } catch (err) {

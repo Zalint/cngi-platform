@@ -218,6 +218,7 @@ const API = {
 
     // === Decoupage administratif endpoints ===
     decoupage: {
+        getAllByLevel: (level) => API.get(`/decoupage/level/${level}`),
         search: (q) => API.get(`/decoupage/search?q=${encodeURIComponent(q)}`),
         getRegions: () => API.get('/decoupage/regions'),
         getDepartements: (region) => API.get(`/decoupage/departements?region=${encodeURIComponent(region)}`),

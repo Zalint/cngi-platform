@@ -1,5 +1,15 @@
 const DecoupageModel = require('../models/decoupage.model');
 
+exports.getAllByLevel = async (req, res, next) => {
+    try {
+        const { level } = req.params;
+        const data = await DecoupageModel.getAllByLevel(level);
+        res.json({ success: true, data });
+    } catch (error) {
+        next(error);
+    }
+};
+
 exports.search = async (req, res, next) => {
     try {
         const { q } = req.query;
