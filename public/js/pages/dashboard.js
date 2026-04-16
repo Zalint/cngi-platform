@@ -31,9 +31,12 @@ const DashboardPage = {
                 <div class="main-content with-sidebar">
                     ${Navbar.renderTopBar('Tableau de bord')}
                     <div class="content-area">
+                        ${this.renderAlertBanner()}
                         ${this.renderMetrics()}
-                        ${this.renderRecentProjects()}
-                        ${this.renderChart()}
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px;">
+                            <div>${this.renderRecentProjects()}</div>
+                            <div>${this.renderChart()}</div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -68,15 +71,36 @@ const DashboardPage = {
         }
     },
 
+    renderAlertBanner() {
+        if (!this.data.metrics) return '';
+        const m = this.data.metrics;
+        const retard = m.ouvrages_retardes || 0;
+        if (retard === 0) return '';
+
+        return `
+            <div class="alert-banner">
+                <div class="alert-banner-icon">&#9888;</div>
+                <div class="alert-banner-content">
+                    <strong>${retard} projet${retard > 1 ? 's' : ''} en retard</strong> —
+                    Action requise. Consultez les projets concernés pour mettre à jour l'avancement.
+                </div>
+            </div>
+        `;
+    },
+
     renderMetrics() {
         if (!this.data.metrics) return '';
 
         const m = this.data.metrics;
-        
+        const total = m.total_projects || 0;
+        const enCours = m.actions_en_cours || 0;
+        const termines = m.ouvrages_realises || 0;
+        const pctTermines = total > 0 ? Math.round((termines / total) * 100) : 0;
+
         return `
             <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
                 <div class="metric-card">
-                    <div class="metric-value">${m.total_projects || 0}</div>
+                    <div class="metric-value">${total}</div>
                     <div class="metric-label">Total projets</div>
                 </div>
                 <div class="metric-card">
@@ -84,12 +108,13 @@ const DashboardPage = {
                     <div class="metric-label">Démarrage</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-value">${m.actions_en_cours || 0}</div>
+                    <div class="metric-value">${enCours}</div>
                     <div class="metric-label">En cours</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-value">${m.ouvrages_realises || 0}</div>
+                    <div class="metric-value">${termines}</div>
                     <div class="metric-label">Terminés</div>
+                    <div style="font-size: 11px; color: #27ae60; margin-top: 4px; font-weight: 600;">${pctTermines}% du total</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-value">${m.ouvrages_retardes || 0}</div>
@@ -159,7 +184,7 @@ const DashboardPage = {
             return `
                 <div style="flex: 1; max-width: 100px; display: flex; flex-direction: column; align-items: center; gap: 12px;">
                     <div style="width: 60px; height: ${height}px; background: ${color}; border-radius: 8px 8px 0 0; position: relative;">
-                        <span style="position: absolute; top: -30px; left: 50%; transform: translateX(-50%); font-weight: 700; color: #1e3c72; font-size: 16px;">
+                        <span style="position: absolute; top: -30px; left: 50%; transform: translateX(-50%); font-weight: 700; color: #202B5D; font-size: 16px;">
                             ${structure.total_projects}
                         </span>
                     </div>
@@ -198,7 +223,7 @@ const DashboardPage = {
 
         // Statistiques globales
         const statsHtml = `
-            <div class="card mb-4" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white;">
+            <div class="card mb-4" style="background: linear-gradient(135deg, #202B5D 0%, #3794C4 100%); color: white;">
                 <h2 style="color: white; margin-bottom: 24px;">📊 Vue d'ensemble - ${user.structure_name || 'Votre structure'}</h2>
                 <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
                     <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px;">
@@ -236,14 +261,14 @@ const DashboardPage = {
                 
                 <div style="display: flex; align-items: start; gap: 20px;">
                     <!-- Numéro du projet -->
-                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; flex-shrink: 0;">
+                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #202B5D 0%, #3794C4 100%); color: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; flex-shrink: 0;">
                         ${index + 1}
                     </div>
 
                     <!-- Informations du projet -->
                     <div style="flex: 1;">
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                            <h3 style="margin: 0; color: #1e3c72; font-size: 20px;">${project.title}</h3>
+                            <h3 style="margin: 0; color: #202B5D; font-size: 20px;">${project.title}</h3>
                             <span class="status-badge status-${project.status}" style="flex-shrink: 0;">
                                 ${this.getStatusLabel(project.status)}
                             </span>
@@ -287,7 +312,7 @@ const DashboardPage = {
                         <div>
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                                 <span style="font-size: 13px; font-weight: 600; color: #666;">Avancement</span>
-                                <span style="font-size: 16px; font-weight: 700; color: #1e3c72;">
+                                <span style="font-size: 16px; font-weight: 700; color: #202B5D;">
                                     ${project.progress_percentage || 0}%
                                 </span>
                             </div>

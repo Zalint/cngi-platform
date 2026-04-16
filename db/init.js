@@ -232,7 +232,10 @@ async function initDatabase() {
             `);
         }
 
-        // Views
+        // Views (drop first to handle column changes)
+        await client.query(`DROP VIEW IF EXISTS dashboard_stats CASCADE`);
+        await client.query(`DROP VIEW IF EXISTS projects_view CASCADE`);
+
         await client.query(`
             CREATE OR REPLACE VIEW dashboard_stats AS
             SELECT
