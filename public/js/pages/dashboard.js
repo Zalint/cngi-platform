@@ -196,8 +196,18 @@ const DashboardPage = {
         // Destroy previous map if exists
         if (this.map) { this.map.remove(); this.map = null; }
 
-        this.map = L.map('senegal-map', { zoomControl: true, scrollWheelZoom: true })
-            .setView([14.70, -17.45], 12);
+        // Limites du Sénégal
+        const senegalBounds = L.latLngBounds(
+            [12.3, -17.6],  // Sud-Ouest
+            [16.7, -11.3]   // Nord-Est
+        );
+
+        this.map = L.map('senegal-map', {
+            zoomControl: true,
+            scrollWheelZoom: true,
+            maxBounds: senegalBounds.pad(0.1),
+            minZoom: 7
+        }).fitBounds(senegalBounds);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap',
@@ -252,8 +262,10 @@ const DashboardPage = {
                 `);
         });
 
-        if (bounds.length > 0) {
+        if (bounds.length > 1) {
             this.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+        } else if (bounds.length === 1) {
+            this.map.setView(bounds[0], 13);
         }
     },
 
