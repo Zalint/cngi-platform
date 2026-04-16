@@ -160,33 +160,42 @@ const ProjectDetailPage = {
                 <div id="localities-container">
                     ${this.data.editMode.localities.map((loc, index) => `
                         <div class="locality-item" style="padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px;" data-index="${index}">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                            <div style="display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 10px; align-items: start;">
                                 ${isProjectManager ? `
-                                    <input type="text" class="form-control" placeholder="Région" 
-                                           value="${loc.region || ''}" 
-                                           onchange="ProjectDetailPage.updateLocalityField(${index}, 'region', this.value)">
-                                    <input type="text" class="form-control" placeholder="Département" 
-                                           value="${loc.departement || ''}" 
-                                           onchange="ProjectDetailPage.updateLocalityField(${index}, 'departement', this.value)">
-                                    <input type="text" class="form-control" placeholder="Commune" 
-                                           value="${loc.commune || ''}" 
-                                           onchange="ProjectDetailPage.updateLocalityField(${index}, 'commune', this.value)">
-                                    <button class="btn btn-danger" onclick="ProjectDetailPage.removeLocality(${index})" style="max-width: 120px;">
-                                        🗑️ Retirer
+                                    <select class="form-control loc-region" data-index="${index}"
+                                            onchange="ProjectDetailPage.onLocalityRegionChange(${index}, this.value)">
+                                        <option value="">-- Région --</option>
+                                    </select>
+                                    <select class="form-control loc-dept" data-index="${index}"
+                                            onchange="ProjectDetailPage.onLocalityDeptChange(${index}, this.value)">
+                                        <option value="">-- Département --</option>
+                                    </select>
+                                    <select class="form-control loc-arrond" data-index="${index}"
+                                            onchange="ProjectDetailPage.onLocalityArrondChange(${index}, this.value)">
+                                        <option value="">-- Arrondissement --</option>
+                                    </select>
+                                    <select class="form-control loc-commune" data-index="${index}"
+                                            onchange="ProjectDetailPage.updateLocalityField(${index}, 'commune', this.value)">
+                                        <option value="">-- Commune --</option>
+                                    </select>
+                                    <span style="font-size:11px;color:#62718D;align-self:center;">${loc.region ? [loc.region, loc.departement, loc.arrondissement, loc.commune].filter(Boolean).join(' > ') : ''}</span>
+                                    <button class="btn btn-danger" onclick="ProjectDetailPage.removeLocality(${index})" style="max-width: 100px; font-size: 12px;">
+                                        Retirer
                                     </button>
                                 ` : `
                                     <div><strong>Région:</strong> ${loc.region || 'N/A'}</div>
                                     <div><strong>Département:</strong> ${loc.departement || 'N/A'}</div>
+                                    <div><strong>Arrondissement:</strong> ${loc.arrondissement || 'N/A'}</div>
                                     <div><strong>Commune:</strong> ${loc.commune || 'N/A'}</div>
                                 `}
                             </div>
                         </div>
                     `).join('')}
                 </div>
-                
+
                 ${isProjectManager ? `
                     <button class="btn btn-secondary" onclick="ProjectDetailPage.addLocality()" style="margin-top: 12px;">
-                        ➕ Ajouter une localité
+                        + Ajouter une localité
                     </button>
                 ` : ''}
 
@@ -195,38 +204,62 @@ const ProjectDetailPage = {
                 <div id="sites-container">
                     ${this.data.editMode.sites.map((site, index) => `
                         <div class="site-item" style="padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px;" data-index="${index}">
-                            <div style="display: grid; grid-template-columns: 1fr 2fr 1fr 1fr; gap: 12px; align-items: start;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                                 ${isProjectManager ? `
-                                    <input type="text" class="form-control" placeholder="Nom du site" 
-                                           value="${site.name || ''}" 
+                                    <input type="text" class="form-control" placeholder="Nom du site"
+                                           value="${site.name || ''}"
                                            onchange="ProjectDetailPage.updateSiteField(${index}, 'name', this.value)">
-                                    <input type="text" class="form-control" placeholder="Description" 
-                                           value="${site.description || ''}" 
+                                    <input type="text" class="form-control" placeholder="Description"
+                                           value="${site.description || ''}"
                                            onchange="ProjectDetailPage.updateSiteField(${index}, 'description', this.value)">
-                                    <input type="text" class="form-control" placeholder="Latitude,Longitude" 
-                                           value="${site.latitude && site.longitude ? site.latitude + ',' + site.longitude : ''}" 
-                                           onchange="ProjectDetailPage.updateSiteCoordinates(${index}, this.value)">
-                                    <button class="btn btn-danger" onclick="ProjectDetailPage.removeSite(${index})">
-                                        🗑️ Retirer
-                                    </button>
                                 ` : `
                                     <div><strong>${site.name}</strong></div>
                                     <div>${site.description || 'N/A'}</div>
-                                    <div>${site.latitude && site.longitude ? site.latitude + ', ' + site.longitude : 'N/A'}</div>
                                 `}
                             </div>
+                            ${isProjectManager ? `
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr) auto auto; gap: 10px; align-items: start;">
+                                <select class="form-control site-region" data-site-index="${index}"
+                                        onchange="ProjectDetailPage.onSiteRegionChange(${index}, this.value)">
+                                    <option value="">-- Région --</option>
+                                </select>
+                                <select class="form-control site-dept" data-site-index="${index}"
+                                        onchange="ProjectDetailPage.onSiteDeptChange(${index}, this.value)">
+                                    <option value="">-- Département --</option>
+                                </select>
+                                <select class="form-control site-arrond" data-site-index="${index}"
+                                        onchange="ProjectDetailPage.onSiteArrondChange(${index}, this.value)">
+                                    <option value="">-- Arrondissement --</option>
+                                </select>
+                                <select class="form-control site-commune" data-site-index="${index}"
+                                        onchange="ProjectDetailPage.updateSiteField(${index}, 'commune', this.value)">
+                                    <option value="">-- Commune --</option>
+                                </select>
+                                <input type="text" class="form-control" placeholder="Lat,Lng" style="max-width:140px;"
+                                       value="${site.latitude && site.longitude ? site.latitude + ',' + site.longitude : ''}"
+                                       onchange="ProjectDetailPage.updateSiteCoordinates(${index}, this.value)">
+                                <button class="btn btn-danger" onclick="ProjectDetailPage.removeSite(${index})" style="font-size:12px;">
+                                    Retirer
+                                </button>
+                            </div>
+                            ` : `
+                            <div style="font-size:12px;color:#62718D;">
+                                ${[site.region, site.departement, site.arrondissement, site.commune].filter(Boolean).join(' > ') || ''}
+                                ${site.latitude && site.longitude ? '| ' + site.latitude + ', ' + site.longitude : ''}
+                            </div>
+                            `}
                         </div>
                     `).join('')}
                 </div>
-                
+
                 ${isProjectManager ? `
                     <button class="btn btn-secondary" onclick="ProjectDetailPage.addSite()" style="margin-top: 12px;">
-                        ➕ Ajouter un site
+                        + Ajouter un site
                     </button>
 
                     <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
                         <button class="btn btn-primary" onclick="ProjectDetailPage.saveLocalitiesAndSites()">
-                            💾 Enregistrer Localités et Sites
+                            Enregistrer Localités et Sites
                         </button>
                     </div>
                 ` : ''}
@@ -393,7 +426,7 @@ const ProjectDetailPage = {
 
     // ==================== Méthodes de gestion des localités ====================
     addLocality() {
-        this.data.editMode.localities.push({ region: '', departement: '', commune: '' });
+        this.data.editMode.localities.push({ region: '', departement: '', arrondissement: '', commune: '' });
         this.refreshSection('localities');
     },
 
@@ -404,6 +437,49 @@ const ProjectDetailPage = {
 
     updateLocalityField(index, field, value) {
         this.data.editMode.localities[index][field] = value;
+    },
+
+    async onLocalityRegionChange(index, region) {
+        this.data.editMode.localities[index].region = region;
+        this.data.editMode.localities[index].departement = '';
+        this.data.editMode.localities[index].arrondissement = '';
+        this.data.editMode.localities[index].commune = '';
+        // Reset dependent dropdowns
+        const deptSel = document.querySelector(`.loc-dept[data-index="${index}"]`);
+        const arrondSel = document.querySelector(`.loc-arrond[data-index="${index}"]`);
+        const communeSel = document.querySelector(`.loc-commune[data-index="${index}"]`);
+        if (deptSel) deptSel.innerHTML = '<option value="">-- Département --</option>';
+        if (arrondSel) arrondSel.innerHTML = '<option value="">-- Arrondissement --</option>';
+        if (communeSel) communeSel.innerHTML = '<option value="">-- Commune --</option>';
+        if (region && deptSel) {
+            const res = await API.decoupage.getDepartements(region);
+            res.data.forEach(d => { deptSel.innerHTML += `<option value="${d}">${d}</option>`; });
+        }
+    },
+
+    async onLocalityDeptChange(index, dept) {
+        this.data.editMode.localities[index].departement = dept;
+        this.data.editMode.localities[index].arrondissement = '';
+        this.data.editMode.localities[index].commune = '';
+        const arrondSel = document.querySelector(`.loc-arrond[data-index="${index}"]`);
+        const communeSel = document.querySelector(`.loc-commune[data-index="${index}"]`);
+        if (arrondSel) arrondSel.innerHTML = '<option value="">-- Arrondissement --</option>';
+        if (communeSel) communeSel.innerHTML = '<option value="">-- Commune --</option>';
+        if (dept && arrondSel) {
+            const res = await API.decoupage.getArrondissements(dept);
+            res.data.forEach(a => { arrondSel.innerHTML += `<option value="${a}">${a}</option>`; });
+        }
+    },
+
+    async onLocalityArrondChange(index, arrond) {
+        this.data.editMode.localities[index].arrondissement = arrond;
+        this.data.editMode.localities[index].commune = '';
+        const communeSel = document.querySelector(`.loc-commune[data-index="${index}"]`);
+        if (communeSel) communeSel.innerHTML = '<option value="">-- Commune --</option>';
+        if (arrond && communeSel) {
+            const res = await API.decoupage.getCommunes(arrond);
+            res.data.forEach(c => { communeSel.innerHTML += `<option value="${c}">${c}</option>`; });
+        }
     },
 
     async saveLocalitiesAndSites() {
@@ -424,7 +500,7 @@ const ProjectDetailPage = {
 
     // ==================== Méthodes de gestion des sites ====================
     addSite() {
-        this.data.editMode.sites.push({ name: '', description: '', latitude: null, longitude: null });
+        this.data.editMode.sites.push({ name: '', description: '', region: '', departement: '', arrondissement: '', commune: '', latitude: null, longitude: null });
         this.refreshSection('sites');
     },
 
@@ -442,6 +518,48 @@ const ProjectDetailPage = {
         if (parts.length === 2) {
             this.data.editMode.sites[index].latitude = parseFloat(parts[0].trim()) || null;
             this.data.editMode.sites[index].longitude = parseFloat(parts[1].trim()) || null;
+        }
+    },
+
+    async onSiteRegionChange(index, region) {
+        this.data.editMode.sites[index].region = region;
+        this.data.editMode.sites[index].departement = '';
+        this.data.editMode.sites[index].arrondissement = '';
+        this.data.editMode.sites[index].commune = '';
+        const deptSel = document.querySelector(`.site-dept[data-site-index="${index}"]`);
+        const arrondSel = document.querySelector(`.site-arrond[data-site-index="${index}"]`);
+        const communeSel = document.querySelector(`.site-commune[data-site-index="${index}"]`);
+        if (deptSel) deptSel.innerHTML = '<option value="">-- Département --</option>';
+        if (arrondSel) arrondSel.innerHTML = '<option value="">-- Arrondissement --</option>';
+        if (communeSel) communeSel.innerHTML = '<option value="">-- Commune --</option>';
+        if (region && deptSel) {
+            const res = await API.decoupage.getDepartements(region);
+            res.data.forEach(d => { deptSel.innerHTML += `<option value="${d}">${d}</option>`; });
+        }
+    },
+
+    async onSiteDeptChange(index, dept) {
+        this.data.editMode.sites[index].departement = dept;
+        this.data.editMode.sites[index].arrondissement = '';
+        this.data.editMode.sites[index].commune = '';
+        const arrondSel = document.querySelector(`.site-arrond[data-site-index="${index}"]`);
+        const communeSel = document.querySelector(`.site-commune[data-site-index="${index}"]`);
+        if (arrondSel) arrondSel.innerHTML = '<option value="">-- Arrondissement --</option>';
+        if (communeSel) communeSel.innerHTML = '<option value="">-- Commune --</option>';
+        if (dept && arrondSel) {
+            const res = await API.decoupage.getArrondissements(dept);
+            res.data.forEach(a => { arrondSel.innerHTML += `<option value="${a}">${a}</option>`; });
+        }
+    },
+
+    async onSiteArrondChange(index, arrond) {
+        this.data.editMode.sites[index].arrondissement = arrond;
+        this.data.editMode.sites[index].commune = '';
+        const communeSel = document.querySelector(`.site-commune[data-site-index="${index}"]`);
+        if (communeSel) communeSel.innerHTML = '<option value="">-- Commune --</option>';
+        if (arrond && communeSel) {
+            const res = await API.decoupage.getCommunes(arrond);
+            res.data.forEach(c => { communeSel.innerHTML += `<option value="${c}">${c}</option>`; });
         }
     },
 
@@ -700,5 +818,67 @@ const ProjectDetailPage = {
 
     afterRender() {
         Navbar.updateActiveMenu();
+        this.populateLocationDropdowns();
+    },
+
+    async populateLocationDropdowns() {
+        try {
+            const regionsRes = await API.decoupage.getRegions();
+            const regions = regionsRes.data || [];
+
+            // Populate locality dropdowns
+            for (let i = 0; i < this.data.editMode.localities.length; i++) {
+                const loc = this.data.editMode.localities[i];
+                const regSel = document.querySelector(`.loc-region[data-index="${i}"]`);
+                if (!regSel) continue;
+                regions.forEach(r => { regSel.innerHTML += `<option value="${r}" ${r === loc.region ? 'selected' : ''}>${r}</option>`; });
+
+                if (loc.region) {
+                    const deptRes = await API.decoupage.getDepartements(loc.region);
+                    const deptSel = document.querySelector(`.loc-dept[data-index="${i}"]`);
+                    if (deptSel) deptRes.data.forEach(d => { deptSel.innerHTML += `<option value="${d}" ${d === loc.departement ? 'selected' : ''}>${d}</option>`; });
+
+                    if (loc.departement) {
+                        const arrRes = await API.decoupage.getArrondissements(loc.departement);
+                        const arrSel = document.querySelector(`.loc-arrond[data-index="${i}"]`);
+                        if (arrSel) arrRes.data.forEach(a => { arrSel.innerHTML += `<option value="${a}" ${a === loc.arrondissement ? 'selected' : ''}>${a}</option>`; });
+
+                        if (loc.arrondissement) {
+                            const comRes = await API.decoupage.getCommunes(loc.arrondissement);
+                            const comSel = document.querySelector(`.loc-commune[data-index="${i}"]`);
+                            if (comSel) comRes.data.forEach(c => { comSel.innerHTML += `<option value="${c}" ${c === loc.commune ? 'selected' : ''}>${c}</option>`; });
+                        }
+                    }
+                }
+            }
+
+            // Populate site dropdowns
+            for (let i = 0; i < this.data.editMode.sites.length; i++) {
+                const site = this.data.editMode.sites[i];
+                const regSel = document.querySelector(`.site-region[data-site-index="${i}"]`);
+                if (!regSel) continue;
+                regions.forEach(r => { regSel.innerHTML += `<option value="${r}" ${r === site.region ? 'selected' : ''}>${r}</option>`; });
+
+                if (site.region) {
+                    const deptRes = await API.decoupage.getDepartements(site.region);
+                    const deptSel = document.querySelector(`.site-dept[data-site-index="${i}"]`);
+                    if (deptSel) deptRes.data.forEach(d => { deptSel.innerHTML += `<option value="${d}" ${d === site.departement ? 'selected' : ''}>${d}</option>`; });
+
+                    if (site.departement) {
+                        const arrRes = await API.decoupage.getArrondissements(site.departement);
+                        const arrSel = document.querySelector(`.site-arrond[data-site-index="${i}"]`);
+                        if (arrSel) arrRes.data.forEach(a => { arrSel.innerHTML += `<option value="${a}" ${a === site.arrondissement ? 'selected' : ''}>${a}</option>`; });
+
+                        if (site.arrondissement) {
+                            const comRes = await API.decoupage.getCommunes(site.arrondissement);
+                            const comSel = document.querySelector(`.site-commune[data-site-index="${i}"]`);
+                            if (comSel) comRes.data.forEach(c => { comSel.innerHTML += `<option value="${c}" ${c === site.commune ? 'selected' : ''}>${c}</option>`; });
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Error populating dropdowns:', err);
+        }
     }
 };

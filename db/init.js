@@ -97,6 +97,23 @@ async function initDatabase() {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_project_structures_project ON project_structures(project_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_project_structures_structure ON project_structures(structure_id)`);
 
+        // Decoupage administratif du Sénégal
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS decoupage (
+                id SERIAL PRIMARY KEY,
+                region VARCHAR(100) NOT NULL,
+                departement VARCHAR(100) NOT NULL,
+                arrondissement VARCHAR(100) NOT NULL,
+                commune VARCHAR(150) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(region, departement, arrondissement, commune)
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_decoupage_region ON decoupage(region)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_decoupage_dept ON decoupage(departement)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_decoupage_arrond ON decoupage(arrondissement)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_decoupage_commune ON decoupage(commune)`);
+
         // Localities
         await client.query(`
             CREATE TABLE IF NOT EXISTS localities (
@@ -104,9 +121,17 @@ async function initDatabase() {
                 project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
                 region VARCHAR(100),
                 departement VARCHAR(100),
-                commune VARCHAR(100),
+                arrondissement VARCHAR(100),
+                commune VARCHAR(150),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        `);
+        // Add arrondissement column if missing (migration)
+        await client.query(`
+            DO $$ BEGIN
+                ALTER TABLE localities ADD COLUMN IF NOT EXISTS arrondissement VARCHAR(100);
+            EXCEPTION WHEN duplicate_column THEN NULL;
+            END $$
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_localities_project ON localities(project_id)`);
 
@@ -118,10 +143,24 @@ async function initDatabase() {
                 locality_id INTEGER REFERENCES localities(id) ON DELETE SET NULL,
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
+                region VARCHAR(100),
+                departement VARCHAR(100),
+                arrondissement VARCHAR(100),
+                commune VARCHAR(150),
                 latitude DECIMAL(10, 8),
                 longitude DECIMAL(11, 8),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        `);
+        // Add location columns if missing (migration)
+        await client.query(`
+            DO $$ BEGIN
+                ALTER TABLE sites ADD COLUMN IF NOT EXISTS region VARCHAR(100);
+                ALTER TABLE sites ADD COLUMN IF NOT EXISTS departement VARCHAR(100);
+                ALTER TABLE sites ADD COLUMN IF NOT EXISTS arrondissement VARCHAR(100);
+                ALTER TABLE sites ADD COLUMN IF NOT EXISTS commune VARCHAR(150);
+            EXCEPTION WHEN duplicate_column THEN NULL;
+            END $$
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_sites_project ON sites(project_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_sites_locality ON sites(locality_id)`);
@@ -264,10 +303,49 @@ async function initDatabase() {
 
         await client.query('COMMIT');
         console.log('Database schema initialized successfully');
+
+        // Seed decoupage data if table is empty
+        await seedDecoupage(pool);
+
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('Database initialization failed:', error);
         throw error;
+    } finally {
+        client.release();
+    }
+}
+
+async function seedDecoupage(pool) {
+    const count = await pool.query('SELECT COUNT(*) FROM decoupage');
+    if (parseInt(count.rows[0].count) > 0) return;
+
+    console.log('Seeding decoupage administratif...');
+    const fs = require('fs');
+    const path = require('path');
+    const dataPath = path.join(__dirname, 'decoupage-data.json');
+    if (!fs.existsSync(dataPath)) {
+        console.log('decoupage-data.json not found, skipping seed');
+        return;
+    }
+
+    const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        for (const row of data) {
+            await client.query(
+                `INSERT INTO decoupage (region, departement, arrondissement, commune)
+                 VALUES ($1, $2, $3, $4)
+                 ON CONFLICT (region, departement, arrondissement, commune) DO NOTHING`,
+                [row.region, row.departement, row.arrondissement, row.commune]
+            );
+        }
+        await client.query('COMMIT');
+        console.log(`Decoupage: ${data.length} communes inserted`);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Decoupage seed error:', err.message);
     } finally {
         client.release();
     }

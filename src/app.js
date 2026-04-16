@@ -13,6 +13,7 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const uploadsRoutes = require('./routes/uploads.routes');
 const seedRoutes = require('./routes/seed.routes');
 const measureCommentsRoutes = require('./routes/measureComments.routes');
+const decoupageRoutes = require('./routes/decoupage.routes');
 
 // Import middlewares
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
@@ -84,6 +85,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/seed', seedRoutes);
 app.use('/api', measureCommentsRoutes);
+app.use('/api/decoupage', decoupageRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

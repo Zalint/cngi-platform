@@ -91,7 +91,15 @@ const App = {
                             content = await UsersPage.render();
                         }
                         break;
-                    
+
+                    case 'decoupage':
+                        if (!Auth.hasRole('admin')) {
+                            content = '<div class="alert alert-error">Accès refusé</div>';
+                        } else {
+                            content = await DecoupagePage.render();
+                        }
+                        break;
+
                     default:
                         // Par défaut, rediriger vers dashboard
                         window.location.hash = '#/dashboard';
@@ -161,6 +169,9 @@ const App = {
                     break;
                 case 'users':
                     if (UsersPage.afterRender) UsersPage.afterRender();
+                    break;
+                case 'decoupage':
+                    if (DecoupagePage.afterRender) DecoupagePage.afterRender();
                     break;
             }
         }, 100);

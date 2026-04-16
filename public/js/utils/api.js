@@ -202,6 +202,22 @@ const API = {
         delete: (id) => API.delete(`/uploads/${id}`)
     },
 
+    // === Decoupage administratif endpoints ===
+    decoupage: {
+        getRegions: () => API.get('/decoupage/regions'),
+        getDepartements: (region) => API.get(`/decoupage/departements?region=${encodeURIComponent(region)}`),
+        getArrondissements: (departement) => API.get(`/decoupage/arrondissements?departement=${encodeURIComponent(departement)}`),
+        getCommunes: (arrondissement) => API.get(`/decoupage/communes?arrondissement=${encodeURIComponent(arrondissement)}`),
+        getAll: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.get(`/decoupage${query ? '?' + query : ''}`);
+        },
+        getStats: () => API.get('/decoupage/stats'),
+        create: (data) => API.post('/decoupage', data),
+        update: (id, data) => API.put(`/decoupage/${id}`, data),
+        delete: (id) => API.delete(`/decoupage/${id}`)
+    },
+
     // === Seed endpoints (Admin only) ===
     seed: {
         reset: () => API.post('/seed/reset', {}),
