@@ -1,6 +1,6 @@
-import { api } from '../utils/api.js';
+// Page Gestion des Mappings Projet-Structure
 
-export const projectStructures = {
+const ProjectStructuresPage = {
     async render() {
         return `
             <div class="container">
@@ -47,8 +47,8 @@ export const projectStructures = {
 
             // Charger les projets et structures
             const [projectsRes, structuresRes] = await Promise.all([
-                api.get('/projects'),
-                api.get('/structures')
+                API.get('/projects'),
+                API.get('/structures')
             ]);
 
             this.projects = projectsRes.data;
@@ -57,7 +57,7 @@ export const projectStructures = {
             // Charger les mappings pour chaque projet
             const projectsWithStructures = await Promise.all(
                 this.projects.map(async (project) => {
-                    const structuresRes = await api.get(`/projects/${project.id}/structures`);
+                    const structuresRes = await API.get(`/projects/${project.id}/structures`);
                     return {
                         ...project,
                         assignedStructures: structuresRes.data
@@ -194,7 +194,7 @@ export const projectStructures = {
             btn.disabled = true;
             btn.textContent = '⏳ Enregistrement...';
 
-            await api.post(`/projects/${projectId}/structures`, {
+            await API.post(`/projects/${projectId}/structures`, {
                 structure_ids: structureIds
             });
 

@@ -80,7 +80,7 @@ const App = {
                         if (!Auth.hasRole('admin')) {
                             content = '<div class="alert alert-error">Accès refusé</div>';
                         } else {
-                            content = await projectStructures.render();
+                            content = await ProjectStructuresPage.render();
                         }
                         break;
                     
@@ -165,7 +165,7 @@ const App = {
                     if (AdminPage.afterRender) AdminPage.afterRender();
                     break;
                 case 'project-structures':
-                    if (projectStructures.afterRender) projectStructures.afterRender();
+                    if (ProjectStructuresPage.afterRender) ProjectStructuresPage.afterRender();
                     break;
                 case 'users':
                     if (UsersPage.afterRender) UsersPage.afterRender();
