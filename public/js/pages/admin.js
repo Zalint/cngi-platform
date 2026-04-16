@@ -3,7 +3,8 @@
 const AdminPage = {
     data: {
         users: [],
-        structures: []
+        structures: [],
+        configItems: []
     },
 
     async render() {
@@ -35,13 +36,15 @@ const AdminPage = {
     },
 
     async loadData() {
-        const [users, structures] = await Promise.all([
+        const [users, structures, configItems] = await Promise.all([
             API.users.getAll(),
-            API.structures.getAll()
+            API.structures.getAll(),
+            API.config.getAll()
         ]);
 
         this.data.users = users.data;
         this.data.structures = structures.data;
+        this.data.configItems = configItems.data || [];
     },
 
     renderTabs() {
@@ -54,6 +57,9 @@ const AdminPage = {
                         </button>
                         <button class="admin-tab" data-tab="structures" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
                             Structures
+                        </button>
+                        <button class="admin-tab" data-tab="config" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
+                            Configuration
                         </button>
                     </div>
                     <div style="display: flex; gap: 12px;">
@@ -198,6 +204,8 @@ const AdminPage = {
                     content.innerHTML = this.renderUsers();
                 } else if (tabName === 'structures') {
                     content.innerHTML = this.renderStructures();
+                } else if (tabName === 'config') {
+                    content.innerHTML = this.renderConfig();
                 }
             });
         });
@@ -239,6 +247,178 @@ const AdminPage = {
                 window.location.reload();
             } catch (error) {
                 Toast.error('Erreur: ' + error.message);
+            }
+        }, { type: 'danger', confirmText: 'Supprimer' });
+    },
+
+    // === Configuration (Types & Statuts) ===
+
+    renderConfig() {
+        const types = this.data.configItems.filter(c => c.category === 'measure_type');
+        const statuses = this.data.configItems.filter(c => c.category === 'measure_status');
+
+        const renderTable = (title, category, items) => `
+            <div style="margin-bottom: 32px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 style="margin:0;color:#202B5D;">${title}</h3>
+                    <button class="btn btn-primary" onclick="AdminPage.addConfigItem('${category}')" style="font-size:13px;">
+                        + Ajouter
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Valeur</th>
+                                <th>Libellé</th>
+                                <th>Ordre</th>
+                                <th>Actif</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.map(item => `
+                                <tr>
+                                    <td><code style="background:#f0f4f8;padding:2px 8px;border-radius:4px;">${item.value}</code></td>
+                                    <td>${item.label}</td>
+                                    <td>${item.sort_order}</td>
+                                    <td>${item.is_active ? '<span style="color:#27ae60;">Oui</span>' : '<span style="color:#e74c3c;">Non</span>'}</td>
+                                    <td>
+                                        <div style="display:flex;gap:8px;">
+                                            <button class="btn-icon" onclick="AdminPage.editConfigItem(${item.id}, '${item.category}')" title="Modifier">&#9998;</button>
+                                            <button class="btn-icon" onclick="AdminPage.deleteConfigItem(${item.id})" title="Supprimer" style="color:#e74c3c;">&#10005;</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                            ${items.length === 0 ? '<tr><td colspan="5" style="text-align:center;color:#8896AB;">Aucun élément</td></tr>' : ''}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        return `
+            <div class="card">
+                <h2 style="margin-bottom:24px;">Configuration des listes</h2>
+                <p style="color:#62718D;margin-bottom:24px;">Gérez les types et statuts disponibles dans les formulaires.</p>
+                ${renderTable('Types de mesure', 'measure_type', types)}
+                ${renderTable('Statuts de mesure', 'measure_status', statuses)}
+            </div>
+        `;
+    },
+
+    addConfigItem(category) {
+        const title = category === 'measure_type' ? 'Nouveau type de mesure' : 'Nouveau statut de mesure';
+        const modal = document.createElement('div');
+        modal.className = 'confirm-overlay confirm-visible';
+        modal.innerHTML = `
+            <div class="confirm-dialog" style="text-align:left;max-width:450px;">
+                <h3 style="margin-bottom:20px;color:#202B5D;">${title}</h3>
+                <div class="form-group">
+                    <label>Valeur (identifiant)</label>
+                    <input type="text" id="cfg-value" class="form-control" placeholder="ex: pompage">
+                </div>
+                <div class="form-group">
+                    <label>Libellé (affiché)</label>
+                    <input type="text" id="cfg-label" class="form-control" placeholder="ex: Pompage">
+                </div>
+                <div class="form-group">
+                    <label>Ordre d'affichage</label>
+                    <input type="number" id="cfg-order" class="form-control" value="0">
+                </div>
+                <div class="confirm-actions" style="margin-top:20px;">
+                    <button class="confirm-btn confirm-btn-cancel" onclick="this.closest('.confirm-overlay').remove()">Annuler</button>
+                    <button class="confirm-btn confirm-btn-ok" style="background:#3794C4;" onclick="AdminPage.saveNewConfigItem('${category}')">Enregistrer</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    },
+
+    async saveNewConfigItem(category) {
+        const value = document.getElementById('cfg-value').value.trim();
+        const label = document.getElementById('cfg-label').value.trim();
+        const sort_order = parseInt(document.getElementById('cfg-order').value) || 0;
+
+        if (!value || !label) { Toast.warning('Valeur et libellé requis.'); return; }
+
+        try {
+            await API.config.create({ category, value, label, sort_order });
+            document.querySelector('.confirm-overlay').remove();
+            Toast.success('Élément ajouté.');
+            // Refresh config data and re-render
+            const res = await API.config.getAll();
+            this.data.configItems = res.data || [];
+            document.getElementById('admin-content').innerHTML = this.renderConfig();
+        } catch (err) {
+            Toast.error('Erreur: ' + (err.message || 'Erreur inconnue'));
+        }
+    },
+
+    editConfigItem(id, category) {
+        const item = this.data.configItems.find(c => c.id === id);
+        if (!item) return;
+
+        const modal = document.createElement('div');
+        modal.className = 'confirm-overlay confirm-visible';
+        modal.innerHTML = `
+            <div class="confirm-dialog" style="text-align:left;max-width:450px;">
+                <h3 style="margin-bottom:20px;color:#202B5D;">Modifier</h3>
+                <div class="form-group">
+                    <label>Valeur</label>
+                    <input type="text" id="cfg-edit-value" class="form-control" value="${item.value}">
+                </div>
+                <div class="form-group">
+                    <label>Libellé</label>
+                    <input type="text" id="cfg-edit-label" class="form-control" value="${item.label}">
+                </div>
+                <div class="form-group">
+                    <label>Ordre</label>
+                    <input type="number" id="cfg-edit-order" class="form-control" value="${item.sort_order}">
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="cfg-edit-active" ${item.is_active ? 'checked' : ''}> Actif</label>
+                </div>
+                <div class="confirm-actions" style="margin-top:20px;">
+                    <button class="confirm-btn confirm-btn-cancel" onclick="this.closest('.confirm-overlay').remove()">Annuler</button>
+                    <button class="confirm-btn confirm-btn-ok" style="background:#3794C4;" onclick="AdminPage.saveEditConfigItem(${id})">Enregistrer</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    },
+
+    async saveEditConfigItem(id) {
+        const value = document.getElementById('cfg-edit-value').value.trim();
+        const label = document.getElementById('cfg-edit-label').value.trim();
+        const sort_order = parseInt(document.getElementById('cfg-edit-order').value) || 0;
+        const is_active = document.getElementById('cfg-edit-active').checked;
+
+        if (!value || !label) { Toast.warning('Valeur et libellé requis.'); return; }
+
+        try {
+            await API.config.update(id, { value, label, sort_order, is_active });
+            document.querySelector('.confirm-overlay').remove();
+            Toast.success('Élément modifié.');
+            const res = await API.config.getAll();
+            this.data.configItems = res.data || [];
+            document.getElementById('admin-content').innerHTML = this.renderConfig();
+        } catch (err) {
+            Toast.error('Erreur: ' + (err.message || 'Erreur inconnue'));
+        }
+    },
+
+    deleteConfigItem(id) {
+        Toast.confirm('Supprimer cet élément de configuration ?', async () => {
+            try {
+                await API.config.delete(id);
+                Toast.success('Élément supprimé.');
+                const res = await API.config.getAll();
+                this.data.configItems = res.data || [];
+                document.getElementById('admin-content').innerHTML = this.renderConfig();
+            } catch (err) {
+                Toast.error('Erreur: ' + (err.message || 'Erreur inconnue'));
             }
         }, { type: 'danger', confirmText: 'Supprimer' });
     },
