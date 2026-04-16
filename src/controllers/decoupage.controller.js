@@ -1,5 +1,18 @@
 const DecoupageModel = require('../models/decoupage.model');
 
+exports.search = async (req, res, next) => {
+    try {
+        const { q } = req.query;
+        if (!q || q.length < 2) {
+            return res.json({ success: true, data: [] });
+        }
+        const results = await DecoupageModel.search(q);
+        res.json({ success: true, data: results });
+    } catch (error) {
+        next(error);
+    }
+};
+
 exports.getRegions = async (req, res, next) => {
     try {
         const regions = await DecoupageModel.getRegions();

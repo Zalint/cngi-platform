@@ -160,35 +160,46 @@ const ProjectDetailPage = {
                 <div id="localities-container">
                     ${this.data.editMode.localities.map((loc, index) => `
                         <div class="locality-item" style="padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px;" data-index="${index}">
-                            <div style="display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 10px; align-items: start;">
-                                ${isProjectManager ? `
-                                    <select class="form-control loc-region" data-index="${index}"
-                                            onchange="ProjectDetailPage.onLocalityRegionChange(${index}, this.value)">
-                                        <option value="">-- Région --</option>
-                                    </select>
-                                    <select class="form-control loc-dept" data-index="${index}"
-                                            onchange="ProjectDetailPage.onLocalityDeptChange(${index}, this.value)">
-                                        <option value="">-- Département --</option>
-                                    </select>
-                                    <select class="form-control loc-arrond" data-index="${index}"
-                                            onchange="ProjectDetailPage.onLocalityArrondChange(${index}, this.value)">
-                                        <option value="">-- Arrondissement --</option>
-                                    </select>
-                                    <select class="form-control loc-commune" data-index="${index}"
-                                            onchange="ProjectDetailPage.updateLocalityField(${index}, 'commune', this.value)">
-                                        <option value="">-- Commune --</option>
-                                    </select>
-                                    <span style="font-size:11px;color:#62718D;align-self:center;">${loc.region ? [loc.region, loc.departement, loc.arrondissement, loc.commune].filter(Boolean).join(' > ') : ''}</span>
-                                    <button class="btn btn-danger" onclick="ProjectDetailPage.removeLocality(${index})" style="max-width: 100px; font-size: 12px;">
+                            ${isProjectManager ? `
+                                <div style="display: flex; gap: 10px; align-items: start; margin-bottom: 8px;">
+                                    <div style="flex:1; position:relative;">
+                                        <input type="text" class="form-control loc-search" data-index="${index}"
+                                               placeholder="Rechercher une commune, arrondissement, département..."
+                                               oninput="ProjectDetailPage.onLocationSearch(${index}, 'loc', this.value)"
+                                               onfocus="ProjectDetailPage.onLocationSearch(${index}, 'loc', this.value)"
+                                               autocomplete="off">
+                                        <div class="search-results" id="loc-results-${index}" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:white;border:1px solid #dce3ed;border-radius:0 0 8px 8px;max-height:250px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                                    </div>
+                                    <button class="btn btn-danger" onclick="ProjectDetailPage.removeLocality(${index})" style="font-size: 12px; white-space:nowrap;">
                                         Retirer
                                     </button>
-                                ` : `
+                                </div>
+                                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+                                    <div style="padding:8px 12px;background:white;border-radius:6px;border:1px solid #dce3ed;">
+                                        <div style="font-size:10px;color:#8896AB;font-weight:600;text-transform:uppercase;">Région</div>
+                                        <div style="font-size:13px;font-weight:600;color:#202B5D;" id="loc-region-${index}">${loc.region || '—'}</div>
+                                    </div>
+                                    <div style="padding:8px 12px;background:white;border-radius:6px;border:1px solid #dce3ed;">
+                                        <div style="font-size:10px;color:#8896AB;font-weight:600;text-transform:uppercase;">Département</div>
+                                        <div style="font-size:13px;font-weight:600;color:#202B5D;" id="loc-dept-${index}">${loc.departement || '—'}</div>
+                                    </div>
+                                    <div style="padding:8px 12px;background:white;border-radius:6px;border:1px solid #dce3ed;">
+                                        <div style="font-size:10px;color:#8896AB;font-weight:600;text-transform:uppercase;">Arrondissement</div>
+                                        <div style="font-size:13px;font-weight:600;color:#202B5D;" id="loc-arrond-${index}">${loc.arrondissement || '—'}</div>
+                                    </div>
+                                    <div style="padding:8px 12px;background:white;border-radius:6px;border:1px solid #dce3ed;">
+                                        <div style="font-size:10px;color:#8896AB;font-weight:600;text-transform:uppercase;">Commune</div>
+                                        <div style="font-size:13px;font-weight:600;color:#202B5D;" id="loc-commune-${index}">${loc.commune || '—'}</div>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
                                     <div><strong>Région:</strong> ${loc.region || 'N/A'}</div>
                                     <div><strong>Département:</strong> ${loc.departement || 'N/A'}</div>
                                     <div><strong>Arrondissement:</strong> ${loc.arrondissement || 'N/A'}</div>
                                     <div><strong>Commune:</strong> ${loc.commune || 'N/A'}</div>
-                                `}
-                            </div>
+                                </div>
+                            `}
                         </div>
                     `).join('')}
                 </div>
@@ -204,49 +215,53 @@ const ProjectDetailPage = {
                 <div id="sites-container">
                     ${this.data.editMode.sites.map((site, index) => `
                         <div class="site-item" style="padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px;" data-index="${index}">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                                ${isProjectManager ? `
+                            ${isProjectManager ? `
+                                <div style="display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 10px; margin-bottom: 10px;">
                                     <input type="text" class="form-control" placeholder="Nom du site"
                                            value="${site.name || ''}"
                                            onchange="ProjectDetailPage.updateSiteField(${index}, 'name', this.value)">
                                     <input type="text" class="form-control" placeholder="Description"
                                            value="${site.description || ''}"
                                            onchange="ProjectDetailPage.updateSiteField(${index}, 'description', this.value)">
-                                ` : `
-                                    <div><strong>${site.name}</strong></div>
-                                    <div>${site.description || 'N/A'}</div>
-                                `}
-                            </div>
-                            ${isProjectManager ? `
-                            <div style="display: grid; grid-template-columns: repeat(4, 1fr) auto auto; gap: 10px; align-items: start;">
-                                <select class="form-control site-region" data-site-index="${index}"
-                                        onchange="ProjectDetailPage.onSiteRegionChange(${index}, this.value)">
-                                    <option value="">-- Région --</option>
-                                </select>
-                                <select class="form-control site-dept" data-site-index="${index}"
-                                        onchange="ProjectDetailPage.onSiteDeptChange(${index}, this.value)">
-                                    <option value="">-- Département --</option>
-                                </select>
-                                <select class="form-control site-arrond" data-site-index="${index}"
-                                        onchange="ProjectDetailPage.onSiteArrondChange(${index}, this.value)">
-                                    <option value="">-- Arrondissement --</option>
-                                </select>
-                                <select class="form-control site-commune" data-site-index="${index}"
-                                        onchange="ProjectDetailPage.updateSiteField(${index}, 'commune', this.value)">
-                                    <option value="">-- Commune --</option>
-                                </select>
-                                <input type="text" class="form-control" placeholder="Lat,Lng" style="max-width:140px;"
-                                       value="${site.latitude && site.longitude ? site.latitude + ',' + site.longitude : ''}"
-                                       onchange="ProjectDetailPage.updateSiteCoordinates(${index}, this.value)">
-                                <button class="btn btn-danger" onclick="ProjectDetailPage.removeSite(${index})" style="font-size:12px;">
-                                    Retirer
-                                </button>
-                            </div>
+                                    <input type="text" class="form-control" placeholder="Lat,Lng" style="max-width:140px;"
+                                           value="${site.latitude && site.longitude ? site.latitude + ',' + site.longitude : ''}"
+                                           onchange="ProjectDetailPage.updateSiteCoordinates(${index}, this.value)">
+                                    <button class="btn btn-danger" onclick="ProjectDetailPage.removeSite(${index})" style="font-size:12px;">
+                                        Retirer
+                                    </button>
+                                </div>
+                                <div style="position:relative; margin-bottom:8px;">
+                                    <input type="text" class="form-control site-search" data-site-index="${index}"
+                                           placeholder="Rechercher localisation (commune, arrondissement...)"
+                                           oninput="ProjectDetailPage.onLocationSearch(${index}, 'site', this.value)"
+                                           onfocus="ProjectDetailPage.onLocationSearch(${index}, 'site', this.value)"
+                                           autocomplete="off">
+                                    <div class="search-results" id="site-results-${index}" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:white;border:1px solid #dce3ed;border-radius:0 0 8px 8px;max-height:250px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                                </div>
+                                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+                                    <div style="padding:6px 10px;background:white;border-radius:6px;border:1px solid #dce3ed;">
+                                        <div style="font-size:10px;color:#8896AB;font-weight:600;">REGION</div>
+                                        <div style="font-size:12px;font-weight:600;color:#202B5D;" id="site-region-${index}">${site.region || '—'}</div>
+                                    </div>
+                                    <div style="padding:6px 10px;background:white;border-radius:6px;border:1px solid #dce3ed;">
+                                        <div style="font-size:10px;color:#8896AB;font-weight:600;">DEPT</div>
+                                        <div style="font-size:12px;font-weight:600;color:#202B5D;" id="site-dept-${index}">${site.departement || '—'}</div>
+                                    </div>
+                                    <div style="padding:6px 10px;background:white;border-radius:6px;border:1px solid #dce3ed;">
+                                        <div style="font-size:10px;color:#8896AB;font-weight:600;">ARROND</div>
+                                        <div style="font-size:12px;font-weight:600;color:#202B5D;" id="site-arrond-${index}">${site.arrondissement || '—'}</div>
+                                    </div>
+                                    <div style="padding:6px 10px;background:white;border-radius:6px;border:1px solid #dce3ed;">
+                                        <div style="font-size:10px;color:#8896AB;font-weight:600;">COMMUNE</div>
+                                        <div style="font-size:12px;font-weight:600;color:#202B5D;" id="site-commune-${index}">${site.commune || '—'}</div>
+                                    </div>
+                                </div>
                             ` : `
-                            <div style="font-size:12px;color:#62718D;">
-                                ${[site.region, site.departement, site.arrondissement, site.commune].filter(Boolean).join(' > ') || ''}
-                                ${site.latitude && site.longitude ? '| ' + site.latitude + ', ' + site.longitude : ''}
-                            </div>
+                                <div><strong>${site.name}</strong> — ${site.description || ''}</div>
+                                <div style="font-size:12px;color:#62718D;margin-top:4px;">
+                                    ${[site.region, site.departement, site.arrondissement, site.commune].filter(Boolean).join(' > ') || ''}
+                                    ${site.latitude && site.longitude ? ' | ' + site.latitude + ', ' + site.longitude : ''}
+                                </div>
                             `}
                         </div>
                     `).join('')}
@@ -821,64 +836,84 @@ const ProjectDetailPage = {
         this.populateLocationDropdowns();
     },
 
+    _searchTimeout: null,
+    async onLocationSearch(index, type, query) {
+        clearTimeout(this._searchTimeout);
+        const resultsDiv = document.getElementById(`${type}-results-${index}`);
+        if (!resultsDiv) return;
+        if (!query || query.length < 2) { resultsDiv.style.display = 'none'; return; }
+
+        this._searchTimeout = setTimeout(async () => {
+            try {
+                const res = await API.decoupage.search(query);
+                if (!res.data || res.data.length === 0) {
+                    resultsDiv.innerHTML = '<div style="padding:12px;color:#8896AB;font-size:13px;">Aucun résultat</div>';
+                    resultsDiv.style.display = 'block';
+                    return;
+                }
+                resultsDiv.innerHTML = res.data.map((r, i) => `
+                    <div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px;transition:background 0.1s;"
+                         onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'"
+                         onclick="ProjectDetailPage.selectLocation(${index}, '${type}', ${i})">
+                        <strong style="color:#202B5D;">${r.commune}</strong>
+                        <span style="color:#8896AB;"> — ${r.arrondissement}</span>
+                        <div style="font-size:11px;color:#8896AB;margin-top:2px;">${r.region} > ${r.departement} > ${r.arrondissement}</div>
+                    </div>
+                `).join('');
+                resultsDiv.style.display = 'block';
+                // Store results for selection
+                resultsDiv._data = res.data;
+            } catch (err) { console.error(err); }
+        }, 250);
+    },
+
+    selectLocation(index, type, resultIndex) {
+        const resultsDiv = document.getElementById(`${type}-results-${index}`);
+        const row = resultsDiv?._data?.[resultIndex];
+        if (!row) return;
+
+        const target = type === 'loc' ? this.data.editMode.localities[index] : this.data.editMode.sites[index];
+        target.region = row.region;
+        target.departement = row.departement;
+        target.arrondissement = row.arrondissement;
+        target.commune = row.commune;
+
+        // Update display
+        const prefix = type === 'loc' ? 'loc' : 'site';
+        const el = (id) => document.getElementById(id);
+        if (el(`${prefix}-region-${index}`)) el(`${prefix}-region-${index}`).textContent = row.region;
+        if (el(`${prefix}-dept-${index}`)) el(`${prefix}-dept-${index}`).textContent = row.departement;
+        if (el(`${prefix}-arrond-${index}`)) el(`${prefix}-arrond-${index}`).textContent = row.arrondissement;
+        if (el(`${prefix}-commune-${index}`)) el(`${prefix}-commune-${index}`).textContent = row.commune;
+
+        // Clear search
+        resultsDiv.style.display = 'none';
+        const searchInput = type === 'loc'
+            ? document.querySelector(`.loc-search[data-index="${index}"]`)
+            : document.querySelector(`.site-search[data-site-index="${index}"]`);
+        if (searchInput) searchInput.value = `${row.commune} — ${row.arrondissement}`;
+    },
+
     async populateLocationDropdowns() {
-        try {
-            const regionsRes = await API.decoupage.getRegions();
-            const regions = regionsRes.data || [];
-
-            // Populate locality dropdowns
-            for (let i = 0; i < this.data.editMode.localities.length; i++) {
-                const loc = this.data.editMode.localities[i];
-                const regSel = document.querySelector(`.loc-region[data-index="${i}"]`);
-                if (!regSel) continue;
-                regions.forEach(r => { regSel.innerHTML += `<option value="${r}" ${r === loc.region ? 'selected' : ''}>${r}</option>`; });
-
-                if (loc.region) {
-                    const deptRes = await API.decoupage.getDepartements(loc.region);
-                    const deptSel = document.querySelector(`.loc-dept[data-index="${i}"]`);
-                    if (deptSel) deptRes.data.forEach(d => { deptSel.innerHTML += `<option value="${d}" ${d === loc.departement ? 'selected' : ''}>${d}</option>`; });
-
-                    if (loc.departement) {
-                        const arrRes = await API.decoupage.getArrondissements(loc.departement);
-                        const arrSel = document.querySelector(`.loc-arrond[data-index="${i}"]`);
-                        if (arrSel) arrRes.data.forEach(a => { arrSel.innerHTML += `<option value="${a}" ${a === loc.arrondissement ? 'selected' : ''}>${a}</option>`; });
-
-                        if (loc.arrondissement) {
-                            const comRes = await API.decoupage.getCommunes(loc.arrondissement);
-                            const comSel = document.querySelector(`.loc-commune[data-index="${i}"]`);
-                            if (comSel) comRes.data.forEach(c => { comSel.innerHTML += `<option value="${c}" ${c === loc.commune ? 'selected' : ''}>${c}</option>`; });
-                        }
-                    }
-                }
+        // Pre-fill search inputs for existing data
+        this.data.editMode.localities.forEach((loc, i) => {
+            if (loc.commune) {
+                const input = document.querySelector(`.loc-search[data-index="${i}"]`);
+                if (input) input.value = `${loc.commune} — ${loc.arrondissement || ''}`;
             }
-
-            // Populate site dropdowns
-            for (let i = 0; i < this.data.editMode.sites.length; i++) {
-                const site = this.data.editMode.sites[i];
-                const regSel = document.querySelector(`.site-region[data-site-index="${i}"]`);
-                if (!regSel) continue;
-                regions.forEach(r => { regSel.innerHTML += `<option value="${r}" ${r === site.region ? 'selected' : ''}>${r}</option>`; });
-
-                if (site.region) {
-                    const deptRes = await API.decoupage.getDepartements(site.region);
-                    const deptSel = document.querySelector(`.site-dept[data-site-index="${i}"]`);
-                    if (deptSel) deptRes.data.forEach(d => { deptSel.innerHTML += `<option value="${d}" ${d === site.departement ? 'selected' : ''}>${d}</option>`; });
-
-                    if (site.departement) {
-                        const arrRes = await API.decoupage.getArrondissements(site.departement);
-                        const arrSel = document.querySelector(`.site-arrond[data-site-index="${i}"]`);
-                        if (arrSel) arrRes.data.forEach(a => { arrSel.innerHTML += `<option value="${a}" ${a === site.arrondissement ? 'selected' : ''}>${a}</option>`; });
-
-                        if (site.arrondissement) {
-                            const comRes = await API.decoupage.getCommunes(site.arrondissement);
-                            const comSel = document.querySelector(`.site-commune[data-site-index="${i}"]`);
-                            if (comSel) comRes.data.forEach(c => { comSel.innerHTML += `<option value="${c}" ${c === site.commune ? 'selected' : ''}>${c}</option>`; });
-                        }
-                    }
-                }
+        });
+        this.data.editMode.sites.forEach((site, i) => {
+            if (site.commune || site.region) {
+                const input = document.querySelector(`.site-search[data-site-index="${i}"]`);
+                if (input) input.value = [site.commune, site.arrondissement].filter(Boolean).join(' — ') || site.region || '';
             }
-        } catch (err) {
-            console.error('Error populating dropdowns:', err);
-        }
+        });
+
+        // Close search results on click outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.loc-search') && !e.target.closest('.site-search') && !e.target.closest('.search-results')) {
+                document.querySelectorAll('.search-results').forEach(el => el.style.display = 'none');
+            }
+        });
     }
 };

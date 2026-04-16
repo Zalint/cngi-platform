@@ -204,6 +204,7 @@ const API = {
 
     // === Decoupage administratif endpoints ===
     decoupage: {
+        search: (q) => API.get(`/decoupage/search?q=${encodeURIComponent(q)}`),
         getRegions: () => API.get('/decoupage/regions'),
         getDepartements: (region) => API.get(`/decoupage/departements?region=${encodeURIComponent(region)}`),
         getArrondissements: (departement) => API.get(`/decoupage/arrondissements?departement=${encodeURIComponent(departement)}`),

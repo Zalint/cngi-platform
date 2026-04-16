@@ -42,6 +42,32 @@ class DecoupageModel {
     }
 
     /**
+     * Rechercher dans le decoupage (commune, arrondissement, departement ou region)
+     * Retourne les lignes completes avec tous les niveaux parents
+     */
+    static async search(query, limit = 15) {
+        const result = await db.query(`
+            SELECT DISTINCT region, departement, arrondissement, commune
+            FROM decoupage
+            WHERE commune ILIKE $1
+               OR arrondissement ILIKE $1
+               OR departement ILIKE $1
+               OR region ILIKE $1
+            ORDER BY
+                CASE
+                    WHEN commune ILIKE $2 THEN 1
+                    WHEN arrondissement ILIKE $2 THEN 2
+                    WHEN departement ILIKE $2 THEN 3
+                    WHEN region ILIKE $2 THEN 4
+                    ELSE 5
+                END,
+                region, departement, arrondissement, commune
+            LIMIT $3
+        `, ['%' + query + '%', query + '%', limit]);
+        return result.rows;
+    },
+
+    /**
      * Recuperer toutes les entrees avec filtres optionnels et pagination
      */
     static async getAll(filters = {}) {
