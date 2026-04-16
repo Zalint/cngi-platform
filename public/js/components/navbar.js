@@ -15,7 +15,7 @@ const Navbar = {
                         <img src="https://mha.gouv.sn/wp-content/uploads/2020/10/logo_mha_transparent3-1.png" alt="MHA" onerror="this.style.display='none'">
                     </div>
                     <div class="app-title">CNGI</div>
-                    <div class="app-subtitle">Cellule Nationale de Gestion des Inondations</div>
+                    <div class="app-subtitle">Comité National de Gestion des Inondations</div>
                     <p style="font-size: 10px; opacity: 0.4; margin-top: 8px;">DPGI — Maître d'ouvrage</p>
                 </div>
 
@@ -98,10 +98,10 @@ const Navbar = {
     },
 
     logout() {
-        if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+        Toast.confirm('Etes-vous sur de vouloir vous deconnecter ?', () => {
             Auth.logout();
             window.location.hash = '#/login';
-        }
+        }, { type: 'info', confirmText: 'Deconnexion' });
     }
 };
 

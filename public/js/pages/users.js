@@ -208,7 +208,7 @@ const UsersPage = {
             document.getElementById('userModal').style.display = 'flex';
         } catch (error) {
             console.error('Error loading user:', error);
-            alert('Erreur lors du chargement de l\'utilisateur');
+            Toast.error('Erreur lors du chargement de l\'utilisateur');
         }
     },
 
@@ -239,38 +239,36 @@ const UsersPage = {
             if (this.data.editingUser) {
                 // Update
                 await API.users.update(this.data.editingUser.id, userData);
-                alert('✅ Utilisateur modifié avec succès !');
+                Toast.success('Utilisateur modifié avec succès !');
             } else {
                 // Create
                 if (!password) {
-                    alert('⚠️ Le mot de passe est obligatoire pour créer un utilisateur.');
+                    Toast.warning('Le mot de passe est obligatoire pour créer un utilisateur.');
                     return;
                 }
                 await API.users.create(userData);
-                alert('✅ Utilisateur créé avec succès !');
+                Toast.success('Utilisateur créé avec succès !');
             }
 
             this.closeModal();
             window.location.reload();
         } catch (error) {
             console.error('Error saving user:', error);
-            alert('Erreur lors de l\'enregistrement: ' + (error.message || 'Erreur inconnue'));
+            Toast.error('Erreur lors de l\'enregistrement: ' + (error.message || 'Erreur inconnue'));
         }
     },
 
     async deleteUser(userId) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
-            return;
-        }
-
-        try {
-            await API.users.delete(userId);
-            alert('✅ Utilisateur supprimé avec succès !');
-            window.location.reload();
-        } catch (error) {
-            console.error('Error deleting user:', error);
-            alert('Erreur lors de la suppression: ' + (error.message || 'Erreur inconnue'));
-        }
+        Toast.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?', async () => {
+            try {
+                await API.users.delete(userId);
+                Toast.success('Utilisateur supprimé avec succès !');
+                window.location.reload();
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                Toast.error('Erreur lors de la suppression: ' + (error.message || 'Erreur inconnue'));
+            }
+        }, { type: 'danger', confirmText: 'Supprimer' });
     },
 
     afterRender() {

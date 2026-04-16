@@ -272,7 +272,7 @@ const FormViewPage = {
             const projects = projectsResponse.data;
 
             if (projects.length === 0) {
-                alert('Aucun projet disponible. Veuillez créer un projet d\'abord.');
+                Toast.warning('Aucun projet disponible. Veuillez créer un projet d\'abord.');
                 return;
             }
 
@@ -330,7 +330,7 @@ const FormViewPage = {
 
         } catch (error) {
             console.error('Error opening form:', error);
-            alert('Erreur lors de l\'ouverture du formulaire: ' + error.message);
+            Toast.error('Erreur lors de l\'ouverture du formulaire: ' + error.message);
         }
     },
 
@@ -456,7 +456,7 @@ const FormViewPage = {
             // Récupérer le project_id
             const projectId = formData.get('project_id');
             if (!projectId) {
-                alert('Veuillez sélectionner un projet');
+                Toast.warning('Veuillez sélectionner un projet');
                 return;
             }
 
@@ -483,14 +483,14 @@ const FormViewPage = {
             this.closeFormModal();
 
             // Afficher un message de succès
-            alert('✅ Formulaire soumis avec succès !');
+            Toast.success('Formulaire soumis avec succès !');
 
             // Recharger la page pour afficher la nouvelle soumission
             window.location.reload();
 
         } catch (error) {
             console.error('Error submitting form:', error);
-            alert('Erreur lors de la soumission du formulaire: ' + (error.message || 'Erreur inconnue'));
+            Toast.error('Erreur lors de la soumission du formulaire: ' + (error.message || 'Erreur inconnue'));
             
             // Réactiver le bouton
             const submitBtn = formElement.querySelector('button[type="submit"]');
@@ -537,7 +537,7 @@ const FormViewPage = {
             
             document.body.insertAdjacentHTML('beforeend', modal);
         } catch (error) {
-            alert('Erreur lors du chargement de la soumission: ' + error.message);
+            Toast.error('Erreur lors du chargement de la soumission: ' + error.message);
         }
     },
 

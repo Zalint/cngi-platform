@@ -14,7 +14,8 @@
       "Bash(node -e ':*)",
       "WebFetch(domain:mha.gouv.sn)",
       "mcp__Claude_in_Chrome__tabs_context_mcp",
-      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const init = require\\('./db/init'\\); init\\(\\).then\\(\\(\\) => { console.log\\('OK'\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\(e.message\\); process.exit\\(1\\); }\\)\")"
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const init = require\\('./db/init'\\); init\\(\\).then\\(\\(\\) => { console.log\\('OK'\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\(e.message\\); process.exit\\(1\\); }\\)\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const init = require\\('./db/init'\\); init\\(\\).then\\(\\(\\) => { console.log\\('DB OK'\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\(e.message\\); process.exit\\(1\\); }\\)\")"
     ]
   }
 }

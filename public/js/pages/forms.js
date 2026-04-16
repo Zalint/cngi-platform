@@ -85,7 +85,7 @@ const FormsPage = {
 
     fillForm(id) {
         // TODO: Implement form filling - Page de soumission
-        alert('Fonctionnalité de remplissage de formulaire en cours de développement');
+        Toast.info('Fonctionnalite de remplissage de formulaire en cours de developpement');
     },
 
     createForm() {
@@ -99,18 +99,16 @@ const FormsPage = {
 
     async deleteForm(id) {
         event.stopPropagation();
-        
-        if (!confirm('Êtes-vous sûr de vouloir supprimer ce formulaire ?')) {
-            return;
-        }
 
-        try {
-            await API.forms.delete(id);
-            alert('Formulaire supprimé');
-            window.location.reload();
-        } catch (error) {
-            alert('Erreur: ' + error.message);
-        }
+        Toast.confirm('Etes-vous sur de vouloir supprimer ce formulaire ?', async () => {
+            try {
+                await API.forms.delete(id);
+                Toast.success('Formulaire supprime');
+                window.location.reload();
+            } catch (error) {
+                Toast.error('Erreur: ' + error.message);
+            }
+        }, { type: 'danger' });
     },
 
     afterRender() {

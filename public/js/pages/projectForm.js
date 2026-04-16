@@ -176,7 +176,7 @@ const ProjectFormPage = {
             const deadline_date = document.getElementById('project-deadline').value;
 
             if (!title || !structure_id || !project_manager_id) {
-                alert('Veuillez remplir tous les champs obligatoires');
+                Toast.warning('Veuillez remplir tous les champs obligatoires');
                 return;
             }
 
@@ -196,16 +196,16 @@ const ProjectFormPage = {
 
             if (this.data.isEdit) {
                 await API.projects.update(this.data.project.id, projectData);
-                alert('✅ Projet mis à jour avec succès !');
+                Toast.success('Projet mis a jour avec succes !');
                 window.location.hash = `#/projects/${this.data.project.id}`;
             } else {
                 const response = await API.projects.create(projectData);
-                alert('✅ Projet créé avec succès !');
+                Toast.success('Projet cree avec succes !');
                 window.location.hash = `#/projects/${response.data.id}`;
             }
         } catch (error) {
             console.error('Error saving project:', error);
-            alert('Erreur lors de la sauvegarde: ' + (error.message || 'Erreur inconnue'));
+            Toast.error('Erreur lors de la sauvegarde: ' + (error.message || 'Erreur inconnue'));
             
             const submitBtn = document.querySelector('#project-form button[type="submit"]');
             submitBtn.disabled = false;

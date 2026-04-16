@@ -204,152 +204,140 @@ const AdminPage = {
     },
 
     createUser() {
-        alert('Fonctionnalité de création d\'utilisateur en cours de développement');
+        Toast.info('Fonctionnalité de création d\'utilisateur en cours de développement');
     },
 
     editUser(id) {
-        alert('Fonctionnalité de modification d\'utilisateur en cours de développement');
+        Toast.info('Fonctionnalité de modification d\'utilisateur en cours de développement');
     },
 
     async deleteUser(id) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
-            return;
-        }
-
-        try {
-            await API.users.delete(id);
-            alert('Utilisateur supprimé');
-            window.location.reload();
-        } catch (error) {
-            alert('Erreur: ' + error.message);
-        }
+        Toast.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?', async () => {
+            try {
+                await API.users.delete(id);
+                Toast.success('Utilisateur supprimé');
+                window.location.reload();
+            } catch (error) {
+                Toast.error('Erreur: ' + error.message);
+            }
+        }, { type: 'danger', confirmText: 'Supprimer' });
     },
 
     createStructure() {
-        alert('Fonctionnalité de création de structure en cours de développement');
+        Toast.info('Fonctionnalité de création de structure en cours de développement');
     },
 
     editStructure(id) {
-        alert('Fonctionnalité de modification de structure en cours de développement');
+        Toast.info('Fonctionnalité de modification de structure en cours de développement');
     },
 
     async deleteStructure(id) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer cette structure ?')) {
-            return;
-        }
-
-        try {
-            await API.structures.delete(id);
-            alert('Structure supprimée');
-            window.location.reload();
-        } catch (error) {
-            alert('Erreur: ' + error.message);
-        }
+        Toast.confirm('Êtes-vous sûr de vouloir supprimer cette structure ?', async () => {
+            try {
+                await API.structures.delete(id);
+                Toast.success('Structure supprimée');
+                window.location.reload();
+            } catch (error) {
+                Toast.error('Erreur: ' + error.message);
+            }
+        }, { type: 'danger', confirmText: 'Supprimer' });
     },
 
     // === Gestion des Seeds ===
     
     async resetDatabase() {
-        if (!confirm('⚠️ ATTENTION ⚠️\n\nCette action va SUPPRIMER TOUTES les données de la base de données !\n\nÊtes-vous absolument sûr de vouloir continuer ?')) {
-            return;
-        }
+        Toast.confirm('ATTENTION\n\nCette action va SUPPRIMER TOUTES les données de la base de données !\n\nÊtes-vous absolument sûr de vouloir continuer ?', () => {
+            Toast.confirm('Dernière confirmation : Toutes les données seront perdues. Continuer ?', async () => {
+                try {
+                    const loadingDiv = document.createElement('div');
+                    loadingDiv.className = 'loading-overlay';
+                    loadingDiv.innerHTML = '<div class="loading"></div><div style="color: #1e3c72; margin-top: 20px; font-weight: 600;">Suppression en cours...</div>';
+                    document.body.appendChild(loadingDiv);
 
-        if (!confirm('Dernière confirmation : Toutes les données seront perdues. Continuer ?')) {
-            return;
-        }
+                    const response = await API.seed.reset();
 
-        try {
-            const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'loading-overlay';
-            loadingDiv.innerHTML = '<div class="loading"></div><div style="color: #1e3c72; margin-top: 20px; font-weight: 600;">Suppression en cours...</div>';
-            document.body.appendChild(loadingDiv);
+                    loadingDiv.remove();
 
-            const response = await API.seed.reset();
-            
-            loadingDiv.remove();
-            
-            if (response.success) {
-                alert('✅ Base de données vidée avec succès !');
-                window.location.reload();
-            }
-        } catch (error) {
-            document.querySelector('.loading-overlay')?.remove();
-            alert('❌ Erreur: ' + error.message);
-        }
+                    if (response.success) {
+                        Toast.success('Base de données vidée avec succès !');
+                        window.location.reload();
+                    }
+                } catch (error) {
+                    document.querySelector('.loading-overlay')?.remove();
+                    Toast.error('Erreur: ' + error.message);
+                }
+            }, { type: 'danger', confirmText: 'Confirmer la suppression' });
+        }, { type: 'danger', confirmText: 'Vider la base' });
     },
 
     async populateDatabase() {
-        if (!confirm('Voulez-vous remplir la base de données avec les données initiales ?\n\n- 6 structures\n- 6 utilisateurs\n- 6 projets\n- Sites, mesures, etc.')) {
-            return;
-        }
+        Toast.confirm('Voulez-vous remplir la base de données avec les données initiales ?\n\n- 6 structures\n- 6 utilisateurs\n- 6 projets\n- Sites, mesures, etc.', async () => {
+            try {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'loading-overlay';
+                loadingDiv.innerHTML = '<div class="loading"></div><div style="color: #1e3c72; margin-top: 20px; font-weight: 600;">Remplissage en cours...</div>';
+                document.body.appendChild(loadingDiv);
 
-        try {
-            const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'loading-overlay';
-            loadingDiv.innerHTML = '<div class="loading"></div><div style="color: #1e3c72; margin-top: 20px; font-weight: 600;">Remplissage en cours...</div>';
-            document.body.appendChild(loadingDiv);
+                const response = await API.seed.populate();
 
-            const response = await API.seed.populate();
-            
-            loadingDiv.remove();
-            
-            if (response.success) {
-                const summary = response.data;
-                alert(`✅ Base de données remplie avec succès !\n\n` +
-                      `📊 Résumé :\n` +
-                      `- Structures: ${summary.structures}\n` +
-                      `- Utilisateurs: ${summary.users}\n` +
-                      `- Projets: ${summary.projects}\n` +
-                      `- Sites: ${summary.sites}\n` +
-                      `- Mesures: ${summary.measures}\n` +
-                      `- Parties prenantes: ${summary.stakeholders}\n` +
-                      `- Financements: ${summary.financing}\n` +
-                      `- Formulaires: ${summary.forms}`);
-                window.location.reload();
+                loadingDiv.remove();
+
+                if (response.success) {
+                    const summary = response.data;
+                    Toast.success(`Base de données remplie avec succès !\n\n` +
+                          `Résumé :\n` +
+                          `- Structures: ${summary.structures}\n` +
+                          `- Utilisateurs: ${summary.users}\n` +
+                          `- Projets: ${summary.projects}\n` +
+                          `- Sites: ${summary.sites}\n` +
+                          `- Mesures: ${summary.measures}\n` +
+                          `- Parties prenantes: ${summary.stakeholders}\n` +
+                          `- Financements: ${summary.financing}\n` +
+                          `- Formulaires: ${summary.forms}`);
+                    window.location.reload();
+                }
+            } catch (error) {
+                document.querySelector('.loading-overlay')?.remove();
+                Toast.error('Erreur: ' + error.message);
             }
-        } catch (error) {
-            document.querySelector('.loading-overlay')?.remove();
-            alert('❌ Erreur: ' + error.message);
-        }
+        }, { confirmText: 'Remplir' });
     },
 
     async resetAndPopulate() {
-        if (!confirm('⚠️ Cette action va :\n\n1. SUPPRIMER toutes les données actuelles\n2. REMPLIR la base avec les données initiales\n\nContinuer ?')) {
-            return;
-        }
+        Toast.confirm('Cette action va :\n\n1. SUPPRIMER toutes les données actuelles\n2. REMPLIR la base avec les données initiales\n\nContinuer ?', async () => {
+            try {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'loading-overlay';
+                loadingDiv.innerHTML = '<div class="loading"></div><div style="color: #1e3c72; margin-top: 20px; font-weight: 600;">Réinitialisation en cours...</div>';
+                document.body.appendChild(loadingDiv);
 
-        try {
-            const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'loading-overlay';
-            loadingDiv.innerHTML = '<div class="loading"></div><div style="color: #1e3c72; margin-top: 20px; font-weight: 600;">Réinitialisation en cours...</div>';
-            document.body.appendChild(loadingDiv);
+                const response = await API.seed.resetAndPopulate();
 
-            const response = await API.seed.resetAndPopulate();
-            
-            loadingDiv.remove();
-            
-            if (response.success) {
-                const summary = response.data;
-                alert(`✅ Base de données réinitialisée avec succès !\n\n` +
-                      `📊 Données insérées :\n` +
-                      `- Structures: ${summary.structures}\n` +
-                      `- Utilisateurs: ${summary.users}\n` +
-                      `- Projets: ${summary.projects}\n` +
-                      `- Sites: ${summary.sites}\n` +
-                      `- Mesures: ${summary.measures}\n` +
-                      `- Parties prenantes: ${summary.stakeholders}\n` +
-                      `- Financements: ${summary.financing}\n` +
-                      `- Formulaires: ${summary.forms}\n\n` +
-                      `🔐 Comptes par défaut :\n` +
-                      `Admin: admin / mha@2024\n` +
-                      `Directeur: directeur / mha@2024\n` +
-                      `Utilisateurs: user_dpgi, user_onas, etc. / mha@2024`);
-                window.location.reload();
+                loadingDiv.remove();
+
+                if (response.success) {
+                    const summary = response.data;
+                    Toast.success(`Base de données réinitialisée avec succès !\n\n` +
+                          `Données insérées :\n` +
+                          `- Structures: ${summary.structures}\n` +
+                          `- Utilisateurs: ${summary.users}\n` +
+                          `- Projets: ${summary.projects}\n` +
+                          `- Sites: ${summary.sites}\n` +
+                          `- Mesures: ${summary.measures}\n` +
+                          `- Parties prenantes: ${summary.stakeholders}\n` +
+                          `- Financements: ${summary.financing}\n` +
+                          `- Formulaires: ${summary.forms}\n\n` +
+                          `Comptes par défaut :\n` +
+                          `Admin: admin / mha@2024\n` +
+                          `Directeur: directeur / mha@2024\n` +
+                          `Utilisateurs: user_dpgi, user_onas, etc. / mha@2024`);
+                    window.location.reload();
+                }
+            } catch (error) {
+                document.querySelector('.loading-overlay')?.remove();
+                Toast.error('Erreur: ' + error.message);
             }
-        } catch (error) {
-            document.querySelector('.loading-overlay')?.remove();
-            alert('❌ Erreur: ' + error.message);
-        }
+        }, { type: 'danger', confirmText: 'Réinitialiser' });
     }
 };
 

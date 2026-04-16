@@ -1,7 +1,7 @@
 {
   "name": "cngi-platform",
   "version": "1.0.0",
-  "description": "Plateforme de suivi des actions CNGI - Cellule Nationale de Gestion des Inondations",
+  "description": "Plateforme de suivi des actions CNGI - Comité National de Gestion des Inondations",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

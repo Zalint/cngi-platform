@@ -295,10 +295,10 @@ const FormBuilderPage = {
     },
 
     deleteField(index) {
-        if (confirm('Supprimer ce champ ?')) {
+        Toast.confirm('Supprimer ce champ ?', () => {
             this.data.fields.splice(index, 1);
             this.refreshFieldsDisplay();
-        }
+        }, { type: 'danger', confirmText: 'Supprimer' });
     },
 
     moveFieldUp(index) {
@@ -353,12 +353,12 @@ const FormBuilderPage = {
         const structureId = document.getElementById('form-structure').value;
 
         if (!title) {
-            alert('Le titre du formulaire est requis');
+            Toast.warning('Le titre du formulaire est requis');
             return;
         }
 
         if (this.data.fields.length === 0) {
-            alert('Ajoutez au moins un champ au formulaire');
+            Toast.warning('Ajoutez au moins un champ au formulaire');
             return;
         }
 
@@ -385,12 +385,12 @@ const FormBuilderPage = {
             loadingDiv.remove();
 
             if (response.success) {
-                alert(`✅ Formulaire ${this.data.isEdit ? 'mis à jour' : 'créé'} avec succès !`);
+                Toast.success(`Formulaire ${this.data.isEdit ? 'mis à jour' : 'créé'} avec succès !`);
                 window.location.hash = '#/forms';
             }
         } catch (error) {
             document.querySelector('.loading-overlay')?.remove();
-            alert('❌ Erreur: ' + error.message);
+            Toast.error('Erreur: ' + error.message);
         }
     },
 

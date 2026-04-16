@@ -211,7 +211,7 @@ export const projectStructures = {
             await this.loadData();
         } catch (error) {
             console.error('Error saving mapping:', error);
-            alert('Erreur lors de la sauvegarde: ' + (error.message || 'Erreur inconnue'));
+            Toast.error('Erreur lors de la sauvegarde: ' + (error.message || 'Erreur inconnue'));
             const btn = document.querySelector(`[data-project-id="${projectId}"] .save-mapping-btn`);
             btn.disabled = false;
             btn.textContent = '💾 Enregistrer';

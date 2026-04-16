@@ -8,7 +8,7 @@ const LoginPage = {
                     <div class="logo-section">
                         <img src="https://mha.gouv.sn/wp-content/uploads/2020/10/logo_mha_transparent3-1.png" alt="MHA" style="height: 70px; margin-bottom: 16px;" onerror="this.style.display='none'">
                         <h1>CNGI</h1>
-                        <p>Cellule Nationale de Gestion des Inondations</p>
+                        <p>Comité National de Gestion des Inondations</p>
                         <p style="font-size: 11px; color: #8896AB; margin-top: 4px;">Ministère de l'Hydraulique et de l'Assainissement — DPGI</p>
                     </div>
 

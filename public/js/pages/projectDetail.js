@@ -414,11 +414,11 @@ const ProjectDetailPage = {
             };
 
             await API.projects.update(this.data.project.id, updateData);
-            alert('✅ Localités et sites mis à jour avec succès !');
+            Toast.success('Localités et sites mis à jour avec succès !');
             window.location.reload();
         } catch (error) {
             console.error('Error saving localities and sites:', error);
-            alert('Erreur lors de la mise à jour: ' + (error.message || 'Erreur inconnue'));
+            Toast.error('Erreur lors de la mise à jour: ' + (error.message || 'Erreur inconnue'));
         }
     },
 
@@ -467,11 +467,11 @@ const ProjectDetailPage = {
             };
 
             await API.projects.update(this.data.project.id, updateData);
-            alert('✅ Mesures mises à jour avec succès !');
+            Toast.success('Mesures mises à jour avec succès !');
             window.location.reload();
         } catch (error) {
             console.error('Error saving measures:', error);
-            alert('Erreur lors de la mise à jour: ' + (error.message || 'Erreur inconnue'));
+            Toast.error('Erreur lors de la mise à jour: ' + (error.message || 'Erreur inconnue'));
         }
     },
 
@@ -501,11 +501,11 @@ const ProjectDetailPage = {
             };
 
             await API.projects.update(this.data.project.id, updateData);
-            alert('✅ Financements mis à jour avec succès !');
+            Toast.success('Financements mis à jour avec succès !');
             window.location.reload();
         } catch (error) {
             console.error('Error saving funding:', error);
-            alert('Erreur lors de la mise à jour: ' + (error.message || 'Erreur inconnue'));
+            Toast.error('Erreur lors de la mise à jour: ' + (error.message || 'Erreur inconnue'));
         }
     },
 
@@ -620,7 +620,7 @@ const ProjectDetailPage = {
             const progress = document.getElementById('edit-progress')?.value;
 
             if (progress && (isNaN(progress) || progress < 0 || progress > 100)) {
-                alert('L\'avancement doit être entre 0 et 100');
+                Toast.warning('L\'avancement doit être entre 0 et 100');
                 return;
             }
 
@@ -630,11 +630,11 @@ const ProjectDetailPage = {
             };
 
             await API.projects.update(this.data.project.id, updateData);
-            alert('✅ Budget et avancement mis à jour avec succès !');
+            Toast.success('Budget et avancement mis à jour avec succès !');
             window.location.reload();
         } catch (error) {
             console.error('Error updating budget and progress:', error);
-            alert('Erreur lors de la mise à jour: ' + (error.message || 'Erreur inconnue'));
+            Toast.error('Erreur lors de la mise à jour: ' + (error.message || 'Erreur inconnue'));
         }
     },
 
@@ -652,11 +652,11 @@ const ProjectDetailPage = {
     async updateMyMeasureStatus(measureId, newStatus) {
         try {
             await API.projects.updateMeasureStatus(this.data.project.id, measureId, newStatus);
-            alert('✅ Statut mis à jour avec succès !');
+            Toast.success('Statut mis à jour avec succès !');
             window.location.reload();
         } catch (error) {
             console.error('Error updating measure status:', error);
-            alert('Erreur lors de la mise à jour: ' + (error.message || 'Erreur inconnue'));
+            Toast.error('Erreur lors de la mise à jour: ' + (error.message || 'Erreur inconnue'));
         }
     },
 
@@ -665,18 +665,18 @@ const ProjectDetailPage = {
         const comment = commentField ? commentField.value.trim() : '';
         
         if (!comment) {
-            alert('⚠️ Veuillez entrer un commentaire avant de soumettre.');
+            Toast.warning('Veuillez entrer un commentaire avant de soumettre.');
             return;
         }
         
         try {
             await API.measureComments.create(measureId, comment);
-            alert('✅ Commentaire enregistré avec succès !');
+            Toast.success('Commentaire enregistré avec succès !');
             // Recharger la page complète pour afficher le nouveau commentaire
             window.location.reload();
         } catch (error) {
             console.error('Error adding comment:', error);
-            alert('Erreur lors de l\'ajout du commentaire: ' + (error.message || 'Erreur inconnue'));
+            Toast.error('Erreur lors de l\'ajout du commentaire: ' + (error.message || 'Erreur inconnue'));
         }
     },
 

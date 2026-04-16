@@ -4,8 +4,10 @@ const DashboardPage = {
     data: {
         metrics: null,
         projectsByStructure: [],
-        recentProjects: []
+        recentProjects: [],
+        mapSites: []
     },
+    map: null,
 
     async render() {
         try {
@@ -33,10 +35,11 @@ const DashboardPage = {
                     <div class="content-area">
                         ${this.renderAlertBanner()}
                         ${this.renderMetrics()}
-                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px;">
-                            <div>${this.renderRecentProjects()}</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                            <div>${this.renderMap()}</div>
                             <div>${this.renderChart()}</div>
                         </div>
+                        ${this.renderRecentProjects()}
                     </div>
                 </div>
             `;
@@ -59,15 +62,17 @@ const DashboardPage = {
             const metrics = await API.dashboard.getMetrics(structureId);
             this.data.metrics = metrics.data;
         } else {
-            const [metrics, projectsByStructure, recentProjects] = await Promise.all([
+            const [metrics, projectsByStructure, recentProjects, mapData] = await Promise.all([
                 API.dashboard.getMetrics(structureId),
                 API.dashboard.getProjectsByStructure(),
-                API.dashboard.getRecentProjects(5)
+                API.dashboard.getRecentProjects(5),
+                API.dashboard.getMapData(structureId)
             ]);
 
             this.data.metrics = metrics.data;
             this.data.projectsByStructure = projectsByStructure.data;
             this.data.recentProjects = recentProjects.data;
+            this.data.mapSites = mapData.data || [];
         }
     },
 
@@ -135,8 +140,11 @@ const DashboardPage = {
                 <td><span class="project-structure">${project.structure_code || 'N/A'}</span></td>
                 <td><span class="status-badge status-${project.status}">${this.getStatusLabel(project.status)}</span></td>
                 <td>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${project.progress_percentage || 0}%;"></div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="progress-bar" style="flex:1;">
+                            <div class="progress-fill" style="width: ${project.progress_percentage || 0}%;"></div>
+                        </div>
+                        <span style="font-weight:700;font-size:13px;color:#202B5D;min-width:36px;text-align:right;">${project.progress_percentage || 0}%</span>
                     </div>
                 </td>
                 <td>${project.deadline_date ? DateFormatter.format(project.deadline_date) : 'N/A'}</td>
@@ -167,6 +175,86 @@ const DashboardPage = {
                 </div>
             </div>
         `;
+    },
+
+    renderMap() {
+        return `
+            <div class="card">
+                <div class="card-header">
+                    <h2>Carte des interventions</h2>
+                    <p>Sites d'intervention au Sénégal</p>
+                </div>
+                <div id="senegal-map" class="map-container"></div>
+            </div>
+        `;
+    },
+
+    initMap() {
+        const mapEl = document.getElementById('senegal-map');
+        if (!mapEl || typeof L === 'undefined') return;
+
+        // Destroy previous map if exists
+        if (this.map) { this.map.remove(); this.map = null; }
+
+        this.map = L.map('senegal-map', { zoomControl: true, scrollWheelZoom: true })
+            .setView([14.70, -17.45], 12);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap',
+            maxZoom: 18
+        }).addTo(this.map);
+
+        const statusColors = {
+            'en_cours': '#3794C4',
+            'termine': '#27ae60',
+            'retard': '#e74c3c',
+            'demarrage': '#f39c12',
+            'annule': '#8896AB'
+        };
+
+        const sites = this.data.mapSites || [];
+        if (sites.length === 0) {
+            // Default marker for Dakar if no sites
+            L.marker([14.6928, -17.4467]).addTo(this.map)
+                .bindPopup('<strong>Dakar</strong><br>Aucun site enregistré');
+            return;
+        }
+
+        const bounds = [];
+        sites.forEach(site => {
+            const lat = parseFloat(site.latitude);
+            const lng = parseFloat(site.longitude);
+            if (isNaN(lat) || isNaN(lng)) return;
+
+            bounds.push([lat, lng]);
+            const color = statusColors[site.project_status] || '#3794C4';
+
+            const icon = L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="width:14px;height:14px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
+            });
+
+            L.marker([lat, lng], { icon })
+                .addTo(this.map)
+                .bindPopup(`
+                    <div style="min-width:180px;">
+                        <strong style="color:#202B5D;font-size:13px;">${site.name}</strong><br>
+                        <span style="font-size:12px;color:#62718D;">${site.description || ''}</span>
+                        <hr style="margin:6px 0;border:none;border-top:1px solid #eee;">
+                        <span style="font-size:11px;color:#62718D;">Projet:</span><br>
+                        <strong style="font-size:12px;">${site.project_title}</strong><br>
+                        <span style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;color:white;background:${color};">
+                            ${site.structure_code}
+                        </span>
+                    </div>
+                `);
+        });
+
+        if (bounds.length > 0) {
+            this.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+        }
     },
 
     renderChart() {
@@ -359,6 +447,8 @@ const DashboardPage = {
 
     afterRender() {
         Navbar.updateActiveMenu();
+        // Init map after DOM is ready
+        setTimeout(() => this.initMap(), 100);
     }
 };
 

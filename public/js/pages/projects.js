@@ -218,18 +218,16 @@ const ProjectsPage = {
 
     async deleteProject(id) {
         event.stopPropagation();
-        
-        if (!confirm('Êtes-vous sûr de vouloir supprimer ce projet ?')) {
-            return;
-        }
 
-        try {
-            await API.projects.delete(id);
-            alert('Projet supprimé avec succès');
-            window.location.reload();
-        } catch (error) {
-            alert('Erreur lors de la suppression: ' + error.message);
-        }
+        Toast.confirm('Etes-vous sur de vouloir supprimer ce projet ?', async () => {
+            try {
+                await API.projects.delete(id);
+                Toast.success('Projet supprime avec succes');
+                window.location.reload();
+            } catch (error) {
+                Toast.error('Erreur lors de la suppression: ' + error.message);
+            }
+        }, { type: 'danger' });
     },
 
     editProject(id) {
