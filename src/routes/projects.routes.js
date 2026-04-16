@@ -30,5 +30,10 @@ router.delete('/:id/structures/:structureId', authorize('admin'), projectsContro
 router.put('/:projectId/measures/:measureId/assign', authorize('admin', 'utilisateur'), projectsController.assignUserToMeasure);
 router.put('/:projectId/measures/:measureId/status', authorize('admin', 'utilisateur'), projectsController.updateMeasureStatus);
 
+// Project Comments (any authenticated user)
+router.get('/:id/comments', projectsController.getComments);
+router.post('/:id/comments', projectsController.addComment);
+router.delete('/:id/comments/:commentId', projectsController.deleteComment);
+
 module.exports = router;
 

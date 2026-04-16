@@ -377,4 +377,36 @@ exports.updateMeasureStatus = async (req, res, next) => {
     }
 };
 
+// ============================================
+// Project Comments Controllers
+// ============================================
+
+exports.getComments = async (req, res, next) => {
+    try {
+        const comments = await ProjectModel.getComments(req.params.id);
+        res.json({ success: true, data: comments });
+    } catch (error) { next(error); }
+};
+
+exports.addComment = async (req, res, next) => {
+    try {
+        const { comment } = req.body;
+        if (!comment || !comment.trim()) {
+            return res.status(400).json({ success: false, message: 'Le commentaire est requis' });
+        }
+        const result = await ProjectModel.addComment(req.params.id, req.user.id, comment.trim());
+        res.status(201).json({ success: true, data: result });
+    } catch (error) { next(error); }
+};
+
+exports.deleteComment = async (req, res, next) => {
+    try {
+        const result = await ProjectModel.deleteComment(req.params.commentId, req.user.id);
+        if (!result) {
+            return res.status(404).json({ success: false, message: 'Commentaire non trouvé' });
+        }
+        res.json({ success: true, message: 'Commentaire supprimé' });
+    } catch (error) { next(error); }
+};
+
 

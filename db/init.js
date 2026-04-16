@@ -245,6 +245,32 @@ async function initDatabase() {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_uploads_entity ON uploads(entity_type, entity_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_uploads_user ON uploads(uploaded_by_user_id)`);
 
+        // App Config (configurable dropdowns)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS app_config (
+                id SERIAL PRIMARY KEY,
+                category VARCHAR(50) NOT NULL,
+                value VARCHAR(100) NOT NULL,
+                label VARCHAR(150) NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                is_active BOOLEAN DEFAULT true,
+                UNIQUE(category, value)
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_app_config_category ON app_config(category)`);
+
+        // Project Comments
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS project_comments (
+                id SERIAL PRIMARY KEY,
+                project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                comment TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_project_comments_project ON project_comments(project_id)`);
+
         // Trigger function
         await client.query(`
             CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -304,7 +330,8 @@ async function initDatabase() {
         await client.query('COMMIT');
         console.log('Database schema initialized successfully');
 
-        // Seed decoupage data if table is empty
+        // Seed config and decoupage data
+        await seedConfig(pool);
         await seedDecoupage(pool);
 
     } catch (error) {
@@ -314,6 +341,37 @@ async function initDatabase() {
     } finally {
         client.release();
     }
+}
+
+async function seedConfig(pool) {
+    const count = await pool.query('SELECT COUNT(*) FROM app_config');
+    if (parseInt(count.rows[0].count) > 0) return;
+
+    console.log('Seeding app config...');
+    const configs = [
+        // Measure types
+        { category: 'measure_type', value: 'Pompage', label: 'Pompage', sort_order: 1 },
+        { category: 'measure_type', value: 'Nettoyage', label: 'Nettoyage', sort_order: 2 },
+        { category: 'measure_type', value: 'Curage', label: 'Curage', sort_order: 3 },
+        { category: 'measure_type', value: 'Equipement', label: 'Équipement', sort_order: 4 },
+        { category: 'measure_type', value: 'Organisation', label: 'Organisation', sort_order: 5 },
+        { category: 'measure_type', value: 'Construction', label: 'Construction', sort_order: 6 },
+        { category: 'measure_type', value: 'Rehabilitation', label: 'Réhabilitation', sort_order: 7 },
+        { category: 'measure_type', value: 'Autre', label: 'Autre', sort_order: 99 },
+        // Measure statuses
+        { category: 'measure_status', value: 'preconisee', label: 'Préconisée', sort_order: 1 },
+        { category: 'measure_status', value: 'executee', label: 'Exécutée', sort_order: 2 },
+        { category: 'measure_status', value: 'non_executee', label: 'Non exécutée', sort_order: 3 },
+        { category: 'measure_status', value: 'observations', label: 'Observations', sort_order: 4 },
+    ];
+
+    for (const c of configs) {
+        await pool.query(
+            `INSERT INTO app_config (category, value, label, sort_order) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+            [c.category, c.value, c.label, c.sort_order]
+        );
+    }
+    console.log(`App config: ${configs.length} entries inserted`);
 }
 
 async function seedDecoupage(pool) {

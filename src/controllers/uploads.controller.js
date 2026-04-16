@@ -50,6 +50,23 @@ exports.getFileById = async (req, res, next) => {
     }
 };
 
+exports.getByEntity = async (req, res, next) => {
+    try {
+        const { entity_type, entity_id } = req.query;
+        const result = await db.query(
+            `SELECT u.*, usr.first_name, usr.last_name, usr.username
+             FROM uploads u
+             LEFT JOIN users usr ON u.uploaded_by_user_id = usr.id
+             WHERE u.entity_type = $1 AND u.entity_id = $2
+             ORDER BY u.uploaded_at DESC`,
+            [entity_type, entity_id]
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (error) {
+        next(error);
+    }
+};
+
 exports.deleteFile = async (req, res, next) => {
     try {
         const result = await db.query('SELECT * FROM uploads WHERE id = $1', [req.params.id]);

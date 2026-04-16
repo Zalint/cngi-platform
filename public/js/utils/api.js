@@ -143,7 +143,11 @@ const API = {
         getAllProjectMappings: () => API.get('/projects/mappings/all'),
         // Measure Assignments
         assignUserToMeasure: (projectId, measureId, userId) => API.put(`/projects/${projectId}/measures/${measureId}/assign`, { userId }),
-        updateMeasureStatus: (projectId, measureId, status, constraints) => API.put(`/projects/${projectId}/measures/${measureId}/status`, { status, constraints })
+        updateMeasureStatus: (projectId, measureId, status, constraints) => API.put(`/projects/${projectId}/measures/${measureId}/status`, { status, constraints }),
+        // Project Comments
+        getComments: (id) => API.get(`/projects/${id}/comments`),
+        addComment: (id, comment) => API.post(`/projects/${id}/comments`, { comment }),
+        deleteComment: (id, commentId) => API.delete(`/projects/${id}/comments/${commentId}`)
     },
 
     // === Forms endpoints ===
@@ -179,6 +183,15 @@ const API = {
         getChartData: (structureId) => API.get(`/dashboard/chart-data${structureId ? '?structure_id=' + structureId : ''}`)
     },
 
+    // === Config endpoints ===
+    config: {
+        getByCategory: (category) => API.get(`/config/${category}`),
+        getAll: () => API.get('/config'),
+        create: (data) => API.post('/config', data),
+        update: (id, data) => API.put(`/config/${id}`, data),
+        delete: (id) => API.delete(`/config/${id}`)
+    },
+
     // === Uploads endpoints ===
     uploads: {
         upload: async (file, entityType, entityId) => {
@@ -199,6 +212,7 @@ const API = {
             return await response.json();
         },
         getById: (id) => API.get(`/uploads/${id}`),
+        getByEntity: (entityType, entityId) => API.get(`/uploads?entity_type=${entityType}&entity_id=${entityId}`),
         delete: (id) => API.delete(`/uploads/${id}`)
     },
 

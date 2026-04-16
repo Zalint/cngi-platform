@@ -21,7 +21,10 @@
       "Bash(npm install:*)",
       "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const init = require\\('./db/init'\\); init\\(\\).then\\(\\(\\) => { console.log\\('DB OK'\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\('FAIL:', e.message\\); process.exit\\(1\\); }\\)\")",
       "Bash(timeout 8 node src/server.js)",
-      "Bash(node -e \"require\\('./src/models/decoupage.model'\\); console.log\\('OK'\\)\")"
+      "Bash(node -e \"require\\('./src/models/decoupage.model'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); require\\('./db/init'\\)\\(\\).then\\(\\(\\) => { console.log\\('OK'\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\('FAIL:', e.message\\); process.exit\\(1\\); }\\)\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); require\\('./db/init'\\)\\(\\).then\\(\\(\\) => { console.log\\('DB OK'\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\('FAIL:', e.message\\); process.exit\\(1\\); }\\)\")",
+      "Bash(node -e \"require\\('./src/models/config.model'\\); require\\('./src/controllers/config.controller'\\); require\\('./src/routes/config.routes'\\); console.log\\('Config module OK'\\)\")"
     ]
   }
 }

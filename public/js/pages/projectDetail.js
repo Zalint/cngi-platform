@@ -3,7 +3,11 @@
 const ProjectDetailPage = {
     data: {
         project: null,
-        users: [], // Utilisateurs de la structure pour assignation
+        users: [],
+        comments: [],
+        documents: [],
+        measureTypes: [],
+        measureStatuses: [],
         editMode: {
             localities: [],
             sites: [],
@@ -23,6 +27,18 @@ const ProjectDetailPage = {
                 this.data.users = usersResponse.data.filter(u => u.structure_id === this.data.project.structure_id && u.role === 'utilisateur');
             }
 
+            // Load config, comments, documents in parallel
+            const [typesRes, statusesRes, commentsRes, docsRes] = await Promise.all([
+                API.config.getByCategory('measure_type'),
+                API.config.getByCategory('measure_status'),
+                API.projects.getComments(id),
+                API.uploads.getByEntity('project', id)
+            ]);
+            this.data.measureTypes = typesRes.data || [];
+            this.data.measureStatuses = statusesRes.data || [];
+            this.data.comments = commentsRes.data || [];
+            this.data.documents = docsRes.data || [];
+
             // Initialiser les données d'édition
             this.data.editMode.localities = JSON.parse(JSON.stringify(this.data.project.localities || []));
             this.data.editMode.sites = JSON.parse(JSON.stringify(this.data.project.sites || []));
@@ -39,6 +55,8 @@ const ProjectDetailPage = {
                         ${this.renderLocalitiesAndSitesEditable()}
                         ${this.renderMeasuresEditable()}
                         ${this.renderFinancingEditable()}
+                        ${this.renderDocuments()}
+                        ${this.renderProjectComments()}
                     </div>
                 </div>
             `;
@@ -307,15 +325,10 @@ const ProjectDetailPage = {
                                               onchange="ProjectDetailPage.updateMeasureField(${index}, 'description', this.value)">${measure.description || ''}</textarea>
                                     <select class="form-control" onchange="ProjectDetailPage.updateMeasureField(${index}, 'type', this.value)">
                                         <option value="">-- Type --</option>
-                                        <option value="Pompage" ${measure.type === 'Pompage' ? 'selected' : ''}>Pompage</option>
-                                        <option value="Nettoyage" ${measure.type === 'Nettoyage' ? 'selected' : ''}>Nettoyage</option>
-                                        <option value="Équipement" ${measure.type === 'Équipement' ? 'selected' : ''}>Équipement</option>
-                                        <option value="Autre" ${measure.type === 'Autre' ? 'selected' : ''}>Autre</option>
+                                        ${this.data.measureTypes.map(t => `<option value="${t.value}" ${measure.type === t.value ? 'selected' : ''}>${t.label}</option>`).join('')}
                                     </select>
                                     <select class="form-control" onchange="ProjectDetailPage.updateMeasureField(${index}, 'status', this.value)">
-                                        <option value="preconisee" ${measure.status === 'preconisee' ? 'selected' : ''}>Préconisée</option>
-                                        <option value="executee" ${measure.status === 'executee' ? 'selected' : ''}>Exécutée</option>
-                                        <option value="non_executee" ${measure.status === 'non_executee' ? 'selected' : ''}>Non exécutée</option>
+                                        ${this.data.measureStatuses.map(s => `<option value="${s.value}" ${measure.status === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
                                     </select>
                                     <select class="form-control" onchange="ProjectDetailPage.updateMeasureField(${index}, 'assigned_user_id', this.value)">
                                         <option value="">-- Utilisateur --</option>
@@ -336,9 +349,7 @@ const ProjectDetailPage = {
                                             <div>
                                                 <label style="font-size: 12px; color: #666;">Statut de la mesure</label>
                                                 <select class="form-control" onchange="ProjectDetailPage.updateMyMeasureStatus(${measure.id}, this.value)">
-                                                    <option value="preconisee" ${measure.status === 'preconisee' ? 'selected' : ''}>Préconisée</option>
-                                                    <option value="executee" ${measure.status === 'executee' ? 'selected' : ''}>Exécutée</option>
-                                                    <option value="non_executee" ${measure.status === 'non_executee' ? 'selected' : ''}>Non exécutée</option>
+                                                    ${this.data.measureStatuses.map(s => `<option value="${s.value}" ${measure.status === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
                                                 </select>
                                             </div>
                                         </div>
@@ -969,5 +980,161 @@ const ProjectDetailPage = {
                 document.querySelectorAll('.search-results').forEach(el => el.style.display = 'none');
             }
         });
+    },
+
+    // ==================== Project Comments ====================
+    renderProjectComments() {
+        const comments = this.data.comments || [];
+        const formatDate = (d) => {
+            const dt = new Date(d);
+            return dt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        };
+        const currentUser = Auth.getUser();
+
+        return `
+            <div class="card mb-4">
+                <h2 style="margin-bottom: 24px;">Commentaires du projet</h2>
+
+                <div style="margin-bottom: 20px;">
+                    <textarea id="project-comment-input" class="form-control" rows="3" placeholder="Ajouter un commentaire..."></textarea>
+                    <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+                        <button class="btn btn-primary" onclick="ProjectDetailPage.addProjectComment()">Envoyer</button>
+                    </div>
+                </div>
+
+                <div id="project-comments-list">
+                    ${comments.length === 0 ? '<p style="color:#8896AB;font-size:14px;">Aucun commentaire pour ce projet.</p>' : ''}
+                    ${comments.map(c => `
+                        <div style="padding:14px;background:#f8f9fa;border-radius:8px;margin-bottom:10px;border-left:3px solid #3794C4;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <div>
+                                    <strong style="color:#202B5D;">${c.first_name || ''} ${c.last_name || ''}</strong>
+                                    <span style="color:#8896AB;font-size:12px;margin-left:8px;">@${c.username}</span>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <span style="color:#8896AB;font-size:12px;">${formatDate(c.created_at)}</span>
+                                    ${c.user_id === currentUser?.id ? `
+                                        <button onclick="ProjectDetailPage.deleteProjectComment(${c.id})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;" title="Supprimer">&#10005;</button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            <p style="margin:0;color:#333;font-size:14px;line-height:1.5;white-space:pre-wrap;">${c.comment}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    },
+
+    async addProjectComment() {
+        const input = document.getElementById('project-comment-input');
+        const comment = input?.value?.trim();
+        if (!comment) { Toast.warning('Veuillez entrer un commentaire.'); return; }
+
+        try {
+            await API.projects.addComment(this.data.project.id, comment);
+            Toast.success('Commentaire ajouté.');
+            window.location.reload();
+        } catch (err) {
+            Toast.error('Erreur: ' + (err.message || 'Erreur inconnue'));
+        }
+    },
+
+    deleteProjectComment(commentId) {
+        Toast.confirm('Supprimer ce commentaire ?', async () => {
+            try {
+                await API.projects.deleteComment(this.data.project.id, commentId);
+                Toast.success('Commentaire supprimé.');
+                window.location.reload();
+            } catch (err) {
+                Toast.error('Erreur: ' + (err.message || 'Erreur inconnue'));
+            }
+        }, { type: 'danger', confirmText: 'Supprimer' });
+    },
+
+    // ==================== Documents ====================
+    renderDocuments() {
+        const currentUser = Auth.getUser();
+        const isProjectManager = this.data.project.project_manager_id === currentUser?.id || Auth.hasRole('admin');
+        const docs = this.data.documents || [];
+
+        const fileIcon = (mime) => {
+            if (mime?.includes('pdf')) return '<span style="color:#e74c3c;">PDF</span>';
+            if (mime?.includes('image')) return '<span style="color:#27ae60;">IMG</span>';
+            if (mime?.includes('word') || mime?.includes('doc')) return '<span style="color:#3794C4;">DOC</span>';
+            if (mime?.includes('sheet') || mime?.includes('xls')) return '<span style="color:#27ae60;">XLS</span>';
+            return '<span style="color:#8896AB;">FILE</span>';
+        };
+
+        return `
+            <div class="card mb-4">
+                <h2 style="margin-bottom: 24px;">Documents</h2>
+
+                ${isProjectManager ? `
+                    <div style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #dce3ed;">
+                        <input type="file" id="doc-upload-input" style="display:none;" onchange="ProjectDetailPage.uploadDocument(this)">
+                        <div style="text-align:center;">
+                            <button class="btn btn-secondary" onclick="document.getElementById('doc-upload-input').click()">
+                                Choisir un fichier
+                            </button>
+                            <p style="margin-top:8px;font-size:12px;color:#8896AB;">PDF, Word, Excel, Images (max 5 Mo)</p>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <div id="documents-list">
+                    ${docs.length === 0 ? '<p style="color:#8896AB;font-size:14px;">Aucun document.</p>' : ''}
+                    ${docs.map(doc => `
+                        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f8f9fa;border-radius:8px;margin-bottom:8px;">
+                            <div style="width:40px;height:40px;background:white;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:1px solid #dce3ed;">
+                                ${fileIcon(doc.mime_type)}
+                            </div>
+                            <div style="flex:1;">
+                                <a href="/uploads/${doc.filename}" target="_blank" style="font-weight:600;color:#202B5D;text-decoration:none;font-size:14px;">
+                                    ${doc.original_filename}
+                                </a>
+                                <div style="font-size:11px;color:#8896AB;">
+                                    ${doc.first_name || ''} ${doc.last_name || ''} — ${new Date(doc.uploaded_at).toLocaleDateString('fr-FR')}
+                                    ${doc.size ? ' — ' + (doc.size / 1024 < 1024 ? Math.round(doc.size / 1024) + ' Ko' : (doc.size / 1024 / 1024).toFixed(1) + ' Mo') : ''}
+                                </div>
+                            </div>
+                            ${isProjectManager ? `
+                                <button onclick="ProjectDetailPage.deleteDocument(${doc.id})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:18px;" title="Supprimer">&#10005;</button>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    },
+
+    async uploadDocument(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        try {
+            const result = await API.uploads.upload(file, 'project', this.data.project.id);
+            if (result.success) {
+                Toast.success('Document uploadé avec succès.');
+                window.location.reload();
+            } else {
+                Toast.error(result.message || 'Erreur lors de l\'upload.');
+            }
+        } catch (err) {
+            Toast.error('Erreur: ' + (err.message || 'Erreur inconnue'));
+        }
+        input.value = '';
+    },
+
+    deleteDocument(docId) {
+        Toast.confirm('Supprimer ce document ?', async () => {
+            try {
+                await API.uploads.delete(docId);
+                Toast.success('Document supprimé.');
+                window.location.reload();
+            } catch (err) {
+                Toast.error('Erreur: ' + (err.message || 'Erreur inconnue'));
+            }
+        }, { type: 'danger', confirmText: 'Supprimer' });
     }
 };

@@ -40,6 +40,7 @@ const upload = multer({
 router.use(protect);
 
 router.post('/', upload.single('file'), uploadsController.uploadFile);
+router.get('/', uploadsController.getByEntity);
 router.get('/:id', uploadsController.getFileById);
 router.delete('/:id', uploadsController.deleteFile);
 

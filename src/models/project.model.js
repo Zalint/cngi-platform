@@ -510,6 +510,43 @@ class ProjectModel {
         return result.rows[0];
     }
 
+    /**
+     * Récupérer les commentaires d'un projet
+     */
+    static async getComments(projectId) {
+        const result = await db.query(`
+            SELECT pc.*, u.username, u.first_name, u.last_name
+            FROM project_comments pc
+            JOIN users u ON pc.user_id = u.id
+            WHERE pc.project_id = $1
+            ORDER BY pc.created_at DESC
+        `, [projectId]);
+        return result.rows;
+    }
+
+    /**
+     * Ajouter un commentaire à un projet
+     */
+    static async addComment(projectId, userId, comment) {
+        const result = await db.query(`
+            INSERT INTO project_comments (project_id, user_id, comment)
+            VALUES ($1, $2, $3)
+            RETURNING *
+        `, [projectId, userId, comment]);
+        return result.rows[0];
+    }
+
+    /**
+     * Supprimer un commentaire de projet
+     */
+    static async deleteComment(commentId, userId) {
+        const result = await db.query(
+            'DELETE FROM project_comments WHERE id = $1 AND user_id = $2 RETURNING *',
+            [commentId, userId]
+        );
+        return result.rows[0];
+    }
+
 }
 
 module.exports = ProjectModel;
