@@ -28,16 +28,6 @@ const LoginPage = {
                         </button>
                     </form>
 
-                    <div style="margin-top: 30px; padding-top: 30px; border-top: 1px solid #e0e0e0;">
-                        <p style="text-align: center; color: #666; font-size: 13px; margin-bottom: 16px;">
-                            Comptes de démonstration :
-                        </p>
-                        <div style="padding: 16px; background: #f8f9fa; border-radius: 8px; font-size: 13px;">
-                            <div style="margin-bottom: 8px;"><strong>Admin:</strong> admin / mha@2024</div>
-                            <div style="margin-bottom: 8px;"><strong>Utilisateur DPGI:</strong> user_dpgi / mha@2024</div>
-                            <div><strong>Directeur:</strong> directeur / mha@2024</div>
-                        </div>
-                    </div>
                 </div>
             </div>
         `;
