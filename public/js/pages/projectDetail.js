@@ -175,22 +175,22 @@ const ProjectDetailPage = {
                                     </button>
                                 </div>
                                 <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
-                                    <div style="padding:8px 12px;background:white;border-radius:6px;border:1px solid #dce3ed;">
-                                        <div style="font-size:10px;color:#8896AB;font-weight:600;text-transform:uppercase;">Région</div>
-                                        <div style="font-size:13px;font-weight:600;color:#202B5D;" id="loc-region-${index}">${loc.region || '—'}</div>
-                                    </div>
-                                    <div style="padding:8px 12px;background:white;border-radius:6px;border:1px solid #dce3ed;">
-                                        <div style="font-size:10px;color:#8896AB;font-weight:600;text-transform:uppercase;">Département</div>
-                                        <div style="font-size:13px;font-weight:600;color:#202B5D;" id="loc-dept-${index}">${loc.departement || '—'}</div>
-                                    </div>
-                                    <div style="padding:8px 12px;background:white;border-radius:6px;border:1px solid #dce3ed;">
-                                        <div style="font-size:10px;color:#8896AB;font-weight:600;text-transform:uppercase;">Arrondissement</div>
-                                        <div style="font-size:13px;font-weight:600;color:#202B5D;" id="loc-arrond-${index}">${loc.arrondissement || '—'}</div>
-                                    </div>
-                                    <div style="padding:8px 12px;background:white;border-radius:6px;border:1px solid #dce3ed;">
-                                        <div style="font-size:10px;color:#8896AB;font-weight:600;text-transform:uppercase;">Commune</div>
-                                        <div style="font-size:13px;font-weight:600;color:#202B5D;" id="loc-commune-${index}">${loc.commune || '—'}</div>
-                                    </div>
+                                    <select class="form-control loc-region" data-index="${index}"
+                                            onchange="ProjectDetailPage.onLocalityRegionChange(${index}, this.value)">
+                                        <option value="">-- Région --</option>
+                                    </select>
+                                    <select class="form-control loc-dept" data-index="${index}"
+                                            onchange="ProjectDetailPage.onLocalityDeptChange(${index}, this.value)">
+                                        <option value="">-- Département --</option>
+                                    </select>
+                                    <select class="form-control loc-arrond" data-index="${index}"
+                                            onchange="ProjectDetailPage.onLocalityArrondChange(${index}, this.value)">
+                                        <option value="">-- Arrondissement --</option>
+                                    </select>
+                                    <select class="form-control loc-commune" data-index="${index}"
+                                            onchange="ProjectDetailPage.updateLocalityField(${index}, 'commune', this.value)">
+                                        <option value="">-- Commune --</option>
+                                    </select>
                                 </div>
                             ` : `
                                 <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
@@ -239,22 +239,22 @@ const ProjectDetailPage = {
                                     <div class="search-results" id="site-results-${index}" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:white;border:1px solid #dce3ed;border-radius:0 0 8px 8px;max-height:250px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                                 </div>
                                 <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
-                                    <div style="padding:6px 10px;background:white;border-radius:6px;border:1px solid #dce3ed;">
-                                        <div style="font-size:10px;color:#8896AB;font-weight:600;">REGION</div>
-                                        <div style="font-size:12px;font-weight:600;color:#202B5D;" id="site-region-${index}">${site.region || '—'}</div>
-                                    </div>
-                                    <div style="padding:6px 10px;background:white;border-radius:6px;border:1px solid #dce3ed;">
-                                        <div style="font-size:10px;color:#8896AB;font-weight:600;">DEPT</div>
-                                        <div style="font-size:12px;font-weight:600;color:#202B5D;" id="site-dept-${index}">${site.departement || '—'}</div>
-                                    </div>
-                                    <div style="padding:6px 10px;background:white;border-radius:6px;border:1px solid #dce3ed;">
-                                        <div style="font-size:10px;color:#8896AB;font-weight:600;">ARROND</div>
-                                        <div style="font-size:12px;font-weight:600;color:#202B5D;" id="site-arrond-${index}">${site.arrondissement || '—'}</div>
-                                    </div>
-                                    <div style="padding:6px 10px;background:white;border-radius:6px;border:1px solid #dce3ed;">
-                                        <div style="font-size:10px;color:#8896AB;font-weight:600;">COMMUNE</div>
-                                        <div style="font-size:12px;font-weight:600;color:#202B5D;" id="site-commune-${index}">${site.commune || '—'}</div>
-                                    </div>
+                                    <select class="form-control site-region" data-site-index="${index}"
+                                            onchange="ProjectDetailPage.onSiteRegionChange(${index}, this.value)">
+                                        <option value="">-- Région --</option>
+                                    </select>
+                                    <select class="form-control site-dept" data-site-index="${index}"
+                                            onchange="ProjectDetailPage.onSiteDeptChange(${index}, this.value)">
+                                        <option value="">-- Département --</option>
+                                    </select>
+                                    <select class="form-control site-arrond" data-site-index="${index}"
+                                            onchange="ProjectDetailPage.onSiteArrondChange(${index}, this.value)">
+                                        <option value="">-- Arrondissement --</option>
+                                    </select>
+                                    <select class="form-control site-commune" data-site-index="${index}"
+                                            onchange="ProjectDetailPage.updateSiteField(${index}, 'commune', this.value)">
+                                        <option value="">-- Commune --</option>
+                                    </select>
                                 </div>
                             ` : `
                                 <div><strong>${site.name}</strong> — ${site.description || ''}</div>
@@ -867,7 +867,7 @@ const ProjectDetailPage = {
         }, 250);
     },
 
-    selectLocation(index, type, resultIndex) {
+    async selectLocation(index, type, resultIndex) {
         const resultsDiv = document.getElementById(`${type}-results-${index}`);
         const row = resultsDiv?._data?.[resultIndex];
         if (!row) return;
@@ -878,36 +878,90 @@ const ProjectDetailPage = {
         target.arrondissement = row.arrondissement;
         target.commune = row.commune;
 
-        // Update display
-        const prefix = type === 'loc' ? 'loc' : 'site';
-        const el = (id) => document.getElementById(id);
-        if (el(`${prefix}-region-${index}`)) el(`${prefix}-region-${index}`).textContent = row.region;
-        if (el(`${prefix}-dept-${index}`)) el(`${prefix}-dept-${index}`).textContent = row.departement;
-        if (el(`${prefix}-arrond-${index}`)) el(`${prefix}-arrond-${index}`).textContent = row.arrondissement;
-        if (el(`${prefix}-commune-${index}`)) el(`${prefix}-commune-${index}`).textContent = row.commune;
-
         // Clear search
         resultsDiv.style.display = 'none';
         const searchInput = type === 'loc'
             ? document.querySelector(`.loc-search[data-index="${index}"]`)
             : document.querySelector(`.site-search[data-site-index="${index}"]`);
         if (searchInput) searchInput.value = `${row.commune} — ${row.arrondissement}`;
+
+        // Fill dropdowns with the selected values
+        const prefix = type === 'loc' ? 'loc' : 'site';
+        const dataAttr = type === 'loc' ? 'data-index' : 'data-site-index';
+        await this.fillDropdownChain(prefix, dataAttr, index, row);
+    },
+
+    async fillDropdownChain(prefix, dataAttr, index, data) {
+        const regSel = document.querySelector(`.${prefix}-region[${dataAttr}="${index}"]`);
+        const deptSel = document.querySelector(`.${prefix}-dept[${dataAttr}="${index}"]`);
+        const arrSel = document.querySelector(`.${prefix}-arrond[${dataAttr}="${index}"]`);
+        const comSel = document.querySelector(`.${prefix}-commune[${dataAttr}="${index}"]`);
+
+        // Fill regions if needed
+        if (regSel && regSel.options.length <= 1) {
+            const res = await API.decoupage.getRegions();
+            res.data.forEach(r => { regSel.innerHTML += `<option value="${r}">${r}</option>`; });
+        }
+        if (regSel) regSel.value = data.region || '';
+
+        // Fill depts
+        if (data.region && deptSel) {
+            deptSel.innerHTML = '<option value="">-- Département --</option>';
+            const res = await API.decoupage.getDepartements(data.region);
+            res.data.forEach(d => { deptSel.innerHTML += `<option value="${d}">${d}</option>`; });
+            deptSel.value = data.departement || '';
+        }
+
+        // Fill arronds
+        if (data.departement && arrSel) {
+            arrSel.innerHTML = '<option value="">-- Arrondissement --</option>';
+            const res = await API.decoupage.getArrondissements(data.departement);
+            res.data.forEach(a => { arrSel.innerHTML += `<option value="${a}">${a}</option>`; });
+            arrSel.value = data.arrondissement || '';
+        }
+
+        // Fill communes
+        if (data.arrondissement && comSel) {
+            comSel.innerHTML = '<option value="">-- Commune --</option>';
+            const res = await API.decoupage.getCommunes(data.arrondissement);
+            res.data.forEach(c => { comSel.innerHTML += `<option value="${c}">${c}</option>`; });
+            comSel.value = data.commune || '';
+        }
     },
 
     async populateLocationDropdowns() {
-        // Pre-fill search inputs for existing data
-        this.data.editMode.localities.forEach((loc, i) => {
-            if (loc.commune) {
+        // Fill locality dropdowns with existing data
+        for (let i = 0; i < this.data.editMode.localities.length; i++) {
+            const loc = this.data.editMode.localities[i];
+            if (loc.region) {
+                await this.fillDropdownChain('loc', 'data-index', i, loc);
                 const input = document.querySelector(`.loc-search[data-index="${i}"]`);
-                if (input) input.value = `${loc.commune} — ${loc.arrondissement || ''}`;
+                if (input && loc.commune) input.value = `${loc.commune} — ${loc.arrondissement || ''}`;
+            } else {
+                // Just load regions for empty entries
+                const regSel = document.querySelector(`.loc-region[data-index="${i}"]`);
+                if (regSel) {
+                    const res = await API.decoupage.getRegions();
+                    res.data.forEach(r => { regSel.innerHTML += `<option value="${r}">${r}</option>`; });
+                }
             }
-        });
-        this.data.editMode.sites.forEach((site, i) => {
-            if (site.commune || site.region) {
+        }
+
+        // Fill site dropdowns with existing data
+        for (let i = 0; i < this.data.editMode.sites.length; i++) {
+            const site = this.data.editMode.sites[i];
+            if (site.region) {
+                await this.fillDropdownChain('site', 'data-site-index', i, site);
                 const input = document.querySelector(`.site-search[data-site-index="${i}"]`);
                 if (input) input.value = [site.commune, site.arrondissement].filter(Boolean).join(' — ') || site.region || '';
+            } else {
+                const regSel = document.querySelector(`.site-region[data-site-index="${i}"]`);
+                if (regSel) {
+                    const res = await API.decoupage.getRegions();
+                    res.data.forEach(r => { regSel.innerHTML += `<option value="${r}">${r}</option>`; });
+                }
             }
-        });
+        }
 
         // Close search results on click outside
         document.addEventListener('click', (e) => {

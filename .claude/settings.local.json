@@ -20,7 +20,8 @@
       "Bash(python3 -c ':*)",
       "Bash(npm install:*)",
       "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const init = require\\('./db/init'\\); init\\(\\).then\\(\\(\\) => { console.log\\('DB OK'\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\('FAIL:', e.message\\); process.exit\\(1\\); }\\)\")",
-      "Bash(timeout 8 node src/server.js)"
+      "Bash(timeout 8 node src/server.js)",
+      "Bash(node -e \"require\\('./src/models/decoupage.model'\\); console.log\\('OK'\\)\")"
     ]
   }
 }
