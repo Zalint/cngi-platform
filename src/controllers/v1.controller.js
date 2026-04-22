@@ -2,6 +2,7 @@ const ProjectModel = require('../models/project.model');
 const ProjectStructure = require('../models/projectStructure.model');
 const StructureModel = require('../models/structure.model');
 const DashboardModel = require('../models/dashboard.model');
+const { canUserAccessProject } = require('../utils/projectAccess');
 
 const STATUS_LABELS = {
     demarrage: 'Démarrage', en_cours: 'En cours', termine: 'Terminé', retard: 'En retard', annule: 'Annulé'
@@ -110,12 +111,10 @@ exports.getProject = async (req, res, next) => {
             return res.status(404).json({ success: false, error: 'not_found', message: 'Projet non trouvé' });
         }
 
-        // Vérifier les droits
-        if (req.user.role === 'utilisateur' || req.user.role === 'directeur') {
-            const hasAccess = await ProjectStructure.userHasAccessToProject(req.user.id, req.params.id);
-            if (!hasAccess) {
-                return res.status(403).json({ success: false, error: 'forbidden', message: 'Accès refusé à ce projet' });
-            }
+        // Vérifier les droits pour tous les non-admin (inclut commandement_territorial)
+        const hasAccess = await canUserAccessProject(req.user, req.params.id);
+        if (!hasAccess) {
+            return res.status(403).json({ success: false, error: 'forbidden', message: 'Accès refusé à ce projet' });
         }
 
         res.json({ success: true, data: toFull(project) });

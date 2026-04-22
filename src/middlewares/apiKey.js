@@ -34,15 +34,32 @@ async function verifyApiKey(req, res, next) {
 }
 
 /**
- * Rate limiter par clé API : 100 req / minute par défaut.
+ * Rate limiter pré-authentification (par IP) — 300 req/min.
+ * Protège la base de données contre le spam de clés invalides avant que
+ * verifyApiKey ne soit appelé (chaque verify fait un DB query).
+ */
+const ipPreAuthRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 300,
+    keyGenerator: (req, res) => ipKeyGenerator(req, res),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        error: 'rate_limit_exceeded',
+        message: 'Trop de requêtes depuis cette IP. Réessayez dans une minute.'
+    }
+});
+
+/**
+ * Rate limiter par clé API (post-auth) : 100 req / minute par clé.
  */
 const apiKeyRateLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 100,
     keyGenerator: (req, res) => {
         if (req.apiKeyId) return `apikey:${req.apiKeyId}`;
-        const header = req.header('x-api-key');
-        if (header) return `header:${header}`;
+        // Fallback improbable (verifyApiKey est censé être passé avant)
         return ipKeyGenerator(req, res);
     },
     standardHeaders: true,
@@ -50,8 +67,8 @@ const apiKeyRateLimiter = rateLimit({
     message: {
         success: false,
         error: 'rate_limit_exceeded',
-        message: 'Trop de requêtes. Réessayez dans une minute.'
+        message: 'Trop de requêtes pour cette clé. Réessayez dans une minute.'
     }
 });
 
-module.exports = { verifyApiKey, apiKeyRateLimiter };
+module.exports = { verifyApiKey, apiKeyRateLimiter, ipPreAuthRateLimiter };

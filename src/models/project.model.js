@@ -474,18 +474,24 @@ class ProjectModel {
     /**
      * Réassigner la structure et/ou l'utilisateur d'une mesure.
      * Auto-lie la nouvelle structure au projet via project_structures.
+     * @param {number|string} measureId - ID de la mesure
+     * @param {number|string} projectId - ID du projet auquel la mesure doit appartenir (anti-cross-project)
+     * @param {{structure_id?: number|null, assigned_user_id?: number|null}} updates
+     * @returns {Object|null} la mesure mise à jour, ou null si la mesure n'appartient pas au projet
      */
-    static async reassignMeasure(measureId, { structure_id, assigned_user_id }) {
+    static async reassignMeasure(measureId, projectId, { structure_id, assigned_user_id }) {
         const result = await db.query(`
             UPDATE measures
             SET structure_id = $1,
                 assigned_user_id = $2
-            WHERE id = $3
+            WHERE id = $3 AND project_id = $4
             RETURNING *
-        `, [structure_id ?? null, assigned_user_id ?? null, measureId]);
+        `, [structure_id ?? null, assigned_user_id ?? null, measureId, projectId]);
 
         const measure = result.rows[0];
-        if (measure && measure.structure_id) {
+        if (!measure) return null;
+
+        if (measure.structure_id) {
             await db.query(`
                 INSERT INTO project_structures (project_id, structure_id)
                 VALUES ($1, $2)
