@@ -1669,3 +1669,37 @@ tbody tr:hover {
         grid-template-columns: 1fr !important;
     }
 }
+
+/* ==========================================
+   MOBILE BURGER MENU
+   ========================================== */
+
+#sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 900px) {
+    /* Sidebar masquée par défaut sur mobile, révélée par .sidebar-mobile-open */
+    .sidebar.show {
+        display: none;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+    }
+    .sidebar.show.sidebar-mobile-open {
+        display: flex;
+        transform: translateX(0);
+    }
+    .main-content.with-sidebar {
+        margin-left: 0;
+    }
+    #burger-toggle {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+}
