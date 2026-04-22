@@ -483,6 +483,8 @@ const DashboardPage = {
         }
 
         const bounds = [];
+        // Regroupe les marqueurs par code de structure pour pouvoir les filtrer
+        this.markersByStructure = {};
         sites.forEach(site => {
             const lat = parseFloat(site.latitude);
             const lng = parseFloat(site.longitude);
@@ -537,8 +539,11 @@ const DashboardPage = {
                 ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:${color};margin-left:4px;">📎 PCS</span>`
                 : '';
 
-            L.marker([lat, lng], { icon })
-                .addTo(this.map)
+            const marker = L.marker([lat, lng], { icon });
+            const code = site.structure_code || '—';
+            if (!this.markersByStructure[code]) this.markersByStructure[code] = [];
+            this.markersByStructure[code].push(marker);
+            marker.addTo(this.map)
                 .bindPopup(`
                     <div style="min-width:200px;">
                         <strong style="color:#202B5D;font-size:13px;">${site.name}</strong>${priorityBadge}${pcsBadge}<br>
@@ -562,6 +567,82 @@ const DashboardPage = {
             this.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
         } else if (bounds.length === 1) {
             this.map.setView(bounds[0], 13);
+        }
+
+        this.addStructureFilterControl();
+    },
+
+    addStructureFilterControl() {
+        if (!this.map || !this.markersByStructure) return;
+        // Retire un éventuel contrôle précédent
+        if (this._structureFilterCtrl) this._structureFilterCtrl.remove();
+
+        const codes = Object.keys(this.markersByStructure).sort();
+        if (codes.length < 2) return; // inutile s'il n'y a qu'une structure
+
+        const StructureFilter = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: () => {
+                const div = L.DomUtil.create('div', 'leaflet-bar structure-filter');
+                div.style.background = 'white';
+                div.style.padding = '8px 10px';
+                div.style.borderRadius = '8px';
+                div.style.boxShadow = '0 1px 5px rgba(0,0,0,0.3)';
+                div.style.fontSize = '12px';
+                div.style.lineHeight = '1.6';
+                div.style.maxWidth = '180px';
+                const rows = codes.map(code => {
+                    const color = (typeof StructureColors !== 'undefined') ? StructureColors.get(code) : '#3794C4';
+                    const count = this.markersByStructure[code].length;
+                    return `
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                            <input type="checkbox" class="structure-filter-cb" data-code="${code}" checked>
+                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+                            <span style="flex:1;color:#202B5D;font-weight:600;">${code}</span>
+                            <span style="color:#8896AB;">${count}</span>
+                        </label>
+                    `;
+                }).join('');
+                div.innerHTML = `
+                    <div style="font-weight:700;color:#202B5D;margin-bottom:6px;border-bottom:1px solid #eef;padding-bottom:4px;">Structures</div>
+                    ${rows}
+                    <div style="display:flex;gap:6px;margin-top:6px;border-top:1px solid #eef;padding-top:6px;">
+                        <a href="#" class="structure-filter-all" style="font-size:11px;color:#3794C4;text-decoration:none;font-weight:600;">Tout</a>
+                        <span style="color:#ccc;">·</span>
+                        <a href="#" class="structure-filter-none" style="font-size:11px;color:#8896AB;text-decoration:none;font-weight:600;">Aucun</a>
+                    </div>
+                `;
+                L.DomEvent.disableClickPropagation(div);
+                L.DomEvent.disableScrollPropagation(div);
+                return div;
+            }
+        });
+
+        this._structureFilterCtrl = new StructureFilter().addTo(this.map);
+
+        const container = document.querySelector('.structure-filter');
+        if (container) {
+            container.addEventListener('change', (e) => {
+                if (!e.target.matches('.structure-filter-cb')) return;
+                const code = e.target.dataset.code;
+                const visible = e.target.checked;
+                (this.markersByStructure[code] || []).forEach(m => {
+                    if (visible) m.addTo(this.map);
+                    else this.map.removeLayer(m);
+                });
+            });
+            container.querySelector('.structure-filter-all')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                container.querySelectorAll('.structure-filter-cb').forEach(cb => {
+                    if (!cb.checked) { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); }
+                });
+            });
+            container.querySelector('.structure-filter-none')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                container.querySelectorAll('.structure-filter-cb').forEach(cb => {
+                    if (cb.checked) { cb.checked = false; cb.dispatchEvent(new Event('change', { bubbles: true })); }
+                });
+            });
         }
     },
 

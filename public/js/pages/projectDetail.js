@@ -1039,19 +1039,58 @@ const ProjectDetailPage = {
                 container = document.getElementById('sites-container');
                 html = this.data.editMode.sites.map((site, index) => `
                     <div class="site-item" style="padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px;" data-index="${index}">
-                        <div style="display: grid; grid-template-columns: 1fr 2fr 1fr 1fr; gap: 12px; align-items: start;">
-                            <input type="text" class="form-control" placeholder="Nom du site" 
-                                   value="${site.name || ''}" 
+                        <div style="display: grid; grid-template-columns: 1fr 1fr auto auto auto auto; gap: 10px; margin-bottom: 10px; align-items: center;">
+                            <input type="text" class="form-control" placeholder="Nom du site"
+                                   value="${site.name || ''}"
                                    onchange="ProjectDetailPage.updateSiteField(${index}, 'name', this.value)">
-                            <input type="text" class="form-control" placeholder="Description" 
-                                   value="${site.description || ''}" 
+                            <input type="text" class="form-control" placeholder="Description"
+                                   value="${site.description || ''}"
                                    onchange="ProjectDetailPage.updateSiteField(${index}, 'description', this.value)">
-                            <input type="text" class="form-control" placeholder="Latitude,Longitude" 
-                                   value="${site.latitude && site.longitude ? site.latitude + ',' + site.longitude : ''}" 
+                            <input type="text" class="form-control" placeholder="Lat,Lng" style="max-width:140px;"
+                                   value="${site.latitude && site.longitude ? site.latitude + ',' + site.longitude : ''}"
                                    onchange="ProjectDetailPage.updateSiteCoordinates(${index}, this.value)">
-                            <button class="btn btn-danger" onclick="ProjectDetailPage.removeSite(${index})">
-                                🗑️ Retirer
+                            <button class="btn btn-secondary" onclick="ProjectDetailPage.openMapPicker(${index})" title="Choisir la position sur une carte" style="font-size:12px;">
+                                🗺️ Carte
                             </button>
+                            <button class="btn btn-secondary" onclick="ProjectDetailPage.autoFillSiteFromCoords(${index})" title="Déduire région/département/arrondissement/commune depuis les coordonnées GPS" style="font-size:12px;">
+                                📍 Auto
+                            </button>
+                            <button class="btn btn-danger" onclick="ProjectDetailPage.removeSite(${index})" style="font-size:12px;">
+                                Retirer
+                            </button>
+                        </div>
+                        ${this.data.project.structure_code === 'DPGI' ? `
+                            <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#62718D;margin-bottom:8px;cursor:pointer;">
+                                <input type="checkbox" ${site.is_pcs ? 'checked' : ''}
+                                       onchange="ProjectDetailPage.updateSiteField(${index}, 'is_pcs', this.checked)">
+                                🏛️ PCS (Plan Communal de Sauvegarde)
+                            </label>
+                        ` : ''}
+                        <div style="position:relative; margin-bottom:8px;">
+                            <input type="text" class="form-control site-search" data-site-index="${index}"
+                                   placeholder="Rechercher localisation (commune, arrondissement...)"
+                                   oninput="ProjectDetailPage.onLocationSearch(${index}, 'site', this.value)"
+                                   onfocus="ProjectDetailPage.onLocationSearch(${index}, 'site', this.value)"
+                                   autocomplete="off">
+                            <div class="search-results" id="site-results-${index}" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:white;border:1px solid #dce3ed;border-radius:0 0 8px 8px;max-height:250px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+                            <select class="form-control site-region" data-site-index="${index}"
+                                    onchange="ProjectDetailPage.onSiteRegionChange(${index}, this.value)">
+                                <option value="">-- Région --</option>
+                            </select>
+                            <select class="form-control site-dept" data-site-index="${index}"
+                                    onchange="ProjectDetailPage.onSiteDeptChange(${index}, this.value)">
+                                <option value="">-- Département --</option>
+                            </select>
+                            <select class="form-control site-arrond" data-site-index="${index}"
+                                    onchange="ProjectDetailPage.onSiteArrondChange(${index}, this.value)">
+                                <option value="">-- Arrondissement --</option>
+                            </select>
+                            <select class="form-control site-commune" data-site-index="${index}"
+                                    onchange="ProjectDetailPage.updateSiteField(${index}, 'commune', this.value)">
+                                <option value="">-- Commune --</option>
+                            </select>
                         </div>
                     </div>
                 `).join('');
