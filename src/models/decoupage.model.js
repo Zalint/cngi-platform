@@ -190,24 +190,40 @@ class DecoupageModel {
      * Renvoie un objet avec les colonnes qui matchent (ou null).
      */
     static async matchByNames(candidates) {
-        const all = await db.query(`SELECT DISTINCT region, departement, arrondissement, commune FROM decoupage`);
+        // Résolution hiérarchique : chaque niveau enfant est cherché dans les
+        // lignes déjà filtrées par les niveaux parents sélectionnés. Cela
+        // garantit une hiérarchie administrative cohérente (ex: commune qui
+        // appartient bien à l'arrondissement/département/région choisis).
+        const all = await db.query(`
+            SELECT DISTINCT region, departement, arrondissement, commune
+            FROM decoupage
+            ORDER BY region, departement, arrondissement, commune
+        `);
         const rows = all.rows;
         const norm = this._normalize.bind(this);
-        const pickOne = (candidate, col) => {
+
+        const pickOne = (candidate, col, pool) => {
             if (!candidate) return null;
             const c = norm(candidate);
             if (!c) return null;
-            // exact match
-            let hit = rows.find(r => norm(r[col]) === c);
+            let hit = pool.find(r => norm(r[col]) === c);
             if (hit) return hit[col];
-            // contains
-            hit = rows.find(r => norm(r[col]) && (norm(r[col]).includes(c) || c.includes(norm(r[col]))));
+            hit = pool.find(r => norm(r[col]) && (norm(r[col]).includes(c) || c.includes(norm(r[col]))));
             return hit ? hit[col] : null;
         };
-        const region = pickOne(candidates.region, 'region');
-        const departement = pickOne(candidates.departement, 'departement');
-        const arrondissement = pickOne(candidates.arrondissement, 'arrondissement');
-        const commune = pickOne(candidates.commune, 'commune');
+
+        let pool = rows;
+        const region = pickOne(candidates.region, 'region', pool);
+        if (region) pool = pool.filter(r => r.region === region);
+
+        const departement = pickOne(candidates.departement, 'departement', pool);
+        if (departement) pool = pool.filter(r => r.departement === departement);
+
+        const arrondissement = pickOne(candidates.arrondissement, 'arrondissement', pool);
+        if (arrondissement) pool = pool.filter(r => r.arrondissement === arrondissement);
+
+        const commune = pickOne(candidates.commune, 'commune', pool);
+
         return { region, departement, arrondissement, commune };
     }
 
