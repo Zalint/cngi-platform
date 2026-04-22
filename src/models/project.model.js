@@ -295,13 +295,22 @@ class ProjectModel {
      * Ajouter un site à un projet
      */
     static async addSite(projectId, siteData) {
-        const { locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude } = siteData;
+        const { locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs } = siteData;
+
+        // is_pcs réservé aux projets portés par DPGI
+        let finalIsPcs = !!is_pcs;
+        if (finalIsPcs) {
+            const check = await db.query(`
+                SELECT s.code FROM projects p LEFT JOIN structures s ON p.structure_id = s.id WHERE p.id = $1
+            `, [projectId]);
+            if (check.rows[0]?.code !== 'DPGI') finalIsPcs = false;
+        }
 
         const result = await db.query(`
-            INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
-        `, [projectId, locality_id || null, name, description || null, region || null, departement || null, arrondissement || null, commune || null, latitude || null, longitude || null]);
+        `, [projectId, locality_id || null, name, description || null, region || null, departement || null, arrondissement || null, commune || null, latitude || null, longitude || null, finalIsPcs]);
         
         return result.rows[0];
     }
@@ -400,12 +409,19 @@ class ProjectModel {
             // Supprimer les anciens sites
             await client.query('DELETE FROM sites WHERE project_id = $1', [projectId]);
             
+            // is_pcs réservé aux projets portés par DPGI
+            const structCheck = await client.query(`
+                SELECT s.code FROM projects p LEFT JOIN structures s ON p.structure_id = s.id WHERE p.id = $1
+            `, [projectId]);
+            const isDpgi = structCheck.rows[0]?.code === 'DPGI';
+
             // Insérer les nouveaux sites
             for (const site of sites) {
+                const sitePcs = isDpgi && !!site.is_pcs;
                 await client.query(`
-                    INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                `, [projectId, site.locality_id || null, site.name, site.description || null, site.region || null, site.departement || null, site.arrondissement || null, site.commune || null, site.latitude || null, site.longitude || null]);
+                    INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                `, [projectId, site.locality_id || null, site.name, site.description || null, site.region || null, site.departement || null, site.arrondissement || null, site.commune || null, site.latitude || null, site.longitude || null, sitePcs]);
             }
             
             await client.query('COMMIT');
