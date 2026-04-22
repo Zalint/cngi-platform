@@ -502,14 +502,30 @@ const DashboardPage = {
                 ? `<div style="position:absolute;inset:-4px;border:2px solid #e67e22;border-radius:50%;"></div>`
                 : '';
 
-            const icon = L.divIcon({
-                className: 'custom-marker',
-                html: `<div style="position:relative;width:${size}px;height:${size}px;">
+            const isPcs = !!site.is_pcs;
+            // PCS utilise la même taille que le rond pour rester cohérent visuellement
+            const pcsSize = size + 2; // légèrement plus grand pour compenser la place du SVG
+            const svgPx = Math.round(pcsSize * 0.7);
+            const pcsHtml = `
+                <div style="position:relative;width:${pcsSize}px;height:${pcsSize}px;display:flex;align-items:center;justify-content:center;">
+                    ${ring}
+                    <div style="width:${pcsSize}px;height:${pcsSize}px;background:white;border:1.5px solid ${color};border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;">
+                        <svg width="${svgPx}" height="${svgPx}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 10l9-6 9 6M4 10v9M8 10v9M12 10v9M16 10v9M20 10v9M2 21h20"/>
+                        </svg>
+                    </div>
+                </div>`;
+
+            const circleHtml = `<div style="position:relative;width:${size}px;height:${size}px;">
                         ${ring}
                         <div style="width:${size}px;height:${size}px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
-                       </div>`,
-                iconSize: [size, size],
-                iconAnchor: [size/2, size/2]
+                       </div>`;
+
+            const icon = L.divIcon({
+                className: 'custom-marker',
+                html: isPcs ? pcsHtml : circleHtml,
+                iconSize: isPcs ? [pcsSize, pcsSize] : [size, size],
+                iconAnchor: isPcs ? [pcsSize/2, pcsSize/2] : [size/2, size/2]
             });
 
             const priorityBadge = isUrgent
@@ -517,12 +533,15 @@ const DashboardPage = {
                 : isHaute
                 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:#e67e22;margin-left:4px;">🟠 HAUTE</span>'
                 : '';
+            const pcsBadge = isPcs
+                ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:${color};margin-left:4px;">📎 PCS</span>`
+                : '';
 
             L.marker([lat, lng], { icon })
                 .addTo(this.map)
                 .bindPopup(`
                     <div style="min-width:200px;">
-                        <strong style="color:#202B5D;font-size:13px;">${site.name}</strong>${priorityBadge}<br>
+                        <strong style="color:#202B5D;font-size:13px;">${site.name}</strong>${priorityBadge}${pcsBadge}<br>
                         <span style="font-size:12px;color:#62718D;">${site.description || ''}</span>
                         <hr style="margin:6px 0;border:none;border-top:1px solid #eee;">
                         <span style="font-size:11px;color:#62718D;">Projet:</span><br>

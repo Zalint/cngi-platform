@@ -299,6 +299,13 @@ const ProjectDetailPage = {
                                         Retirer
                                     </button>
                                 </div>
+                                ${this.data.project.structure_code === 'DPGI' ? `
+                                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#62718D;margin-bottom:8px;cursor:pointer;">
+                                        <input type="checkbox" ${site.is_pcs ? 'checked' : ''}
+                                               onchange="ProjectDetailPage.updateSiteField(${index}, 'is_pcs', this.checked)">
+                                        🏛️ PCS (Plan Communal de Sauvegarde)
+                                    </label>
+                                ` : ''}
                                 <div style="position:relative; margin-bottom:8px;">
                                     <input type="text" class="form-control site-search" data-site-index="${index}"
                                            placeholder="Rechercher localisation (commune, arrondissement...)"
@@ -326,7 +333,10 @@ const ProjectDetailPage = {
                                     </select>
                                 </div>
                             ` : `
-                                <div><strong>${site.name}</strong> — ${site.description || ''}</div>
+                                <div>
+                                    <strong>${site.name}</strong> — ${site.description || ''}
+                                    ${site.is_pcs ? '<span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:#1d4ed8;background:#dbeafe;">📎 PCS</span>' : ''}
+                                </div>
                                 <div style="font-size:12px;color:#62718D;margin-top:4px;">
                                     ${[site.region, site.departement, site.arrondissement, site.commune].filter(Boolean).join(' > ') || ''}
                                     ${site.latitude && site.longitude ? ' | ' + site.latitude + ', ' + site.longitude : ''}
@@ -583,7 +593,7 @@ const ProjectDetailPage = {
 
     // ==================== Méthodes de gestion des sites ====================
     addSite() {
-        this.data.editMode.sites.push({ name: '', description: '', region: '', departement: '', arrondissement: '', commune: '', latitude: null, longitude: null });
+        this.data.editMode.sites.push({ name: '', description: '', region: '', departement: '', arrondissement: '', commune: '', latitude: null, longitude: null, is_pcs: false });
         this.refreshSection('sites');
     },
 

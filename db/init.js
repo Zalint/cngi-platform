@@ -22,6 +22,16 @@ async function initDatabase() {
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_structures_code ON structures(code)`);
 
+        // Migration idempotente : corrige un ancien libellé erroné pour DPGI
+        // ("Direction de la Planification..." → "Direction de la Prévention...")
+        await client.query(`
+            UPDATE structures
+            SET name = 'Direction de la Prévention et de la Gestion des Inondations',
+                description = 'Direction en charge de la prévention et coordination'
+            WHERE code = 'DPGI'
+              AND name <> 'Direction de la Prévention et de la Gestion des Inondations'
+        `);
+
         // Users
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
@@ -193,6 +203,7 @@ async function initDatabase() {
                 ALTER TABLE sites ADD COLUMN IF NOT EXISTS departement VARCHAR(100);
                 ALTER TABLE sites ADD COLUMN IF NOT EXISTS arrondissement VARCHAR(100);
                 ALTER TABLE sites ADD COLUMN IF NOT EXISTS commune VARCHAR(150);
+                ALTER TABLE sites ADD COLUMN IF NOT EXISTS is_pcs BOOLEAN DEFAULT false;
             EXCEPTION WHEN duplicate_column THEN NULL;
             END $$
         `);
