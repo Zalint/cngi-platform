@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const projectsController = require('../controllers/projects.controller');
+const exportController = require('../controllers/export.controller');
 const { protect, authorize } = require('../middlewares/auth');
 
 router.use(protect);
@@ -8,6 +9,7 @@ router.use(protect);
 router.get('/', projectsController.getAllProjects);
 router.post('/', authorize('admin', 'utilisateur'), projectsController.createProject);
 router.get('/stats', projectsController.getStats);
+router.get('/export/xlsx', exportController.exportProjectsXlsx);
 router.get('/:id', projectsController.getProjectById);
 router.put('/:id', authorize('admin', 'utilisateur'), projectsController.updateProject);
 router.patch('/:id/progress', authorize('admin', 'utilisateur'), projectsController.updateProgress);
@@ -28,6 +30,7 @@ router.delete('/:id/structures/:structureId', authorize('admin'), projectsContro
 
 // Assignation d'utilisateurs aux mesures (Chef de projet ou Admin)
 router.put('/:projectId/measures/:measureId/assign', authorize('admin', 'utilisateur'), projectsController.assignUserToMeasure);
+router.put('/:projectId/measures/:measureId/reassign', authorize('admin', 'utilisateur'), projectsController.reassignMeasure);
 router.put('/:projectId/measures/:measureId/status', authorize('admin', 'utilisateur'), projectsController.updateMeasureStatus);
 
 // Project Comments (any authenticated user)

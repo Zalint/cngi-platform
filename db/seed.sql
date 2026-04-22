@@ -7,7 +7,7 @@ BEGIN;
 
 -- 1. Structures
 INSERT INTO structures (name, code, description) VALUES
-    ('Direction de la Planification et de la Gestion des Inondations', 'DPGI', 'Direction en charge de la planification et coordination'),
+    ('Direction de la Prévention et de la Gestion des Inondations', 'DPGI', 'Direction en charge de la prévention et coordination'),
     ('Office National de l''Assainissement du Sénégal', 'ONAS', 'Gestion de l''assainissement et des eaux usées'),
     ('Brigade Nationale des Sapeurs-Pompiers', 'BNSP', 'Intervention d''urgence et secours'),
     ('Conseil Exécutif des Transports Urbains de Dakar', 'CETUD', 'Gestion des infrastructures de transport'),

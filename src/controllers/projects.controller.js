@@ -350,6 +350,29 @@ exports.assignUserToMeasure = async (req, res, next) => {
 };
 
 /**
+ * Réassigner une mesure à une autre structure et/ou utilisateur (chef de projet ou admin)
+ */
+exports.reassignMeasure = async (req, res, next) => {
+    try {
+        const { projectId, measureId } = req.params;
+        const { structure_id, assigned_user_id } = req.body;
+
+        const isManager = await ProjectModel.isProjectManager(projectId, req.user.id);
+        if (!isManager && req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Seul le chef de projet ou un admin peut réassigner une mesure' });
+        }
+
+        const updated = await ProjectModel.reassignMeasure(measureId, {
+            structure_id: structure_id || null,
+            assigned_user_id: assigned_user_id || null
+        });
+        res.json({ success: true, message: 'Mesure réassignée', data: updated });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * Mettre à jour le statut d'une mesure (utilisateur assigné uniquement)
  */
 exports.updateMeasureStatus = async (req, res, next) => {

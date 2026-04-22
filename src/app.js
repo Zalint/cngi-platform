@@ -15,6 +15,10 @@ const seedRoutes = require('./routes/seed.routes');
 const measureCommentsRoutes = require('./routes/measureComments.routes');
 const decoupageRoutes = require('./routes/decoupage.routes');
 const configRoutes = require('./routes/config.routes');
+const reportsRoutes = require('./routes/reports.routes');
+const apiKeysRoutes = require('./routes/apiKeys.routes');
+const v1Routes = require('./routes/v1.routes');
+const chatRoutes = require('./routes/chat.routes');
 
 // Import middlewares
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
@@ -88,6 +92,10 @@ app.use('/api/seed', seedRoutes);
 app.use('/api', measureCommentsRoutes);
 app.use('/api/decoupage', decoupageRoutes);
 app.use('/api/config', configRoutes);
+app.use('/api/reports', reportsRoutes);
+app.use('/api/api-keys', apiKeysRoutes);
+app.use('/api/v1', v1Routes);
+app.use('/api/chat', chatRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

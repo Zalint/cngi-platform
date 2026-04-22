@@ -143,6 +143,7 @@ const API = {
         getAllProjectMappings: () => API.get('/projects/mappings/all'),
         // Measure Assignments
         assignUserToMeasure: (projectId, measureId, userId) => API.put(`/projects/${projectId}/measures/${measureId}/assign`, { userId }),
+        reassignMeasure: (projectId, measureId, data) => API.put(`/projects/${projectId}/measures/${measureId}/reassign`, data),
         updateMeasureStatus: (projectId, measureId, status, constraints) => API.put(`/projects/${projectId}/measures/${measureId}/status`, { status, constraints }),
         // Project Comments
         getComments: (id) => API.get(`/projects/${id}/comments`),
@@ -181,6 +182,14 @@ const API = {
         getRecentProjects: (limit) => API.get(`/dashboard/recent-projects?limit=${limit || 10}`),
         getLateProjects: (structureId) => API.get(`/dashboard/late-projects${structureId ? '?structure_id=' + structureId : ''}`),
         getChartData: (structureId) => API.get(`/dashboard/chart-data${structureId ? '?structure_id=' + structureId : ''}`)
+    },
+
+    // === API Keys endpoints ===
+    apiKeys: {
+        list: () => API.get('/api-keys'),
+        create: (data) => API.post('/api-keys', data),
+        revoke: (id) => API.post(`/api-keys/${id}/revoke`),
+        delete: (id) => API.delete(`/api-keys/${id}`)
     },
 
     // === Config endpoints ===

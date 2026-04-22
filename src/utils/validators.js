@@ -82,37 +82,48 @@ const isValidPercentage = (percentage) => {
  * @param {object} projectData - Données du projet
  * @returns {object} - { valid: boolean, errors: array }
  */
+const VALID_PRIORITIES = ['normale', 'haute', 'urgente'];
+const VALID_PROJECT_TYPES = ['renforcement_resilience', 'structurant'];
+
 const validateProjectData = (projectData) => {
     const errors = [];
-    
+
     if (!projectData.title || projectData.title.trim() === '') {
         errors.push('Titre du projet requis');
     }
-    
+
     if (!projectData.structure_id) {
         errors.push('Structure requise');
     }
-    
+
     if (projectData.status && !isValidProjectStatus(projectData.status)) {
         errors.push('Statut invalide');
     }
-    
+
     if (projectData.progress_percentage !== undefined && !isValidPercentage(projectData.progress_percentage)) {
         errors.push('Pourcentage d\'avancement invalide (0-100)');
     }
-    
+
     if (projectData.start_date && !isValidDate(projectData.start_date)) {
         errors.push('Date de début invalide');
     }
-    
+
     if (projectData.end_date && !isValidDate(projectData.end_date)) {
         errors.push('Date de fin invalide');
     }
-    
+
     if (projectData.deadline_date && !isValidDate(projectData.deadline_date)) {
         errors.push('Date d\'échéance invalide');
     }
-    
+
+    if (projectData.priority && !VALID_PRIORITIES.includes(projectData.priority)) {
+        errors.push('Priorité invalide (normale, haute, urgente)');
+    }
+
+    if (projectData.project_type && !VALID_PROJECT_TYPES.includes(projectData.project_type)) {
+        errors.push('Type de projet invalide');
+    }
+
     return {
         valid: errors.length === 0,
         errors
@@ -151,7 +162,15 @@ const validateProjectDataForUpdate = (projectData) => {
     if (projectData.deadline_date !== undefined && projectData.deadline_date !== null && !isValidDate(projectData.deadline_date)) {
         errors.push('Date d\'échéance invalide');
     }
-    
+
+    if (projectData.priority !== undefined && projectData.priority !== null && !VALID_PRIORITIES.includes(projectData.priority)) {
+        errors.push('Priorité invalide (normale, haute, urgente)');
+    }
+
+    if (projectData.project_type !== undefined && projectData.project_type !== null && projectData.project_type !== '' && !VALID_PROJECT_TYPES.includes(projectData.project_type)) {
+        errors.push('Type de projet invalide');
+    }
+
     return {
         valid: errors.length === 0,
         errors

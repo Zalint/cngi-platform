@@ -14,8 +14,8 @@ const Navbar = {
                     <div class="logo-container">
                         <img src="https://mha.gouv.sn/wp-content/uploads/2020/10/logo_mha_transparent3-1.png" alt="MHA" onerror="this.style.display='none'">
                     </div>
-                    <div class="app-title">CNGI</div>
-                    <div class="app-subtitle">Comité National de Gestion des Inondations</div>
+                    <div class="app-title">CNGIRI</div>
+                    <div class="app-subtitle">Comité National de Gestion Intégrée du Risque d'Inondation</div>
                     <p style="font-size: 10px; opacity: 0.4; margin-top: 8px;">DPGI — Maître d'ouvrage</p>
                 </div>
 

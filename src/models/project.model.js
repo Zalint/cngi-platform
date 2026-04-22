@@ -104,15 +104,18 @@ class ProjectModel {
         `, [id]);
         project.sites = sites.rows;
         
-        // Récupérer les mesures avec utilisateur assigné et commentaires
+        // Récupérer les mesures avec utilisateur assigné, structure et commentaires
         const measures = await db.query(`
-            SELECT 
+            SELECT
                 m.*,
                 u.username as assigned_username,
                 u.first_name as assigned_first_name,
-                u.last_name as assigned_last_name
+                u.last_name as assigned_last_name,
+                ms.name as structure_name,
+                ms.code as structure_code
             FROM measures m
             LEFT JOIN users u ON m.assigned_user_id = u.id
+            LEFT JOIN structures ms ON m.structure_id = ms.id
             WHERE m.project_id = $1
         `, [id]);
         
@@ -165,15 +168,17 @@ class ProjectModel {
     static async create(projectData) {
         const {
             title, description, structure_id, project_manager_id, status, progress_percentage,
-            start_date, end_date, deadline_date, budget, created_by_user_id
+            start_date, end_date, deadline_date, budget, created_by_user_id,
+            constraints, expected_measures, priority, project_type
         } = projectData;
-        
+
         const result = await db.query(`
             INSERT INTO projects (
                 title, description, structure_id, project_manager_id, status, progress_percentage,
-                start_date, end_date, deadline_date, budget, created_by_user_id
+                start_date, end_date, deadline_date, budget, created_by_user_id,
+                constraints, expected_measures, priority, project_type
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             RETURNING *
         `, [
             title,
@@ -186,9 +191,13 @@ class ProjectModel {
             end_date ? toSQLDate(end_date) : null,
             deadline_date ? toSQLDate(deadline_date) : null,
             budget || null,
-            created_by_user_id
+            created_by_user_id,
+            constraints || null,
+            expected_measures || null,
+            priority || 'normale',
+            project_type || null
         ]);
-        
+
         return result.rows[0];
     }
 
@@ -198,9 +207,10 @@ class ProjectModel {
     static async update(id, projectData) {
         const {
             title, description, structure_id, project_manager_id, status, progress_percentage,
-            start_date, end_date, deadline_date, budget
+            start_date, end_date, deadline_date, budget,
+            constraints, expected_measures, priority, project_type
         } = projectData;
-        
+
         const result = await db.query(`
             UPDATE projects
             SET title = COALESCE($1, title),
@@ -213,8 +223,12 @@ class ProjectModel {
                 end_date = COALESCE($8, end_date),
                 deadline_date = COALESCE($9, deadline_date),
                 budget = COALESCE($10, budget),
+                constraints = COALESCE($11, constraints),
+                expected_measures = COALESCE($12, expected_measures),
+                priority = COALESCE($13, priority),
+                project_type = COALESCE($14, project_type),
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $11
+            WHERE id = $15
             RETURNING *
         `, [
             title,
@@ -227,9 +241,13 @@ class ProjectModel {
             end_date ? toSQLDate(end_date) : null,
             deadline_date ? toSQLDate(deadline_date) : null,
             budget,
+            constraints,
+            expected_measures,
+            priority,
+            project_type,
             id
         ]);
-        
+
         return result.rows[0];
     }
 
@@ -292,14 +310,23 @@ class ProjectModel {
      * Ajouter une mesure à un projet
      */
     static async addMeasure(projectId, measureData) {
-        const { site_id, description, type, status, constraints } = measureData;
-        
+        const { site_id, description, type, status, constraints, structure_id, assigned_user_id } = measureData;
+
         const result = await db.query(`
-            INSERT INTO measures (project_id, site_id, description, type, status, constraints)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO measures (project_id, site_id, description, type, status, constraints, structure_id, assigned_user_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING *
-        `, [projectId, site_id || null, description, type || null, status || 'preconisee', constraints || null]);
-        
+        `, [projectId, site_id || null, description, type || null, status || 'preconisee', constraints || null, structure_id || null, assigned_user_id || null]);
+
+        // Auto-lier la structure au projet si fournie
+        if (structure_id) {
+            await db.query(`
+                INSERT INTO project_structures (project_id, structure_id)
+                VALUES ($1, $2)
+                ON CONFLICT (project_id, structure_id) DO NOTHING
+            `, [projectId, structure_id]);
+        }
+
         return result.rows[0];
     }
 
@@ -405,11 +432,21 @@ class ProjectModel {
             // Insérer les nouvelles mesures
             for (const measure of measures) {
                 await client.query(`
-                    INSERT INTO measures (project_id, site_id, assigned_user_id, description, type, status, constraints)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                `, [projectId, measure.site_id || null, measure.assigned_user_id || null, measure.description, measure.type || null, measure.status || 'preconisee', measure.constraints || null]);
+                    INSERT INTO measures (project_id, site_id, assigned_user_id, structure_id, description, type, status, constraints)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                `, [projectId, measure.site_id || null, measure.assigned_user_id || null, measure.structure_id || null, measure.description, measure.type || null, measure.status || 'preconisee', measure.constraints || null]);
             }
-            
+
+            // Auto-lier les structures portées par les mesures au projet (project_structures)
+            const measureStructureIds = [...new Set(measures.map(m => m.structure_id).filter(Boolean))];
+            for (const sid of measureStructureIds) {
+                await client.query(`
+                    INSERT INTO project_structures (project_id, structure_id)
+                    VALUES ($1, $2)
+                    ON CONFLICT (project_id, structure_id) DO NOTHING
+                `, [projectId, sid]);
+            }
+
             await client.query('COMMIT');
             return true;
         } catch (error) {
@@ -430,8 +467,32 @@ class ProjectModel {
             WHERE id = $2
             RETURNING *
         `, [userId, measureId]);
-        
+
         return result.rows[0];
+    }
+
+    /**
+     * Réassigner la structure et/ou l'utilisateur d'une mesure.
+     * Auto-lie la nouvelle structure au projet via project_structures.
+     */
+    static async reassignMeasure(measureId, { structure_id, assigned_user_id }) {
+        const result = await db.query(`
+            UPDATE measures
+            SET structure_id = $1,
+                assigned_user_id = $2
+            WHERE id = $3
+            RETURNING *
+        `, [structure_id ?? null, assigned_user_id ?? null, measureId]);
+
+        const measure = result.rows[0];
+        if (measure && measure.structure_id) {
+            await db.query(`
+                INSERT INTO project_structures (project_id, structure_id)
+                VALUES ($1, $2)
+                ON CONFLICT (project_id, structure_id) DO NOTHING
+            `, [measure.project_id, measure.structure_id]);
+        }
+        return measure;
     }
     
     /**

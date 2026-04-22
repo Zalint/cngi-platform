@@ -97,6 +97,25 @@ async function initDatabase() {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_projects_created_by ON projects(created_by_user_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_projects_manager ON projects(project_manager_id)`);
 
+        // Migration: new columns on projects (constraints, expected_measures, priority, project_type)
+        await client.query(`
+            DO $$ BEGIN
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS constraints TEXT;
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS expected_measures TEXT;
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS priority VARCHAR(20) DEFAULT 'normale';
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type VARCHAR(50);
+                ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_priority_check;
+                ALTER TABLE projects ADD CONSTRAINT projects_priority_check
+                    CHECK (priority IN ('normale', 'haute', 'urgente'));
+                ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_project_type_check;
+                ALTER TABLE projects ADD CONSTRAINT projects_project_type_check
+                    CHECK (project_type IS NULL OR project_type IN ('renforcement_resilience', 'structurant'));
+            EXCEPTION WHEN others THEN NULL;
+            END $$
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_projects_priority ON projects(priority)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_projects_type ON projects(project_type)`);
+
         // Project Structures
         await client.query(`
             CREATE TABLE IF NOT EXISTS project_structures (
@@ -198,6 +217,15 @@ async function initDatabase() {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_measures_status ON measures(status)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_measures_assigned_user ON measures(assigned_user_id)`);
 
+        // Migration: add structure_id on measures (reassign action to another structure)
+        await client.query(`
+            DO $$ BEGIN
+                ALTER TABLE measures ADD COLUMN IF NOT EXISTS structure_id INTEGER REFERENCES structures(id) ON DELETE SET NULL;
+            EXCEPTION WHEN others THEN NULL;
+            END $$
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_measures_structure ON measures(structure_id)`);
+
         // Measure Comments
         await client.query(`
             CREATE TABLE IF NOT EXISTS measure_comments (
@@ -271,6 +299,23 @@ async function initDatabase() {
             )
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_app_config_category ON app_config(category)`);
+
+        // API Keys (authentification de l'API externe v1)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                key_hash VARCHAR(128) NOT NULL UNIQUE,
+                key_prefix VARCHAR(20) NOT NULL,
+                label VARCHAR(100),
+                is_active BOOLEAN DEFAULT true,
+                last_used_at TIMESTAMP,
+                expires_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id)`);
 
         // Project Comments
         await client.query(`

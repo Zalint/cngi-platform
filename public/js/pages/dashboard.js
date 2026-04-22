@@ -5,6 +5,9 @@ const DashboardPage = {
         metrics: null,
         projectsByStructure: [],
         recentProjects: [],
+        recentProjectsLimit: 5,
+        recentProjectsHasMore: false,
+        allProjects: [],
         mapSites: []
     },
     map: null,
@@ -72,24 +75,28 @@ const DashboardPage = {
             const metrics = await API.dashboard.getMetrics(structureId);
             this.data.metrics = metrics.data;
         } else {
-            const [metrics, projectsByStructure, recentProjects, mapData] = await Promise.all([
+            const [metrics, projectsByStructure, recentProjects, mapData, allProjects] = await Promise.all([
                 API.dashboard.getMetrics(structureId),
                 API.dashboard.getProjectsByStructure(),
-                API.dashboard.getRecentProjects(5),
-                API.dashboard.getMapData(structureId)
+                API.dashboard.getRecentProjects(this.data.recentProjectsLimit + 1),
+                API.dashboard.getMapData(structureId),
+                API.projects.getAll()
             ]);
 
             this.data.metrics = metrics.data;
             this.data.projectsByStructure = projectsByStructure.data;
-            this.data.recentProjects = recentProjects.data;
+            const recentData = recentProjects.data || [];
+            this.data.recentProjectsHasMore = recentData.length > this.data.recentProjectsLimit;
+            this.data.recentProjects = recentData.slice(0, this.data.recentProjectsLimit);
             this.data.mapSites = mapData.data || [];
+            this.data.allProjects = allProjects.data || [];
         }
     },
 
     renderAlertBanner() {
         if (!this.data.metrics) return '';
         const m = this.data.metrics;
-        const retard = m.ouvrages_retardes || 0;
+        const retard = parseInt(m.ouvrages_retardes, 10) || 0;
         if (retard === 0) return '';
 
         return `
@@ -135,6 +142,10 @@ const DashboardPage = {
                     <div class="metric-value">${m.ouvrages_retardes || 0}</div>
                     <div class="metric-label">En retard</div>
                 </div>
+                <div class="metric-card" onclick="DashboardPage.goToProjects('', 'urgente')" style="cursor:pointer;border-left:4px solid #e74c3c;" title="Voir les projets urgents">
+                    <div class="metric-value" style="color:#e74c3c;">${m.projets_urgents || 0}</div>
+                    <div class="metric-label">🔴 Urgents</div>
+                </div>
             </div>
         `;
     },
@@ -164,11 +175,17 @@ const DashboardPage = {
             </tr>
         `).join('');
 
+        const showMoreBtn = this.data.recentProjectsHasMore
+            ? `<div style="display:flex;justify-content:center;padding:12px;border-top:1px solid #e5e9f0;">
+                    <button onclick="DashboardPage.loadMoreRecentProjects()" id="recent-projects-more-btn" style="padding:8px 20px;background:#202B5D;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Voir plus</button>
+               </div>`
+            : '';
+
         return `
-            <div class="card mb-4">
+            <div class="card mb-4" id="recent-projects-card">
                 <div class="card-header">
                     <h2>Projets récents</h2>
-                    <p>Derniers projets créés</p>
+                    <p>Derniers projets créés (${this.data.recentProjects.length} affichés)</p>
                 </div>
                 <div class="table-container">
                     <table>
@@ -186,20 +203,64 @@ const DashboardPage = {
                         </tbody>
                     </table>
                 </div>
+                ${showMoreBtn}
             </div>
         `;
     },
 
+    async loadMoreRecentProjects() {
+        const btn = document.getElementById('recent-projects-more-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Chargement...'; }
+        this.data.recentProjectsLimit += 10;
+        const res = await API.dashboard.getRecentProjects(this.data.recentProjectsLimit + 1);
+        const recentData = res.data || [];
+        this.data.recentProjectsHasMore = recentData.length > this.data.recentProjectsLimit;
+        this.data.recentProjects = recentData.slice(0, this.data.recentProjectsLimit);
+        const card = document.getElementById('recent-projects-card');
+        if (card) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = this.renderRecentProjects();
+            card.replaceWith(tmp.firstElementChild);
+        }
+    },
+
     renderMap() {
         return `
-            <div class="card">
-                <div class="card-header">
-                    <h2>Carte des interventions</h2>
-                    <p>Sites d'intervention au Sénégal</p>
+            <div class="card" id="map-card">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div>
+                        <h2>Carte des interventions</h2>
+                        <p>Sites d'intervention au Sénégal</p>
+                    </div>
+                    <button onclick="DashboardPage.toggleMapFullscreen()" id="map-fullscreen-btn"
+                        title="Agrandir la carte"
+                        style="padding:8px 12px;background:#202B5D;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+                        Plein écran
+                    </button>
                 </div>
                 <div id="senegal-map" class="map-container"></div>
             </div>
         `;
+    },
+
+    toggleMapFullscreen() {
+        const card = document.getElementById('map-card');
+        const btn = document.getElementById('map-fullscreen-btn');
+        if (!card) return;
+        const isFs = card.classList.toggle('map-fullscreen');
+        if (isFs) {
+            card.style.cssText = 'position:fixed;inset:0;z-index:9999;margin:0;border-radius:0;max-width:none;';
+            const mapEl = document.getElementById('senegal-map');
+            if (mapEl) mapEl.style.height = 'calc(100vh - 90px)';
+            if (btn) btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3"/></svg> Quitter plein écran';
+        } else {
+            card.style.cssText = '';
+            const mapEl = document.getElementById('senegal-map');
+            if (mapEl) mapEl.style.height = '';
+            if (btn) btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg> Plein écran';
+        }
+        setTimeout(() => { if (this.map) this.map.invalidateSize(); }, 100);
     },
 
     initMap() {
@@ -227,14 +288,6 @@ const DashboardPage = {
             maxZoom: 18
         }).addTo(this.map);
 
-        const statusColors = {
-            'en_cours': '#3794C4',
-            'termine': '#27ae60',
-            'retard': '#e74c3c',
-            'demarrage': '#f39c12',
-            'annule': '#8896AB'
-        };
-
         const sites = this.data.mapSites || [];
         if (sites.length === 0) {
             // Default marker for Dakar if no sites
@@ -250,20 +303,40 @@ const DashboardPage = {
             if (isNaN(lat) || isNaN(lng)) return;
 
             bounds.push([lat, lng]);
-            const color = statusColors[site.project_status] || '#3794C4';
+            // Couleur par structure (unifiée avec le graphique)
+            const color = StructureColors.get(site.structure_code);
+            const isUrgent = site.project_priority === 'urgente';
+            const isHaute = site.project_priority === 'haute';
+
+            // Marqueur plus grand + anneau rouge pulsant pour les projets urgents
+            const size = isUrgent ? 20 : isHaute ? 17 : 14;
+            const ring = isUrgent
+                ? `<div style="position:absolute;inset:-6px;border:2px solid #e74c3c;border-radius:50%;animation:pulse-urgent 1.4s infinite;"></div>`
+                : isHaute
+                ? `<div style="position:absolute;inset:-4px;border:2px solid #e67e22;border-radius:50%;"></div>`
+                : '';
 
             const icon = L.divIcon({
                 className: 'custom-marker',
-                html: `<div style="width:14px;height:14px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
-                iconSize: [14, 14],
-                iconAnchor: [7, 7]
+                html: `<div style="position:relative;width:${size}px;height:${size}px;">
+                        ${ring}
+                        <div style="width:${size}px;height:${size}px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
+                       </div>`,
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
             });
+
+            const priorityBadge = isUrgent
+                ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:#e74c3c;margin-left:4px;">🔴 URGENT</span>'
+                : isHaute
+                ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:#e67e22;margin-left:4px;">🟠 HAUTE</span>'
+                : '';
 
             L.marker([lat, lng], { icon })
                 .addTo(this.map)
                 .bindPopup(`
-                    <div style="min-width:180px;">
-                        <strong style="color:#202B5D;font-size:13px;">${site.name}</strong><br>
+                    <div style="min-width:200px;">
+                        <strong style="color:#202B5D;font-size:13px;">${site.name}</strong>${priorityBadge}<br>
                         <span style="font-size:12px;color:#62718D;">${site.description || ''}</span>
                         <hr style="margin:6px 0;border:none;border-top:1px solid #eee;">
                         <span style="font-size:11px;color:#62718D;">Projet:</span><br>
@@ -271,6 +344,11 @@ const DashboardPage = {
                         <span style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;color:white;background:${color};">
                             ${site.structure_code}
                         </span>
+                        <div style="margin-top:10px;">
+                            <a href="#/projects/${site.project_id}" style="display:inline-block;padding:6px 12px;background:#202B5D;color:white;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;">
+                                Voir détails →
+                            </a>
+                        </div>
                     </div>
                 `);
         });
@@ -283,7 +361,7 @@ const DashboardPage = {
     },
 
     renderGantt() {
-        const projects = this.data.recentProjects || [];
+        const projects = this.data.allProjects || [];
         if (projects.length === 0) return '';
 
         // Filter projects with dates
@@ -391,8 +469,7 @@ const DashboardPage = {
         
         const bars = this.data.projectsByStructure.map((structure, index) => {
             const height = (structure.total_projects / maxProjects) * 250;
-            const colors = ['#4285f4', '#34a853', '#fbbc04', '#ea4335', '#9c27b0'];
-            const color = colors[index % colors.length];
+            const color = StructureColors.get(structure.code);
             
             return `
                 <div style="flex: 1; max-width: 100px; display: flex; flex-direction: column; align-items: center; gap: 12px;">
@@ -581,8 +658,9 @@ const DashboardPage = {
         }
     },
 
-    goToProjects(status) {
+    goToProjects(status, priority) {
         sessionStorage.setItem('projectStatusFilter', status || '');
+        sessionStorage.setItem('projectPriorityFilter', priority || '');
         if (window.location.hash === '#/projects') {
             // Already on projects page, force re-render
             App.router();
