@@ -300,6 +300,33 @@ async function initDatabase() {
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_app_config_category ON app_config(category)`);
 
+        // Observations du Superviseur (Ministre) — directives adressées à tous
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS observations (
+                id SERIAL PRIMARY KEY,
+                author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+                title VARCHAR(200) NOT NULL,
+                content TEXT NOT NULL,
+                priority VARCHAR(20) DEFAULT 'info' CHECK (priority IN ('info', 'importante', 'urgente')),
+                deadline DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_observations_author ON observations(author_id)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_observations_project ON observations(project_id)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_observations_created ON observations(created_at DESC)`);
+
+        // Suivi de lecture (pour le badge de non-lues)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS observation_views (
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                last_viewed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id)
+            )
+        `);
+
         // API Keys (authentification de l'API externe v1)
         await client.query(`
             CREATE TABLE IF NOT EXISTS api_keys (

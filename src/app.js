@@ -19,6 +19,7 @@ const reportsRoutes = require('./routes/reports.routes');
 const apiKeysRoutes = require('./routes/apiKeys.routes');
 const v1Routes = require('./routes/v1.routes');
 const chatRoutes = require('./routes/chat.routes');
+const observationsRoutes = require('./routes/observations.routes');
 
 // Import middlewares
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
@@ -96,6 +97,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/api-keys', apiKeysRoutes);
 app.use('/api/v1', v1Routes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/observations', observationsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

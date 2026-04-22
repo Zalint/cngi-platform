@@ -8,7 +8,8 @@ const DashboardPage = {
         recentProjectsLimit: 5,
         recentProjectsHasMore: false,
         allProjects: [],
-        mapSites: []
+        mapSites: [],
+        topObservations: []
     },
     map: null,
 
@@ -24,6 +25,7 @@ const DashboardPage = {
                     <div class="main-content with-sidebar">
                         ${Navbar.renderTopBar('Tableau de bord - Vue Directeur')}
                         <div class="content-area">
+                            ${this.renderObservationsBanner()}
                             ${this.renderDirectorView()}
                         </div>
                     </div>
@@ -37,6 +39,7 @@ const DashboardPage = {
                     ${Navbar.renderTopBar('Tableau de bord')}
                     <div class="content-area">
                         ${this.renderAlertBanner()}
+                        ${this.renderObservationsBanner()}
                         ${this.renderMetrics()}
                         <div id="dashboard-view-toggle" style="display:flex;justify-content:flex-end;margin-bottom:12px;">
                             <div style="display:flex;background:#f0f4f8;border-radius:8px;overflow:hidden;">
@@ -66,6 +69,12 @@ const DashboardPage = {
         const structureId = (user.role === 'utilisateur' || user.role === 'directeur') ? user.structure_id : null;
         // superviseur and commandement_territorial use structureId = null (backend handles territorial filtering)
 
+        // Charger les dernières observations (non bloquant)
+        try {
+            const obsRes = await API.observations.list();
+            this.data.topObservations = (obsRes.data || []).slice(0, 3);
+        } catch { this.data.topObservations = []; }
+
         // Pour le directeur, charger aussi les projets détaillés
         if (user.role === 'directeur') {
             const projectsResponse = await API.projects.getAll();
@@ -91,6 +100,64 @@ const DashboardPage = {
             this.data.mapSites = mapData.data || [];
             this.data.allProjects = allProjects.data || [];
         }
+    },
+
+    renderObservationsBanner() {
+        const obs = this.data.topObservations || [];
+        if (obs.length === 0) return '';
+
+        const escape = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+        // Nom du ministre à partir de l'auteur de la première observation
+        let ministerName = '';
+        for (const o of obs) {
+            const name = [o.author_first_name, o.author_last_name].filter(Boolean).join(' ').trim();
+            if (name) { ministerName = name; break; }
+        }
+        const truncate = (s, n = 180) => {
+            const clean = String(s || '').replace(/\s+/g, ' ').trim();
+            return clean.length > n ? clean.slice(0, n) + '…' : clean;
+        };
+
+        const prioStyle = {
+            urgente:    { bg: 'linear-gradient(90deg,#fee2e2 0%,#fff 60%)', border: '#e74c3c', icon: '🔴', label: 'URGENTE' },
+            importante: { bg: 'linear-gradient(90deg,#fef3c7 0%,#fff 60%)', border: '#e67e22', icon: '🟠', label: 'IMPORTANTE' },
+            info:       { bg: 'linear-gradient(90deg,#dbeafe 0%,#fff 60%)', border: '#3794C4', icon: '🔵', label: 'INFO' }
+        };
+
+        const cards = obs.map(o => {
+            const st = prioStyle[o.priority || 'info'];
+            const deadline = o.deadline ? new Date(o.deadline).toLocaleDateString('fr-FR') : null;
+            const overdue = o.deadline && new Date(o.deadline) < new Date();
+            const author = [o.author_first_name, o.author_last_name].filter(Boolean).join(' ') || o.author_username || '—';
+
+            return `
+                <div style="background:${st.bg};border-left:4px solid ${st.border};padding:12px 16px;border-radius:8px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s;"
+                     onmouseover="this.style.transform='translateX(2px)';" onmouseout="this.style.transform='translateX(0)';"
+                     onclick="window.location.hash='#/observations'">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
+                        <span style="font-size:11px;font-weight:700;color:${st.border};">${st.icon} ${st.label}</span>
+                        <strong style="color:#202B5D;font-size:14px;">${escape(o.title)}</strong>
+                        ${deadline ? `<span style="font-size:11px;color:${overdue ? '#b91c1c' : '#62718D'};font-weight:600;">📅 ${deadline}${overdue ? ' ⚠️' : ''}</span>` : ''}
+                    </div>
+                    <div style="font-size:12.5px;color:#2c3e50;line-height:1.45;">${escape(truncate(o.content))}</div>
+                    <div style="font-size:11px;color:#8896AB;margin-top:4px;">— ${escape(author)}${o.project_title ? ` · 📁 ${escape(o.project_title)}` : ''}</div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="card mb-4" style="padding:16px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:18px;">📜</span>
+                        <h3 style="margin:0;color:#202B5D;font-size:15px;">Observation du ministre${ministerName ? ' ' + escape(ministerName) : ''}</h3>
+                    </div>
+                    <a href="#/observations" style="font-size:12px;color:#3794C4;text-decoration:none;font-weight:600;">Tout voir →</a>
+                </div>
+                ${cards}
+            </div>
+        `;
     },
 
     renderAlertBanner() {

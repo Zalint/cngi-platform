@@ -33,6 +33,13 @@ const Navbar = {
                         </span>
                         <span>Projets</span>
                     </a>
+                    <a href="#/observations" class="menu-item" data-page="observations">
+                        <span class="menu-item-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+                        </span>
+                        <span>Observations</span>
+                        <span id="nav-observations-badge" class="nav-badge" style="display:none;"></span>
+                    </a>
 
                     ${isAdmin ? `
                     <div class="sidebar-section-label">Administration</div>
@@ -116,6 +123,21 @@ const Navbar = {
             Auth.logout();
             window.location.hash = '#/login';
         }, { type: 'info', confirmText: 'Deconnexion' });
+    },
+
+    async refreshObservationBadge() {
+        const badge = document.getElementById('nav-observations-badge');
+        if (!badge) return;
+        try {
+            const res = await API.observations.getUnreadCount();
+            const n = res.count || 0;
+            if (n > 0) {
+                badge.textContent = n > 9 ? '9+' : String(n);
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        } catch (e) { /* silencieux */ }
     }
 };
 

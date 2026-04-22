@@ -184,6 +184,20 @@ const API = {
         getChartData: (structureId) => API.get(`/dashboard/chart-data${structureId ? '?structure_id=' + structureId : ''}`)
     },
 
+    // === Observations endpoints ===
+    observations: {
+        list: (filters = {}) => {
+            const params = new URLSearchParams(filters).toString();
+            return API.get(`/observations${params ? '?' + params : ''}`);
+        },
+        getById: (id) => API.get(`/observations/${id}`),
+        create: (data) => API.post('/observations', data),
+        update: (id, data) => API.put(`/observations/${id}`, data),
+        delete: (id) => API.delete(`/observations/${id}`),
+        getUnreadCount: () => API.get('/observations/unread-count'),
+        markRead: () => API.post('/observations/mark-read')
+    },
+
     // === API Keys endpoints ===
     apiKeys: {
         list: () => API.get('/api-keys'),

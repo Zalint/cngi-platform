@@ -66,16 +66,8 @@ const AdminPage = {
                             Clés API
                         </button>
                     </div>
-                    <div style="display: flex; gap: 12px;">
-                        <button class="btn btn-danger" onclick="AdminPage.resetDatabase()" style="background: #ea4335;">
-                            🗑️ Vider la base
-                        </button>
-                        <button class="btn btn-success" onclick="AdminPage.populateDatabase()">
-                            🌱 Remplir la base
-                        </button>
-                        <button class="btn btn-primary" onclick="AdminPage.resetAndPopulate()">
-                            🔄 Réinitialiser
-                        </button>
+                    <div style="display: none;">
+                        <!-- Boutons seed/reset masqués -->
                     </div>
                 </div>
             </div>

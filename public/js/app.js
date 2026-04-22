@@ -110,6 +110,10 @@ const App = {
                         }
                         break;
 
+                    case 'observations':
+                        content = await ObservationsPage.render();
+                        break;
+
                     default:
                         // Par défaut, rediriger vers dashboard
                         window.location.hash = '#/dashboard';
@@ -122,6 +126,11 @@ const App = {
 
             // Appeler afterRender si disponible
             this.callAfterRender(route, params);
+
+            // Rafraîchir le badge d'observations non lues
+            if (Auth.isAuthenticated() && typeof Navbar !== 'undefined' && Navbar.refreshObservationBadge) {
+                Navbar.refreshObservationBadge();
+            }
 
         } catch (error) {
             console.error('Routing error:', error);
@@ -159,6 +168,9 @@ const App = {
                     } else if (params.length > 0 && ProjectDetailPage.afterRender) {
                         ProjectDetailPage.afterRender();
                     }
+                    break;
+                case 'observations':
+                    if (ObservationsPage.afterRender) ObservationsPage.afterRender();
                     break;
                 case 'forms':
                     if (params.length === 0 && FormsPage.afterRender) {
