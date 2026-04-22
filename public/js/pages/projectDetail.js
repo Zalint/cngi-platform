@@ -282,7 +282,7 @@ const ProjectDetailPage = {
                     ${this.data.editMode.sites.map((site, index) => `
                         <div class="site-item" style="padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px;" data-index="${index}">
                             ${isProjectManager ? `
-                                <div style="display: grid; grid-template-columns: 1fr 1fr auto auto auto; gap: 10px; margin-bottom: 10px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr auto auto auto auto; gap: 10px; margin-bottom: 10px; align-items: center;">
                                     <input type="text" class="form-control" placeholder="Nom du site"
                                            value="${site.name || ''}"
                                            onchange="ProjectDetailPage.updateSiteField(${index}, 'name', this.value)">
@@ -292,6 +292,9 @@ const ProjectDetailPage = {
                                     <input type="text" class="form-control" placeholder="Lat,Lng" style="max-width:140px;"
                                            value="${site.latitude && site.longitude ? site.latitude + ',' + site.longitude : ''}"
                                            onchange="ProjectDetailPage.updateSiteCoordinates(${index}, this.value)">
+                                    <button class="btn btn-secondary" onclick="ProjectDetailPage.openMapPicker(${index})" title="Choisir la position sur une carte" style="font-size:12px;">
+                                        🗺️ Carte
+                                    </button>
                                     <button class="btn btn-secondary" onclick="ProjectDetailPage.autoFillSiteFromCoords(${index})" title="Déduire région/département/arrondissement/commune depuis les coordonnées GPS" style="font-size:12px;">
                                         📍 Auto
                                     </button>
@@ -654,6 +657,214 @@ const ProjectDetailPage = {
             const res = await API.decoupage.getCommunes(arrond);
             res.data.forEach(c => { communeSel.innerHTML += `<option value="${c}">${c}</option>`; });
         }
+    },
+
+    openMapPicker(index) {
+        const site = this.data.editMode.sites[index];
+        const hasCoords = site.latitude && site.longitude;
+        const initLat = hasCoords ? parseFloat(site.latitude) : 14.4974;  // centre Sénégal
+        const initLng = hasCoords ? parseFloat(site.longitude) : -14.4524;
+        const initZoom = hasCoords ? 14 : 7;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'map-picker-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `
+            <div style="background:white;border-radius:12px;width:min(90vw,900px);height:min(85vh,700px);display:flex;flex-direction:column;overflow:hidden;">
+                <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <h3 style="margin:0;color:#202B5D;font-size:16px;">🗺️ Choisir la position sur la carte</h3>
+                        <small style="color:#62718D;">Cliquez sur la carte pour placer le marqueur. Vous pouvez zoomer, bouger et recliquer à volonté.</small>
+                    </div>
+                    <button class="btn btn-secondary" onclick="ProjectDetailPage.closeMapPicker()" style="font-size:20px;padding:4px 10px;">✕</button>
+                </div>
+                <div style="padding:10px 18px;border-bottom:1px solid #e2e8f0;position:relative;z-index:10500;">
+                    <input type="text" id="map-picker-search" class="form-control" placeholder="🔎 Rechercher un lieu (ex: Pikine, Touba, Dakar)..." autocomplete="off" style="width:100%;">
+                    <div id="map-picker-results" style="position:absolute;top:100%;left:18px;right:18px;background:white;border:1px solid #dce3ed;border-radius:0 0 8px 8px;max-height:280px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:10501;display:none;"></div>
+                </div>
+                <div id="map-picker-el" style="flex:1;"></div>
+                <div style="padding:12px 18px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <div id="map-picker-coords" style="font-family:monospace;color:#202B5D;font-size:14px;font-weight:600;">
+                        ${hasCoords ? `${site.latitude}, ${site.longitude}` : 'Aucune position sélectionnée'}
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-secondary" onclick="ProjectDetailPage.useMyLocation()" title="Utiliser la position GPS du navigateur">
+                            📍 Ma position
+                        </button>
+                        <button class="btn btn-secondary" onclick="ProjectDetailPage.closeMapPicker()">Annuler</button>
+                        <button class="btn btn-primary" id="map-picker-confirm" onclick="ProjectDetailPage.confirmMapPicker(${index})" ${hasCoords ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"'}>
+                            ✓ Valider
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        setTimeout(() => {
+            const map = L.map('map-picker-el', { zoomControl: true }).setView([initLat, initLng], initZoom);
+            const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 });
+            const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 19 });
+            osm.addTo(map);
+            L.control.layers({ 'Plan': osm, 'Satellite': sat }, null, { position: 'topright', collapsed: false }).addTo(map);
+
+            let marker = null;
+            if (hasCoords) {
+                marker = L.marker([initLat, initLng]).addTo(map);
+            }
+
+            this._mapPicker = { map, marker, lat: hasCoords ? initLat : null, lng: hasCoords ? initLng : null };
+
+            map.on('click', (e) => {
+                const { lat, lng } = e.latlng;
+                if (this._mapPicker.marker) this._mapPicker.marker.setLatLng([lat, lng]);
+                else this._mapPicker.marker = L.marker([lat, lng]).addTo(map);
+                this._mapPicker.lat = lat;
+                this._mapPicker.lng = lng;
+                const precision = 7;
+                document.getElementById('map-picker-coords').textContent = `${lat.toFixed(precision)}, ${lng.toFixed(precision)}`;
+                const btn = document.getElementById('map-picker-confirm');
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            });
+
+            // Force la bonne taille après l'ouverture du modal
+            setTimeout(() => map.invalidateSize(), 100);
+
+            // Recherche type Google Maps (Nominatim forward geocoding, scope Sénégal)
+            const searchInput = document.getElementById('map-picker-search');
+            const resultsBox = document.getElementById('map-picker-results');
+            let searchTimer = null;
+            const doSearch = async (q) => {
+                resultsBox.innerHTML = '<div style="padding:10px;color:#8896AB;font-size:12px;">Recherche...</div>';
+                resultsBox.style.display = 'block';
+                try {
+                    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&countrycodes=sn&limit=8&addressdetails=1&accept-language=fr`;
+                    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!resp.ok) throw new Error('Erreur réseau');
+                    const list = await resp.json();
+                    if (!list.length) {
+                        resultsBox.innerHTML = '<div style="padding:10px;color:#8896AB;font-size:12px;">Aucun résultat.</div>';
+                        return;
+                    }
+                    resultsBox.innerHTML = list.map((r, i) => `
+                        <div class="map-picker-result" data-idx="${i}"
+                             style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f4f8;font-size:13px;"
+                             onmouseover="this.style.background='#f0f4f8';" onmouseout="this.style.background='white';">
+                            <div style="font-weight:600;color:#202B5D;">${(r.name || r.display_name.split(',')[0] || '').replace(/</g,'&lt;')}</div>
+                            <div style="font-size:11px;color:#62718D;">${(r.display_name || '').replace(/</g,'&lt;')}</div>
+                        </div>
+                    `).join('');
+                    // Attach click handlers
+                    resultsBox.querySelectorAll('.map-picker-result').forEach((el) => {
+                        el.addEventListener('click', () => {
+                            const r = list[parseInt(el.dataset.idx)];
+                            const lat = parseFloat(r.lat);
+                            const lng = parseFloat(r.lon);
+                            if (this._mapPicker.marker) this._mapPicker.marker.setLatLng([lat, lng]);
+                            else this._mapPicker.marker = L.marker([lat, lng]).addTo(this._mapPicker.map);
+                            this._mapPicker.map.setView([lat, lng], 15);
+                            this._mapPicker.lat = lat;
+                            this._mapPicker.lng = lng;
+                            document.getElementById('map-picker-coords').textContent = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
+                            const btn = document.getElementById('map-picker-confirm');
+                            btn.disabled = false;
+                            btn.style.opacity = '1';
+                            btn.style.cursor = 'pointer';
+                            resultsBox.style.display = 'none';
+                            searchInput.value = r.display_name.split(',').slice(0, 2).join(', ');
+                        });
+                    });
+                } catch (err) {
+                    resultsBox.innerHTML = `<div style="padding:10px;color:#e74c3c;font-size:12px;">Erreur: ${err.message}</div>`;
+                }
+            };
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimer);
+                const q = e.target.value.trim();
+                if (q.length < 3) {
+                    resultsBox.style.display = 'none';
+                    return;
+                }
+                searchTimer = setTimeout(() => doSearch(q), 450);
+            });
+            // Hide results when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!resultsBox.contains(e.target) && e.target !== searchInput) {
+                    resultsBox.style.display = 'none';
+                }
+            }, { once: false });
+        }, 50);
+    },
+
+    useMyLocation() {
+        if (!navigator.geolocation) {
+            Toast.error('La géolocalisation n\'est pas disponible sur ce navigateur.');
+            return;
+        }
+        if (!this._mapPicker || !this._mapPicker.map) return;
+        Toast.info('Récupération de votre position...');
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const acc = Math.round(pos.coords.accuracy || 0);
+            const map = this._mapPicker.map;
+
+            if (this._mapPicker.marker) this._mapPicker.marker.setLatLng([lat, lng]);
+            else this._mapPicker.marker = L.marker([lat, lng]).addTo(map);
+
+            // Cercle de précision
+            if (this._mapPicker.accuracyCircle) map.removeLayer(this._mapPicker.accuracyCircle);
+            this._mapPicker.accuracyCircle = L.circle([lat, lng], {
+                radius: acc || 30,
+                color: '#3794C4',
+                fillColor: '#3794C4',
+                fillOpacity: 0.15,
+                weight: 1
+            }).addTo(map);
+
+            map.setView([lat, lng], 17);
+
+            this._mapPicker.lat = lat;
+            this._mapPicker.lng = lng;
+            document.getElementById('map-picker-coords').textContent = `${lat.toFixed(7)}, ${lng.toFixed(7)} (±${acc} m)`;
+            const btn = document.getElementById('map-picker-confirm');
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            Toast.success(`Position trouvée (précision ±${acc} m)`);
+        }, (err) => {
+            const msg = {
+                1: 'Permission refusée. Autorisez la géolocalisation dans votre navigateur.',
+                2: 'Position indisponible (pas de signal GPS ou réseau).',
+                3: 'Délai dépassé, réessayez.'
+            }[err.code] || err.message || 'Erreur de géolocalisation';
+            Toast.error(msg);
+        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    },
+
+    closeMapPicker() {
+        const overlay = document.getElementById('map-picker-overlay');
+        if (overlay) overlay.remove();
+        if (this._mapPicker && this._mapPicker.map) this._mapPicker.map.remove();
+        this._mapPicker = null;
+    },
+
+    confirmMapPicker(index) {
+        if (!this._mapPicker || this._mapPicker.lat == null) return;
+        const lat = Number(this._mapPicker.lat.toFixed(7));
+        const lng = Number(this._mapPicker.lng.toFixed(7));
+        this.data.editMode.sites[index].latitude = lat;
+        this.data.editMode.sites[index].longitude = lng;
+        // Met à jour l'input Lat,Lng visible
+        const row = document.querySelector(`.site-item[data-index="${index}"]`);
+        if (row) {
+            const latInput = row.querySelector('input[placeholder="Lat,Lng"]');
+            if (latInput) latInput.value = `${lat},${lng}`;
+        }
+        this.closeMapPicker();
+        Toast.success(`Position enregistrée : ${lat}, ${lng}`);
     },
 
     async autoFillSiteFromCoords(index) {
