@@ -100,22 +100,85 @@ const Navbar = {
 
         return `
             <div class="top-bar">
-                <h1>${title}</h1>
-                <div class="user-profile">
-                    <div class="user-info">
-                        <div class="user-name">${Auth.getFullName()}</div>
-                        <div class="user-role">${roleLabels[user.role] || user.role}${user.structure_name ? ' - ' + user.structure_code : ''}</div>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <button id="burger-toggle" onclick="Navbar.toggleSidebar()" aria-label="Menu"
+                            style="display:none;background:none;border:none;padding:6px;cursor:pointer;color:#202B5D;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="6" x2="21" y2="6"/>
+                            <line x1="3" y1="12" x2="21" y2="12"/>
+                            <line x1="3" y1="18" x2="21" y2="18"/>
+                        </svg>
+                    </button>
+                    <h1 style="margin:0;">${title}</h1>
+                </div>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <button onclick="Navbar.hardRefresh()" title="Vider le cache et recharger la page"
+                            style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#f0f4f8;color:#202B5D;border:1px solid #dce3ed;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:background 0.15s;"
+                            onmouseover="this.style.background='#e1e9f0';" onmouseout="this.style.background='#f0f4f8';">
+                        🔄 Actualiser
+                    </button>
+                    <div class="user-profile">
+                        <div class="user-info">
+                            <div class="user-name">${Auth.getFullName()}</div>
+                            <div class="user-role">${roleLabels[user.role] || user.role}${user.structure_name ? ' - ' + user.structure_code : ''}</div>
+                        </div>
+                        <div class="user-avatar">${Auth.getInitials()}</div>
                     </div>
-                    <div class="user-avatar">${Auth.getInitials()}</div>
                 </div>
             </div>
         `;
     },
 
+    toggleSidebar() {
+        const sb = document.querySelector('.sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (!sb) return;
+        const isOpen = sb.classList.toggle('sidebar-mobile-open');
+        if (isOpen) {
+            if (!backdrop) {
+                const bd = document.createElement('div');
+                bd.id = 'sidebar-backdrop';
+                bd.onclick = () => Navbar.closeSidebar();
+                document.body.appendChild(bd);
+            }
+        } else if (backdrop) {
+            backdrop.remove();
+        }
+    },
+
+    closeSidebar() {
+        const sb = document.querySelector('.sidebar');
+        if (sb) sb.classList.remove('sidebar-mobile-open');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (backdrop) backdrop.remove();
+    },
+
+    async hardRefresh() {
+        try {
+            // Désinscrire le service worker PWA s'il existe
+            if ('serviceWorker' in navigator) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(regs.map(r => r.unregister()));
+            }
+            // Vider les caches du navigateur (Cache API)
+            if ('caches' in window) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(k => caches.delete(k)));
+            }
+        } catch (e) { /* ignore */ }
+        // Bust URL cache + force reload from server
+        const url = new URL(window.location.href);
+        url.searchParams.set('_t', Date.now());
+        window.location.replace(url.toString());
+    },
+
     updateActiveMenu() {
         const currentHash = window.location.hash;
         const menuItems = document.querySelectorAll('.menu-item');
-        
+
+        // Ferme la sidebar mobile dès qu'on navigue
+        Navbar.closeSidebar();
+
         menuItems.forEach(item => {
             item.classList.remove('active');
             const page = item.getAttribute('data-page');

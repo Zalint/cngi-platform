@@ -50,7 +50,7 @@ const DashboardPage = {
                                 <button onclick="DashboardPage.switchView('gantt')" id="view-btn-gantt" style="padding:8px 16px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:#62718D;">Planning Gantt</button>
                             </div>
                         </div>
-                        <div id="view-map" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+                        <div id="view-map" class="view-map-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
                             <div>${this.renderMap()}</div>
                             <div>${this.renderChart()}</div>
                         </div>
@@ -595,9 +595,26 @@ const DashboardPage = {
             }
             if (rings.length === 0) return;
 
-            // Polygone "beignet" : anneau extérieur = monde entier ; anneaux intérieurs (holes) = Sénégal
+            // Élargit chaque anneau d'environ ~5 km depuis son centroïde pour que
+            // les labels des villes frontalières (Saint-Louis, Bakel, Ziguinchor…)
+            // restent visibles sans être coupés par le masque.
+            const inflateRing = (ring, factor) => {
+                const n = ring.length;
+                let cLat = 0, cLng = 0;
+                ring.forEach(p => { cLat += p[0]; cLng += p[1]; });
+                cLat /= n; cLng /= n;
+                return ring.map(([lat, lng]) => [
+                    cLat + (lat - cLat) * factor,
+                    cLng + (lng - cLng) * factor
+                ]);
+            };
+            const paddedRings = rings.map(r => inflateRing(r, 1.012));
+
+            // Polygone "beignet" : anneau extérieur = monde entier ;
+            // anneaux intérieurs (holes) = Sénégal légèrement élargi pour ne pas couper
+            // les labels des villes frontalières (Saint-Louis, Bakel, Ziguinchor…)
             const worldRing = [[-89, -179], [-89, 179], [89, 179], [89, -179]];
-            const mask = L.polygon([worldRing, ...rings], {
+            const mask = L.polygon([worldRing, ...paddedRings], {
                 stroke: false,
                 fillColor: '#f0f4f8',
                 fillOpacity: 1,
@@ -606,7 +623,7 @@ const DashboardPage = {
             });
             mask.addTo(this.map);
 
-            // Fin contour du Sénégal pour le mettre en valeur
+            // Fin contour du Sénégal (utilise les frontières réelles, pas le padding)
             L.polygon(rings, {
                 color: '#202B5D',
                 weight: 2,
