@@ -474,6 +474,9 @@ const DashboardPage = {
             { position: 'topright', collapsed: false }
         ).addTo(this.map);
 
+        // Masque : tout ce qui n'est pas le Sénégal est grisé
+        this.addSenegalMask();
+
         const sites = this.data.mapSites || [];
         if (sites.length === 0) {
             // Default marker for Dakar if no sites
@@ -570,6 +573,49 @@ const DashboardPage = {
         }
 
         this.addStructureFilterControl();
+    },
+
+    async addSenegalMask() {
+        if (!this.map) return;
+        try {
+            const resp = await fetch('/data/senegal.geojson');
+            if (!resp.ok) return;
+            const gj = await resp.json();
+
+            // Récupère la ou les géométries externes (polygone ou multipolygone)
+            const rings = [];
+            for (const feat of gj.features || []) {
+                const g = feat.geometry || {};
+                if (g.type === 'Polygon') {
+                    // Leaflet [lat,lng] vs GeoJSON [lng,lat]
+                    rings.push(g.coordinates[0].map(c => [c[1], c[0]]));
+                } else if (g.type === 'MultiPolygon') {
+                    g.coordinates.forEach(poly => rings.push(poly[0].map(c => [c[1], c[0]])));
+                }
+            }
+            if (rings.length === 0) return;
+
+            // Polygone "beignet" : anneau extérieur = monde entier ; anneaux intérieurs (holes) = Sénégal
+            const worldRing = [[-89, -179], [-89, 179], [89, 179], [89, -179]];
+            const mask = L.polygon([worldRing, ...rings], {
+                stroke: false,
+                fillColor: '#f0f4f8',
+                fillOpacity: 1,
+                interactive: false,
+                smoothFactor: 1.5
+            });
+            mask.addTo(this.map);
+
+            // Fin contour du Sénégal pour le mettre en valeur
+            L.polygon(rings, {
+                color: '#202B5D',
+                weight: 2,
+                fill: false,
+                interactive: false
+            }).addTo(this.map);
+        } catch (e) {
+            console.warn('Masque Sénégal non chargé:', e.message);
+        }
     },
 
     addStructureFilterControl() {
