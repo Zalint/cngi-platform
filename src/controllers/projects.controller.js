@@ -1,6 +1,7 @@
 const ProjectModel = require('../models/project.model');
 const ProjectStructure = require('../models/projectStructure.model');
 const { validateProjectData, validateProjectDataForUpdate } = require('../utils/validators');
+const { canUserAccessProject } = require('../utils/projectAccess');
 
 exports.getAllProjects = async (req, res, next) => {
     try {
@@ -40,14 +41,12 @@ exports.getProjectById = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Projet non trouvé' });
         }
         
-        // Vérifier l'accès via project_structures
-        if ((req.user.role === 'utilisateur' || req.user.role === 'directeur') && req.user.structure_id) {
-            const hasAccess = await ProjectStructure.userHasAccessToProject(req.user.id, req.params.id);
-            if (!hasAccess) {
-                return res.status(403).json({ success: false, message: 'Accès refusé à ce projet' });
-            }
+        // Vérifier l'accès pour tous les non-admin (inclut commandement_territorial)
+        const hasAccess = await canUserAccessProject(req.user, req.params.id);
+        if (!hasAccess) {
+            return res.status(403).json({ success: false, message: 'Accès refusé à ce projet' });
         }
-        
+
         res.json({ success: true, data: project });
     } catch (error) {
         next(error);
@@ -362,10 +361,16 @@ exports.reassignMeasure = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Seul le chef de projet ou un admin peut réassigner une mesure' });
         }
 
-        const updated = await ProjectModel.reassignMeasure(measureId, {
+        // L'UPDATE filtre sur id + project_id : retourne null si la mesure n'appartient pas au projet
+        const updated = await ProjectModel.reassignMeasure(measureId, projectId, {
             structure_id: structure_id || null,
             assigned_user_id: assigned_user_id || null
         });
+
+        if (!updated) {
+            return res.status(404).json({ success: false, message: 'Mesure non trouvée pour ce projet' });
+        }
+
         res.json({ success: true, message: 'Mesure réassignée', data: updated });
     } catch (error) {
         next(error);

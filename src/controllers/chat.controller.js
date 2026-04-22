@@ -2,6 +2,7 @@ const OpenAI = require('openai');
 const ProjectModel = require('../models/project.model');
 const ProjectStructure = require('../models/projectStructure.model');
 const StructureModel = require('../models/structure.model');
+const { canUserAccessProject } = require('../utils/projectAccess');
 
 const STATUS_LABELS = {
     demarrage: 'Démarrage', en_cours: 'En cours', termine: 'Terminé', retard: 'En retard', annule: 'Annulé'
@@ -103,11 +104,9 @@ async function executeTool(name, args, user) {
         if (name === 'get_project') {
             const project = await ProjectModel.findById(args.id);
             if (!project) return { error: 'Projet non trouvé' };
-            // Vérif accès
-            if (user.role === 'utilisateur' || user.role === 'directeur') {
-                const access = await ProjectStructure.userHasAccessToProject(user.id, args.id);
-                if (!access) return { error: 'Accès refusé à ce projet' };
-            }
+            // Vérif accès pour tous les non-admin (inclut commandement_territorial)
+            const access = await canUserAccessProject(user, args.id);
+            if (!access) return { error: 'Accès refusé à ce projet' };
             return {
                 id: project.id,
                 titre: project.title,
