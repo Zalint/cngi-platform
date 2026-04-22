@@ -4,7 +4,8 @@ const AdminPage = {
     data: {
         users: [],
         structures: [],
-        configItems: []
+        configItems: [],
+        apiKeys: []
     },
 
     async render() {
@@ -60,6 +61,9 @@ const AdminPage = {
                         </button>
                         <button class="admin-tab" data-tab="config" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
                             Configuration
+                        </button>
+                        <button class="admin-tab" data-tab="api-keys" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
+                            Clés API
                         </button>
                     </div>
                     <div style="display: flex; gap: 12px;">
@@ -206,6 +210,10 @@ const AdminPage = {
                     content.innerHTML = this.renderStructures();
                 } else if (tabName === 'config') {
                     content.innerHTML = this.renderConfig();
+                } else if (tabName === 'api-keys') {
+                    this.loadApiKeys().then(() => {
+                        content.innerHTML = this.renderApiKeys();
+                    });
                 }
             });
         });
@@ -232,11 +240,255 @@ const AdminPage = {
     },
 
     createStructure() {
-        Toast.info('Fonctionnalité de création de structure en cours de développement');
+        const modal = document.createElement('div');
+        modal.className = 'confirm-overlay confirm-visible';
+        modal.innerHTML = `
+            <div class="confirm-dialog" style="text-align:left;max-width:500px;">
+                <h3 style="margin-bottom:20px;color:#202B5D;">Nouvelle structure</h3>
+                <div class="form-group">
+                    <label>Code <span style="color:#e74c3c;">*</span></label>
+                    <input type="text" id="struct-code" class="form-control" placeholder="ex: DPGI" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label>Nom <span style="color:#e74c3c;">*</span></label>
+                    <input type="text" id="struct-name" class="form-control" placeholder="ex: Direction de la Prévention et de la Gestion des Inondations">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="struct-description" class="form-control" rows="3" placeholder="Rôle et mission de la structure"></textarea>
+                </div>
+                <div class="confirm-actions" style="margin-top:20px;">
+                    <button class="confirm-btn confirm-btn-cancel" onclick="this.closest('.confirm-overlay').remove()">Annuler</button>
+                    <button class="confirm-btn confirm-btn-ok" style="background:#3794C4;" onclick="AdminPage.saveNewStructure()">Enregistrer</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        setTimeout(() => document.getElementById('struct-code').focus(), 50);
+    },
+
+    async saveNewStructure() {
+        const code = document.getElementById('struct-code').value.trim().toUpperCase();
+        const name = document.getElementById('struct-name').value.trim();
+        const description = document.getElementById('struct-description').value.trim();
+
+        if (!code || !name) { Toast.warning('Code et nom requis.'); return; }
+
+        try {
+            await API.structures.create({ code, name, description });
+            document.querySelector('.confirm-overlay').remove();
+            Toast.success('Structure créée.');
+            const res = await API.structures.getAll();
+            this.data.structures = res.data || [];
+            document.getElementById('admin-content').innerHTML = this.renderStructures();
+        } catch (err) {
+            Toast.error('Erreur: ' + (err.message || 'Erreur inconnue'));
+        }
     },
 
     editStructure(id) {
-        Toast.info('Fonctionnalité de modification de structure en cours de développement');
+        const s = this.data.structures.find(x => x.id === id);
+        if (!s) return;
+        const esc = (v) => (v || '').replace(/"/g, '&quot;');
+        const modal = document.createElement('div');
+        modal.className = 'confirm-overlay confirm-visible';
+        modal.innerHTML = `
+            <div class="confirm-dialog" style="text-align:left;max-width:500px;">
+                <h3 style="margin-bottom:20px;color:#202B5D;">Modifier structure</h3>
+                <div class="form-group">
+                    <label>Code <span style="color:#e74c3c;">*</span></label>
+                    <input type="text" id="struct-edit-code" class="form-control" value="${esc(s.code)}" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label>Nom <span style="color:#e74c3c;">*</span></label>
+                    <input type="text" id="struct-edit-name" class="form-control" value="${esc(s.name)}">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="struct-edit-description" class="form-control" rows="3">${s.description || ''}</textarea>
+                </div>
+                <div class="confirm-actions" style="margin-top:20px;">
+                    <button class="confirm-btn confirm-btn-cancel" onclick="this.closest('.confirm-overlay').remove()">Annuler</button>
+                    <button class="confirm-btn confirm-btn-ok" style="background:#3794C4;" onclick="AdminPage.saveEditStructure(${id})">Enregistrer</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    },
+
+    async saveEditStructure(id) {
+        const code = document.getElementById('struct-edit-code').value.trim().toUpperCase();
+        const name = document.getElementById('struct-edit-name').value.trim();
+        const description = document.getElementById('struct-edit-description').value.trim();
+
+        if (!code || !name) { Toast.warning('Code et nom requis.'); return; }
+
+        try {
+            await API.structures.update(id, { code, name, description });
+            document.querySelector('.confirm-overlay').remove();
+            Toast.success('Structure modifiée.');
+            const res = await API.structures.getAll();
+            this.data.structures = res.data || [];
+            document.getElementById('admin-content').innerHTML = this.renderStructures();
+        } catch (err) {
+            Toast.error('Erreur: ' + (err.message || 'Erreur inconnue'));
+        }
+    },
+
+    // ==================== Clés API ====================
+
+    async loadApiKeys() {
+        const res = await API.apiKeys.list();
+        this.data.apiKeys = res.data || [];
+    },
+
+    renderApiKeys() {
+        const isAdmin = Auth.hasRole('admin');
+        const rows = this.data.apiKeys.map(k => {
+            const expired = k.expires_at && new Date(k.expires_at) < new Date();
+            const statusBadge = !k.is_active
+                ? '<span style="padding:2px 8px;background:#8896AB;color:white;border-radius:10px;font-size:11px;font-weight:600;">Révoquée</span>'
+                : expired
+                ? '<span style="padding:2px 8px;background:#e67e22;color:white;border-radius:10px;font-size:11px;font-weight:600;">Expirée</span>'
+                : '<span style="padding:2px 8px;background:#27ae60;color:white;border-radius:10px;font-size:11px;font-weight:600;">Active</span>';
+            const lastUsed = k.last_used_at ? new Date(k.last_used_at).toLocaleString('fr-FR') : 'Jamais';
+            const owner = isAdmin && k.username
+                ? `<br><small style="color:#8896AB;">${k.first_name || ''} ${k.last_name || ''} (${k.username})</small>`
+                : '';
+
+            return `
+                <tr>
+                    <td>${k.label || '<em style="color:#8896AB;">Sans libellé</em>'}${owner}</td>
+                    <td><code style="background:#f0f4f8;padding:2px 6px;border-radius:4px;font-size:12px;">${k.key_prefix}…</code></td>
+                    <td>${statusBadge}</td>
+                    <td style="font-size:12px;color:#62718D;">${lastUsed}</td>
+                    <td style="font-size:12px;color:#62718D;">${new Date(k.created_at).toLocaleDateString('fr-FR')}</td>
+                    <td>
+                        <div style="display:flex;gap:6px;">
+                            ${k.is_active ? `<button class="btn-icon" onclick="AdminPage.revokeApiKey(${k.id})" title="Révoquer">🚫</button>` : ''}
+                            <button class="btn-icon" onclick="AdminPage.deleteApiKey(${k.id})" title="Supprimer">🗑️</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <div>
+                        <h2 style="margin:0;">Clés API</h2>
+                        <p style="color:#62718D;font-size:13px;margin:4px 0 0;">Authentifient l'accès à l'API externe <code>/api/v1</code>. Chaque clé hérite des droits de son propriétaire.</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="AdminPage.createApiKey()">➕ Nouvelle clé</button>
+                </div>
+                <div style="background:#f0f8ff;padding:12px;border-radius:6px;border-left:3px solid #3794C4;margin-bottom:16px;font-size:13px;">
+                    <strong>Documentation :</strong> <a href="/api/v1/docs" target="_blank" style="color:#3794C4;">OpenAPI JSON</a>
+                    &nbsp;|&nbsp;
+                    Usage : <code>curl -H "x-api-key: VOTRE_CLE" ${window.location.origin}/api/v1/projects</code>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Libellé</th>
+                                <th>Préfixe</th>
+                                <th>Statut</th>
+                                <th>Dernière utilisation</th>
+                                <th>Créée le</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows || '<tr><td colspan="6" style="text-align:center;color:#8896AB;padding:30px;">Aucune clé. Créez-en une pour accéder à l\'API.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    },
+
+    createApiKey() {
+        const modal = document.createElement('div');
+        modal.className = 'confirm-overlay confirm-visible';
+        modal.innerHTML = `
+            <div class="confirm-dialog" style="text-align:left;max-width:500px;">
+                <h3 style="margin-bottom:12px;color:#202B5D;">Nouvelle clé API</h3>
+                <p style="color:#62718D;font-size:13px;margin-bottom:20px;">La clé héritera de vos droits et sera montrée <strong>une seule fois</strong>.</p>
+                <div class="form-group">
+                    <label>Libellé (pour vous retrouver)</label>
+                    <input type="text" id="ak-label" class="form-control" placeholder="ex: Chatbot, Intégration PowerBI, Script de monitoring" maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label>Expiration (optionnel)</label>
+                    <input type="date" id="ak-expires" class="form-control">
+                </div>
+                <div class="confirm-actions" style="margin-top:20px;">
+                    <button class="confirm-btn confirm-btn-cancel" onclick="this.closest('.confirm-overlay').remove()">Annuler</button>
+                    <button class="confirm-btn confirm-btn-ok" style="background:#202B5D;" onclick="AdminPage.saveNewApiKey()">Générer la clé</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        setTimeout(() => document.getElementById('ak-label').focus(), 50);
+    },
+
+    async saveNewApiKey() {
+        const label = document.getElementById('ak-label').value.trim();
+        const expiresAt = document.getElementById('ak-expires').value;
+        try {
+            const res = await API.apiKeys.create({ label, expires_at: expiresAt || null });
+            document.querySelector('.confirm-overlay')?.remove();
+            this.showApiKeyOnce(res.data.key, label);
+            await this.loadApiKeys();
+            document.getElementById('admin-content').innerHTML = this.renderApiKeys();
+        } catch (err) {
+            Toast.error('Erreur: ' + (err.message || 'inconnue'));
+        }
+    },
+
+    showApiKeyOnce(key, label) {
+        const modal = document.createElement('div');
+        modal.className = 'confirm-overlay confirm-visible';
+        modal.innerHTML = `
+            <div class="confirm-dialog" style="text-align:left;max-width:600px;">
+                <h3 style="margin-bottom:12px;color:#27ae60;">✅ Clé générée</h3>
+                <div style="background:#fff3cd;padding:12px;border-radius:6px;border-left:3px solid #f39c12;margin-bottom:16px;font-size:13px;">
+                    ⚠️ <strong>Copiez cette clé maintenant.</strong> Pour des raisons de sécurité, elle ne sera <u>plus jamais</u> affichée.
+                </div>
+                ${label ? `<div style="margin-bottom:10px;color:#62718D;">Libellé : <strong>${label}</strong></div>` : ''}
+                <div style="background:#202B5D;color:#fff;padding:14px;border-radius:8px;font-family:monospace;font-size:13px;word-break:break-all;user-select:all;" id="ak-generated-key">${key}</div>
+                <button class="btn btn-secondary" style="margin-top:12px;" onclick="navigator.clipboard.writeText(document.getElementById('ak-generated-key').textContent).then(() => Toast.success('Copiée !'))">
+                    📋 Copier
+                </button>
+                <div class="confirm-actions" style="margin-top:20px;">
+                    <button class="confirm-btn confirm-btn-ok" style="background:#27ae60;" onclick="this.closest('.confirm-overlay').remove()">J'ai copié la clé</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    },
+
+    revokeApiKey(id) {
+        Toast.confirm('Révoquer cette clé ? Elle ne pourra plus être utilisée, mais reste dans l\'historique.', async () => {
+            try {
+                await API.apiKeys.revoke(id);
+                Toast.success('Clé révoquée.');
+                await this.loadApiKeys();
+                document.getElementById('admin-content').innerHTML = this.renderApiKeys();
+            } catch (err) { Toast.error('Erreur: ' + (err.message || 'inconnue')); }
+        }, { type: 'warning', confirmText: 'Révoquer' });
+    },
+
+    deleteApiKey(id) {
+        Toast.confirm('Supprimer définitivement cette clé ?', async () => {
+            try {
+                await API.apiKeys.delete(id);
+                Toast.success('Clé supprimée.');
+                await this.loadApiKeys();
+                document.getElementById('admin-content').innerHTML = this.renderApiKeys();
+            } catch (err) { Toast.error('Erreur: ' + (err.message || 'inconnue')); }
+        }, { type: 'danger', confirmText: 'Supprimer' });
     },
 
     async deleteStructure(id) {

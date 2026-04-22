@@ -4,6 +4,8 @@ const ProjectDetailPage = {
     data: {
         project: null,
         users: [],
+        allUsers: [],
+        structures: [],
         comments: [],
         documents: [],
         measureTypes: [],
@@ -21,11 +23,15 @@ const ProjectDetailPage = {
             const response = await API.projects.getById(id);
             this.data.project = response.data;
 
-            // Charger les utilisateurs de la structure pour assignation
-            if (this.data.project.structure_id) {
-                const usersResponse = await API.users.getAll();
-                this.data.users = usersResponse.data.filter(u => u.structure_id === this.data.project.structure_id && u.role === 'utilisateur');
-            }
+            // Charger tous les utilisateurs + toutes les structures (pour réassignation multi-structures)
+            const usersResponse = await API.users.getAll();
+            this.data.allUsers = (usersResponse.data || []).filter(u => u.role === 'utilisateur');
+            this.data.users = this.data.project.structure_id
+                ? this.data.allUsers.filter(u => u.structure_id === this.data.project.structure_id)
+                : this.data.allUsers;
+
+            const structuresResponse = await API.structures.getAll();
+            this.data.structures = structuresResponse.data || [];
 
             // Load config, comments, documents in parallel
             const [typesRes, statusesRes, commentsRes, docsRes] = await Promise.all([
@@ -86,14 +92,26 @@ const ProjectDetailPage = {
                         <h2 style="font-size: 24px; color: #1e3c72; margin-bottom: 8px;">${p.title}</h2>
                         <div style="color: #666; margin-bottom: 12px;">
                             Structure principale: <span style="font-weight: 600;">${p.structure_name || 'N/A'}</span>
-                            ${p.assigned_structures && p.assigned_structures.length > 0 ? `
+                            ${(() => {
+                                const mainColor = StructureColors.get(p.structure_code);
+                                // Union: structures explicitement assignées + structures portées par au moins une mesure
+                                const fromMeasures = (p.measures || [])
+                                    .filter(m => m.structure_id && m.structure_id !== p.structure_id)
+                                    .map(m => ({ id: m.structure_id, code: m.structure_code, name: m.structure_name }));
+                                const explicitSecondaries = (p.assigned_structures || []).filter(s => s.id !== p.structure_id);
+                                const allSecondaries = [...explicitSecondaries];
+                                fromMeasures.forEach(fm => {
+                                    if (fm.code && !allSecondaries.some(s => s.id === fm.id)) allSecondaries.push(fm);
+                                });
+                                return `
                                 <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
-                                    <span style="display:inline-block;padding:4px 12px;background:#202B5D;color:white;border-radius:12px;font-size:11px;font-weight:700;">${p.structure_code || 'N/A'}</span>
-                                    ${p.assigned_structures.filter(s => s.id !== p.structure_id).map(s => `
-                                        <span style="display:inline-block;padding:3px 10px;background:#f0f4f8;color:#8896AB;border-radius:12px;font-size:10px;font-weight:600;">${s.code}</span>
+                                    <span style="display:inline-block;padding:4px 12px;background:${mainColor};color:white;border-radius:12px;font-size:11px;font-weight:700;">${p.structure_code || 'N/A'}</span>
+                                    ${allSecondaries.map(s => `
+                                        <span style="display:inline-block;padding:3px 10px;background:#f0f4f8;color:${StructureColors.get(s.code)};border-radius:12px;font-size:10px;font-weight:700;" title="${s.name || ''}">${s.code}</span>
                                     `).join('')}
                                 </div>
-                            ` : ''}
+                                `;
+                            })()}
                         </div>
                         <span class="status-badge status-${p.status}">${statusLabel}</span>
                     </div>
@@ -107,7 +125,19 @@ const ProjectDetailPage = {
                     <p style="color: #555; line-height: 1.6;">${p.description || 'Aucune description'}</p>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
+                ${p.constraints ? `
+                <div style="margin-top: 20px;">
+                    <h3 style="font-size: 16px; margin-bottom: 12px; color: #333;">Contraintes</h3>
+                    <p style="color: #555; line-height: 1.6; white-space: pre-wrap;">${p.constraints}</p>
+                </div>` : ''}
+
+                ${p.expected_measures ? `
+                <div style="margin-top: 20px;">
+                    <h3 style="font-size: 16px; margin-bottom: 12px; color: #333;">Mesures attendues</h3>
+                    <p style="color: #555; line-height: 1.6; white-space: pre-wrap;">${p.expected_measures}</p>
+                </div>` : ''}
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 24px; margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
                     <div>
                         <div style="font-size: 12px; color: #999; text-transform: uppercase; margin-bottom: 4px;">Date de début</div>
                         <div style="font-weight: 600; color: #333;">${p.start_date ? DateFormatter.format(p.start_date) : 'Non définie'}</div>
@@ -115,6 +145,16 @@ const ProjectDetailPage = {
                     <div>
                         <div style="font-size: 12px; color: #999; text-transform: uppercase; margin-bottom: 4px;">Échéance</div>
                         <div style="font-weight: 600; color: #333;">${p.deadline_date ? DateFormatter.format(p.deadline_date) : 'Non définie'}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; color: #999; text-transform: uppercase; margin-bottom: 4px;">Priorité</div>
+                        <div style="font-weight: 700; color: ${p.priority === 'urgente' ? '#e74c3c' : p.priority === 'haute' ? '#e67e22' : '#333'};">
+                            ${p.priority === 'urgente' ? '🔴 Urgente' : p.priority === 'haute' ? '🟠 Haute' : 'Normale'}
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; color: #999; text-transform: uppercase; margin-bottom: 4px;">Type de projet</div>
+                        <div style="font-weight: 600; color: #333;">${p.project_type === 'renforcement_resilience' ? 'Renforcement de la résilience' : p.project_type === 'structurant' ? 'Structurant' : '—'}</div>
                     </div>
                 </div>
             </div>
@@ -327,7 +367,7 @@ const ProjectDetailPage = {
                         <div class="measure-item" style="padding: 16px; background: ${isAssignedToMe ? '#fff3e0' : '#f8f9fa'}; border-radius: 8px; margin-bottom: 12px; ${isAssignedToMe ? 'border: 2px solid #ff9800;' : ''}" data-index="${index}">
                             ${isAssignedToMe ? '<div style="color: #e65100; font-weight: 600; margin-bottom: 8px;">👤 Vous êtes assigné à cette mesure</div>' : ''}
                             
-                            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 12px; align-items: start;">
+                            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto; gap: 10px; align-items: start;">
                                 ${canEditThisMeasure ? `
                                     <textarea class="form-control" placeholder="Description de la mesure" rows="2"
                                               onchange="ProjectDetailPage.updateMeasureField(${index}, 'description', this.value)">${measure.description || ''}</textarea>
@@ -338,9 +378,13 @@ const ProjectDetailPage = {
                                     <select class="form-control" onchange="ProjectDetailPage.updateMeasureField(${index}, 'status', this.value)">
                                         ${this.data.measureStatuses.map(s => `<option value="${s.value}" ${measure.status === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
                                     </select>
-                                    <select class="form-control" onchange="ProjectDetailPage.updateMeasureField(${index}, 'assigned_user_id', this.value)">
+                                    <select class="form-control" title="Structure assignée" onchange="ProjectDetailPage.updateMeasureStructure(${index}, this.value)">
+                                        <option value="">-- Structure --</option>
+                                        ${this.data.structures.map(s => `<option value="${s.id}" ${measure.structure_id == s.id ? 'selected' : ''}>${s.code}</option>`).join('')}
+                                    </select>
+                                    <select class="form-control" title="Utilisateur assigné" onchange="ProjectDetailPage.updateMeasureField(${index}, 'assigned_user_id', this.value)">
                                         <option value="">-- Utilisateur --</option>
-                                        ${this.data.users.map(user => `
+                                        ${this.getUsersForMeasure(measure).map(user => `
                                             <option value="${user.id}" ${measure.assigned_user_id == user.id ? 'selected' : ''}>
                                                 ${user.first_name} ${user.last_name || ''} (${user.username})
                                             </option>
@@ -350,9 +394,10 @@ const ProjectDetailPage = {
                                         🗑️
                                     </button>
                                 ` : canOnlyUpdateStatus ? `
-                                    <div style="grid-column: span 5;">
+                                    <div style="grid-column: span 6;">
                                         <div style="margin-bottom: 8px;"><strong>Description:</strong> ${measure.description}</div>
                                         <div style="margin-bottom: 8px;"><strong>Type:</strong> ${measure.type || 'N/A'}</div>
+                                        <div style="margin-bottom: 8px;"><strong>Structure assignée:</strong> ${measure.structure_code || '—'}</div>
                                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                             <div>
                                                 <label style="font-size: 12px; color: #666;">Statut de la mesure</label>
@@ -373,6 +418,7 @@ const ProjectDetailPage = {
                                     <div>${measure.description}</div>
                                     <div>${measure.type || 'N/A'}</div>
                                     <div><span class="status-badge status-${measure.status}">${this.getMeasureStatusLabel(measure.status)}</span></div>
+                                    <div>${measure.structure_code ? `<span style="display:inline-block;padding:2px 8px;background:${StructureColors.get(measure.structure_code)};color:white;border-radius:10px;font-size:11px;font-weight:600;">${measure.structure_code}</span>` : '<span style="color:#8896AB;">—</span>'}</div>
                                     <div>${measure.assigned_username ? `${measure.assigned_first_name || ''} ${measure.assigned_last_name || ''}`.trim() : 'Non assigné'}</div>
                                     <div></div>
                                 `}
@@ -599,7 +645,11 @@ const ProjectDetailPage = {
 
     // ==================== Méthodes de gestion des mesures ====================
     addMeasure() {
-        this.data.editMode.measures.push({ description: '', type: '', status: 'preconisee' });
+        this.data.editMode.measures.push({
+            description: '', type: '', status: 'preconisee',
+            structure_id: this.data.project.structure_id || null,
+            assigned_user_id: null
+        });
         this.refreshSection('measures');
     },
 
@@ -609,7 +659,28 @@ const ProjectDetailPage = {
     },
 
     updateMeasureField(index, field, value) {
-        this.data.editMode.measures[index][field] = value;
+        this.data.editMode.measures[index][field] = value === '' ? null : value;
+    },
+
+    updateMeasureStructure(index, structureId) {
+        const newSid = structureId ? parseInt(structureId) : null;
+        const m = this.data.editMode.measures[index];
+        // Si on change de structure, réinitialiser l'utilisateur assigné s'il n'appartient pas à la nouvelle structure
+        if (m.assigned_user_id) {
+            const user = this.data.allUsers.find(u => u.id == m.assigned_user_id);
+            if (user && newSid && user.structure_id !== newSid) {
+                m.assigned_user_id = null;
+            }
+        }
+        m.structure_id = newSid;
+        this.refreshSection('measures');
+    },
+
+    getUsersForMeasure(measure) {
+        // Filtre les utilisateurs selon la structure assignée à la mesure (ou structure principale du projet par défaut)
+        const sid = measure.structure_id || this.data.project.structure_id;
+        if (!sid) return this.data.allUsers;
+        return this.data.allUsers.filter(u => u.structure_id === sid);
     },
 
     async saveMeasures() {
@@ -712,31 +783,14 @@ const ProjectDetailPage = {
                 break;
 
             case 'measures':
-                container = document.getElementById('measures-container');
-                html = this.data.editMode.measures.map((measure, index) => `
-                    <div class="measure-item" style="padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px;" data-index="${index}">
-                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; align-items: start;">
-                            <textarea class="form-control" placeholder="Description de la mesure" rows="2"
-                                      onchange="ProjectDetailPage.updateMeasureField(${index}, 'description', this.value)">${measure.description || ''}</textarea>
-                            <select class="form-control" onchange="ProjectDetailPage.updateMeasureField(${index}, 'type', this.value)">
-                                <option value="">-- Type --</option>
-                                <option value="Pompage" ${measure.type === 'Pompage' ? 'selected' : ''}>Pompage</option>
-                                <option value="Nettoyage" ${measure.type === 'Nettoyage' ? 'selected' : ''}>Nettoyage</option>
-                                <option value="Équipement" ${measure.type === 'Équipement' ? 'selected' : ''}>Équipement</option>
-                                <option value="Autre" ${measure.type === 'Autre' ? 'selected' : ''}>Autre</option>
-                            </select>
-                            <select class="form-control" onchange="ProjectDetailPage.updateMeasureField(${index}, 'status', this.value)">
-                                <option value="preconisee" ${measure.status === 'preconisee' ? 'selected' : ''}>Préconisée</option>
-                                <option value="executee" ${measure.status === 'executee' ? 'selected' : ''}>Exécutée</option>
-                                <option value="non_executee" ${measure.status === 'non_executee' ? 'selected' : ''}>Non exécutée</option>
-                            </select>
-                            <button class="btn btn-danger" onclick="ProjectDetailPage.removeMeasure(${index})">
-                                🗑️
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-                break;
+                // Re-render la carte complète pour garder template cohérent (structure + user)
+                const card = document.querySelector('#measures-container')?.closest('.card');
+                if (card) {
+                    const tmp = document.createElement('div');
+                    tmp.innerHTML = this.renderMeasuresEditable();
+                    card.replaceWith(tmp.firstElementChild);
+                }
+                return;
 
             case 'funding':
                 container = document.getElementById('funding-container');

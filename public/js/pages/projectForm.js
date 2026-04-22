@@ -105,8 +105,34 @@ const ProjectFormPage = {
                         </div>
 
                         <div class="form-group">
-                            <!-- Vide pour alignement -->
+                            <label>Priorité</label>
+                            <select id="project-priority" class="form-control">
+                                <option value="normale" ${!p || p.priority === 'normale' ? 'selected' : ''}>Normale</option>
+                                <option value="haute" ${p && p.priority === 'haute' ? 'selected' : ''}>Haute</option>
+                                <option value="urgente" ${p && p.priority === 'urgente' ? 'selected' : ''}>Urgente</option>
+                            </select>
                         </div>
+
+                        <div class="form-group">
+                            <label>Type de projet</label>
+                            <select id="project-type" class="form-control">
+                                <option value="" ${!p || !p.project_type ? 'selected' : ''}>— Non défini —</option>
+                                <option value="renforcement_resilience" ${p && p.project_type === 'renforcement_resilience' ? 'selected' : ''}>Renforcement de la résilience</option>
+                                <option value="structurant" ${p && p.project_type === 'structurant' ? 'selected' : ''}>Structurant</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Contraintes</label>
+                        <textarea id="project-constraints" class="form-control" rows="3"
+                                  placeholder="Contraintes identifiées (techniques, financières, réglementaires, foncières...)">${p && p.constraints ? p.constraints : ''}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mesures attendues</label>
+                        <textarea id="project-expected-measures" class="form-control" rows="3"
+                                  placeholder="Mesures attendues / résultats visés par le projet">${p && p.expected_measures ? p.expected_measures : ''}</textarea>
                     </div>
 
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
@@ -172,6 +198,10 @@ const ProjectFormPage = {
             const structure_id = document.getElementById('project-structure').value;
             const project_manager_id = document.getElementById('project-manager').value;
             const status = document.getElementById('project-status').value;
+            const priority = document.getElementById('project-priority').value;
+            const project_type = document.getElementById('project-type').value || null;
+            const constraints = document.getElementById('project-constraints').value;
+            const expected_measures = document.getElementById('project-expected-measures').value;
             const start_date = document.getElementById('project-start-date').value;
             const deadline_date = document.getElementById('project-deadline').value;
 
@@ -186,6 +216,10 @@ const ProjectFormPage = {
                 structure_id: parseInt(structure_id),
                 project_manager_id: parseInt(project_manager_id),
                 status,
+                priority,
+                project_type,
+                constraints: constraints || null,
+                expected_measures: expected_measures || null,
                 start_date: start_date || null,
                 deadline_date: deadline_date || null
             };

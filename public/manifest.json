@@ -1,6 +1,6 @@
 {
-  "name": "CNGI - Comité National de Gestion des Inondations",
-  "short_name": "CNGI",
+  "name": "CNGIRI - Comité National de Gestion Intégrée du Risque d'Inondation",
+  "short_name": "CNGIRI",
   "description": "Plateforme de suivi des actions - Ministère de l'Hydraulique et de l'Assainissement",
   "start_url": "/",
   "display": "standalone",

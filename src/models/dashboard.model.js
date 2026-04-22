@@ -20,6 +20,8 @@ class DashboardModel {
                 COUNT(CASE WHEN p.status = 'en_cours' THEN 1 END) as actions_en_cours,
                 COUNT(CASE WHEN p.status = 'termine' THEN 1 END) as ouvrages_realises,
                 COUNT(CASE WHEN p.status = 'retard' THEN 1 END) as ouvrages_retardes,
+                COUNT(CASE WHEN p.priority = 'urgente' THEN 1 END) as projets_urgents,
+                COUNT(CASE WHEN p.priority = 'haute' THEN 1 END) as projets_priorite_haute,
                 AVG(p.progress_percentage) as avg_progress
             FROM projects p
             ${whereClause}
@@ -89,6 +91,8 @@ class DashboardModel {
                 p.id as project_id,
                 p.title as project_title,
                 p.status as project_status,
+                p.priority as project_priority,
+                p.project_type,
                 st.name as structure_name,
                 st.code as structure_code
             FROM sites s
