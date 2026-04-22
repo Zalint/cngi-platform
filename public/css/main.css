@@ -1662,3 +1662,10 @@ tbody tr:hover {
     50% { box-shadow: 0 0 0 4px rgba(32,43,93,0); }
 }
 
+
+/* Dashboard : empile carte + graphique en colonne sur petits écrans */
+@media (max-width: 1024px) {
+    .view-map-grid {
+        grid-template-columns: 1fr !important;
+    }
+}

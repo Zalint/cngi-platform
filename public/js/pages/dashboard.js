@@ -50,7 +50,7 @@ const DashboardPage = {
                                 <button onclick="DashboardPage.switchView('gantt')" id="view-btn-gantt" style="padding:8px 16px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:#62718D;">Planning Gantt</button>
                             </div>
                         </div>
-                        <div id="view-map" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+                        <div id="view-map" class="view-map-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
                             <div>${this.renderMap()}</div>
                             <div>${this.renderChart()}</div>
                         </div>

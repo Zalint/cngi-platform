@@ -101,15 +101,41 @@ const Navbar = {
         return `
             <div class="top-bar">
                 <h1>${title}</h1>
-                <div class="user-profile">
-                    <div class="user-info">
-                        <div class="user-name">${Auth.getFullName()}</div>
-                        <div class="user-role">${roleLabels[user.role] || user.role}${user.structure_name ? ' - ' + user.structure_code : ''}</div>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <button onclick="Navbar.hardRefresh()" title="Vider le cache et recharger la page"
+                            style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#f0f4f8;color:#202B5D;border:1px solid #dce3ed;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:background 0.15s;"
+                            onmouseover="this.style.background='#e1e9f0';" onmouseout="this.style.background='#f0f4f8';">
+                        🔄 Actualiser
+                    </button>
+                    <div class="user-profile">
+                        <div class="user-info">
+                            <div class="user-name">${Auth.getFullName()}</div>
+                            <div class="user-role">${roleLabels[user.role] || user.role}${user.structure_name ? ' - ' + user.structure_code : ''}</div>
+                        </div>
+                        <div class="user-avatar">${Auth.getInitials()}</div>
                     </div>
-                    <div class="user-avatar">${Auth.getInitials()}</div>
                 </div>
             </div>
         `;
+    },
+
+    async hardRefresh() {
+        try {
+            // Désinscrire le service worker PWA s'il existe
+            if ('serviceWorker' in navigator) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(regs.map(r => r.unregister()));
+            }
+            // Vider les caches du navigateur (Cache API)
+            if ('caches' in window) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(k => caches.delete(k)));
+            }
+        } catch (e) { /* ignore */ }
+        // Bust URL cache + force reload from server
+        const url = new URL(window.location.href);
+        url.searchParams.set('_t', Date.now());
+        window.location.replace(url.toString());
     },
 
     updateActiveMenu() {
