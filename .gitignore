@@ -1,6 +1,9 @@
 # Environment variables
 .env
 
+# Claude Code local settings (may contain credentials)
+.claude/settings.local.json
+
 # Dependencies
 node_modules/
 
