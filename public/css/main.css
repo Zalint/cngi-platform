@@ -1579,6 +1579,10 @@ tbody tr:hover {
     margin-left: auto;
 }
 
+.nav-badge-green {
+    background: #27ae60;
+}
+
 /* Poignée de redimensionnement (coin haut-gauche) */
 #chatbot-resize-handle {
     position: absolute;

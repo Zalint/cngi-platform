@@ -327,6 +327,68 @@ async function initDatabase() {
             )
         `);
 
+        // PV de visite du Commandement Territorial (compte-rendu de visite)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS pv_reports (
+                id SERIAL PRIMARY KEY,
+                author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                territorial_level VARCHAR(20) NOT NULL CHECK (territorial_level IN ('region', 'departement', 'arrondissement')),
+                territorial_value VARCHAR(100) NOT NULL,
+                visit_date DATE,
+                title VARCHAR(200) NOT NULL,
+                avancement TEXT,
+                observations TEXT,
+                recommendations TEXT,
+                content TEXT,
+                priority VARCHAR(20) DEFAULT 'info' CHECK (priority IN ('info', 'importante', 'urgente')),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_pv_reports_author ON pv_reports(author_id)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_pv_reports_territory ON pv_reports(territorial_level, territorial_value)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_pv_reports_created ON pv_reports(created_at DESC)`);
+
+        // Références optionnelles vers projets/mesures/sites/localités
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS pv_projects (
+                pv_id INTEGER NOT NULL REFERENCES pv_reports(id) ON DELETE CASCADE,
+                project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                PRIMARY KEY (pv_id, project_id)
+            )
+        `);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS pv_measures (
+                pv_id INTEGER NOT NULL REFERENCES pv_reports(id) ON DELETE CASCADE,
+                measure_id INTEGER NOT NULL REFERENCES measures(id) ON DELETE CASCADE,
+                PRIMARY KEY (pv_id, measure_id)
+            )
+        `);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS pv_sites (
+                pv_id INTEGER NOT NULL REFERENCES pv_reports(id) ON DELETE CASCADE,
+                site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+                PRIMARY KEY (pv_id, site_id)
+            )
+        `);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS pv_localities (
+                pv_id INTEGER NOT NULL REFERENCES pv_reports(id) ON DELETE CASCADE,
+                locality_id INTEGER NOT NULL REFERENCES localities(id) ON DELETE CASCADE,
+                PRIMARY KEY (pv_id, locality_id)
+            )
+        `);
+
+        // Suivi de lecture par PV (granularité fine — permet le sticker par item)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS pv_reads (
+                pv_id INTEGER NOT NULL REFERENCES pv_reports(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                read_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (pv_id, user_id)
+            )
+        `);
+
         // API Keys (authentification de l'API externe v1)
         await client.query(`
             CREATE TABLE IF NOT EXISTS api_keys (

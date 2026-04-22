@@ -114,6 +114,10 @@ const App = {
                         content = await ObservationsPage.render();
                         break;
 
+                    case 'pv':
+                        content = await PvPage.render();
+                        break;
+
                     default:
                         // Par défaut, rediriger vers dashboard
                         window.location.hash = '#/dashboard';
@@ -127,9 +131,10 @@ const App = {
             // Appeler afterRender si disponible
             this.callAfterRender(route, params);
 
-            // Rafraîchir le badge d'observations non lues
-            if (Auth.isAuthenticated() && typeof Navbar !== 'undefined' && Navbar.refreshObservationBadge) {
-                Navbar.refreshObservationBadge();
+            // Rafraîchir les badges non lus
+            if (Auth.isAuthenticated() && typeof Navbar !== 'undefined') {
+                if (Navbar.refreshObservationBadge) Navbar.refreshObservationBadge();
+                if (Navbar.refreshPvBadge) Navbar.refreshPvBadge();
             }
 
         } catch (error) {
@@ -171,6 +176,9 @@ const App = {
                     break;
                 case 'observations':
                     if (ObservationsPage.afterRender) ObservationsPage.afterRender();
+                    break;
+                case 'pv':
+                    if (PvPage.afterRender) PvPage.afterRender();
                     break;
                 case 'forms':
                     if (params.length === 0 && FormsPage.afterRender) {

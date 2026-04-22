@@ -224,8 +224,13 @@ exports.addFinancing = async (req, res, next) => {
 
 exports.getStats = async (req, res, next) => {
     try {
-        const structureId = (req.user.role === 'utilisateur' || req.user.role === 'directeur') ? req.user.structure_id : req.query.structure_id;
-        const stats = await ProjectModel.getStats(structureId);
+        let stats;
+        if (req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value) {
+            stats = await ProjectModel.getStatsByTerritory(req.user.territorial_level, req.user.territorial_value);
+        } else {
+            const structureId = (req.user.role === 'utilisateur' || req.user.role === 'directeur') ? req.user.structure_id : req.query.structure_id;
+            stats = await ProjectModel.getStats(structureId);
+        }
         res.json({ success: true, data: stats });
     } catch (error) {
         next(error);

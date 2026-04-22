@@ -16,5 +16,9 @@ router.get('/projects', v1.listProjects);
 router.get('/projects/stats', v1.getStats);
 router.get('/projects/:id', v1.getProject);
 router.get('/structures', v1.listStructures);
+router.get('/observations', v1.listObservations);
+router.get('/observations/:id', v1.getObservation);
+router.get('/pv', v1.listPvs);
+router.get('/pv/:id', v1.getPv);
 
 module.exports = router;

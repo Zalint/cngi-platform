@@ -280,14 +280,14 @@ class ProjectModel {
      * Ajouter une localité à un projet
      */
     static async addLocality(projectId, localityData) {
-        const { region, departement, commune } = localityData;
-        
+        const { region, departement, arrondissement, commune } = localityData;
+
         const result = await db.query(`
-            INSERT INTO localities (project_id, region, departement, commune)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO localities (project_id, region, departement, arrondissement, commune)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING *
-        `, [projectId, region, departement, commune]);
-        
+        `, [projectId, region || null, departement || null, arrondissement || null, commune || null]);
+
         return result.rows[0];
     }
 
@@ -295,13 +295,13 @@ class ProjectModel {
      * Ajouter un site à un projet
      */
     static async addSite(projectId, siteData) {
-        const { locality_id, name, description, latitude, longitude } = siteData;
-        
+        const { locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude } = siteData;
+
         const result = await db.query(`
-            INSERT INTO sites (project_id, locality_id, name, description, latitude, longitude)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING *
-        `, [projectId, locality_id || null, name, description || null, latitude || null, longitude || null]);
+        `, [projectId, locality_id || null, name, description || null, region || null, departement || null, arrondissement || null, commune || null, latitude || null, longitude || null]);
         
         return result.rows[0];
     }
@@ -374,9 +374,9 @@ class ProjectModel {
             // Insérer les nouvelles localités
             for (const loc of localities) {
                 await client.query(`
-                    INSERT INTO localities (project_id, region, departement, commune)
-                    VALUES ($1, $2, $3, $4)
-                `, [projectId, loc.region, loc.departement, loc.commune]);
+                    INSERT INTO localities (project_id, region, departement, arrondissement, commune)
+                    VALUES ($1, $2, $3, $4, $5)
+                `, [projectId, loc.region || null, loc.departement || null, loc.arrondissement || null, loc.commune || null]);
             }
             
             await client.query('COMMIT');
@@ -403,9 +403,9 @@ class ProjectModel {
             // Insérer les nouveaux sites
             for (const site of sites) {
                 await client.query(`
-                    INSERT INTO sites (project_id, locality_id, name, description, latitude, longitude)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                `, [projectId, site.locality_id || null, site.name, site.description || null, site.latitude || null, site.longitude || null]);
+                    INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                `, [projectId, site.locality_id || null, site.name, site.description || null, site.region || null, site.departement || null, site.arrondissement || null, site.commune || null, site.latitude || null, site.longitude || null]);
             }
             
             await client.query('COMMIT');
@@ -591,7 +591,7 @@ class ProjectModel {
      */
     static async getStats(structureId = null) {
         let query = `
-            SELECT 
+            SELECT
                 COUNT(*) as total,
                 COUNT(CASE WHEN p.status = 'demarrage' THEN 1 END) as demarrage,
                 COUNT(CASE WHEN p.status = 'en_cours' THEN 1 END) as en_cours,
@@ -600,14 +600,37 @@ class ProjectModel {
                 AVG(p.progress_percentage) as avg_progress
             FROM projects p
         `;
-        
+
         const params = [];
         if (structureId) {
             query += ' WHERE p.id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)';
             params.push(structureId);
         }
-        
+
         const result = await db.query(query, params);
+        return result.rows[0];
+    }
+
+    static async getStatsByTerritory(level, value) {
+        const allowedColumns = ['region', 'departement', 'arrondissement'];
+        if (!allowedColumns.includes(level)) {
+            throw new Error(`Invalid territorial level: ${level}`);
+        }
+        const result = await db.query(`
+            SELECT
+                COUNT(*) as total,
+                COUNT(CASE WHEN p.status = 'demarrage' THEN 1 END) as demarrage,
+                COUNT(CASE WHEN p.status = 'en_cours' THEN 1 END) as en_cours,
+                COUNT(CASE WHEN p.status = 'termine' THEN 1 END) as termine,
+                COUNT(CASE WHEN p.status = 'retard' THEN 1 END) as retard,
+                AVG(p.progress_percentage) as avg_progress
+            FROM projects p
+            WHERE p.id IN (
+                SELECT DISTINCT project_id FROM localities WHERE ${level} = $1
+                UNION
+                SELECT DISTINCT project_id FROM sites WHERE ${level} = $1
+            )
+        `, [value]);
         return result.rows[0];
     }
 

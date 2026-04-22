@@ -198,6 +198,19 @@ const API = {
         markRead: () => API.post('/observations/mark-read')
     },
 
+    // === PV (Commandement territorial) endpoints ===
+    pv: {
+        list: () => API.get('/pv'),
+        getPickable: () => API.get('/pv/pickable'),
+        getById: (id) => API.get(`/pv/${id}`),
+        create: (data) => API.post('/pv', data),
+        update: (id, data) => API.put(`/pv/${id}`, data),
+        delete: (id) => API.delete(`/pv/${id}`),
+        getUnreadCount: () => API.get('/pv/unread-count'),
+        markAllRead: () => API.post('/pv/mark-read'),
+        markOneRead: (id) => API.post(`/pv/${id}/mark-read`)
+    },
+
     // === API Keys endpoints ===
     apiKeys: {
         list: () => API.get('/api-keys'),

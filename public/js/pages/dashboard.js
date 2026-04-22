@@ -9,7 +9,8 @@ const DashboardPage = {
         recentProjectsHasMore: false,
         allProjects: [],
         mapSites: [],
-        topObservations: []
+        topObservations: [],
+        topPvs: []
     },
     map: null,
 
@@ -26,6 +27,7 @@ const DashboardPage = {
                         ${Navbar.renderTopBar('Tableau de bord - Vue Directeur')}
                         <div class="content-area">
                             ${this.renderObservationsBanner()}
+                            ${this.renderPvBanner()}
                             ${this.renderDirectorView()}
                         </div>
                     </div>
@@ -40,6 +42,7 @@ const DashboardPage = {
                     <div class="content-area">
                         ${this.renderAlertBanner()}
                         ${this.renderObservationsBanner()}
+                        ${this.renderPvBanner()}
                         ${this.renderMetrics()}
                         <div id="dashboard-view-toggle" style="display:flex;justify-content:flex-end;margin-bottom:12px;">
                             <div style="display:flex;background:#f0f4f8;border-radius:8px;overflow:hidden;">
@@ -74,6 +77,12 @@ const DashboardPage = {
             const obsRes = await API.observations.list();
             this.data.topObservations = (obsRes.data || []).slice(0, 3);
         } catch { this.data.topObservations = []; }
+
+        // Charger les derniers PV visibles (non bloquant)
+        try {
+            const pvRes = await API.pv.list();
+            this.data.topPvs = (pvRes.data || []).slice(0, 3);
+        } catch { this.data.topPvs = []; }
 
         // Pour le directeur, charger aussi les projets détaillés
         if (user.role === 'directeur') {
@@ -154,6 +163,69 @@ const DashboardPage = {
                         <h3 style="margin:0;color:#202B5D;font-size:15px;">Observation du ministre${ministerName ? ' ' + escape(ministerName) : ''}</h3>
                     </div>
                     <a href="#/observations" style="font-size:12px;color:#3794C4;text-decoration:none;font-weight:600;">Tout voir →</a>
+                </div>
+                ${cards}
+            </div>
+        `;
+    },
+
+    renderPvBanner() {
+        const pvs = this.data.topPvs || [];
+        if (pvs.length === 0) return '';
+
+        const escape = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+        const truncate = (s, n = 180) => {
+            const clean = String(s || '').replace(/\s+/g, ' ').trim();
+            return clean.length > n ? clean.slice(0, n) + '…' : clean;
+        };
+
+        const prioStyle = {
+            urgente:    { bg: 'linear-gradient(90deg,#fee2e2 0%,#fff 60%)', border: '#e74c3c', icon: '🔴', label: 'URGENTE' },
+            importante: { bg: 'linear-gradient(90deg,#fef3c7 0%,#fff 60%)', border: '#e67e22', icon: '🟠', label: 'IMPORTANTE' },
+            info:       { bg: 'linear-gradient(90deg,#dcfce7 0%,#fff 60%)', border: '#27ae60', icon: '🟢', label: 'INFO' }
+        };
+
+        const localityLabel = (l) => {
+            const parts = [l.region, l.departement, l.arrondissement, l.commune].filter(Boolean);
+            return parts.join(' › ');
+        };
+
+        const cards = pvs.map(p => {
+            const st = prioStyle[p.priority || 'info'];
+            const visitDate = p.visit_date ? new Date(p.visit_date).toLocaleDateString('fr-FR') : null;
+            const author = [p.author_first_name, p.author_last_name].filter(Boolean).join(' ') || p.author_username || '—';
+            const summary = p.avancement || p.observations || p.recommendations || p.content || '';
+
+            const chips = [];
+            if (p.projects?.length) chips.push(`<span style="font-size:11px;padding:2px 8px;background:#dbeafe;color:#1e40af;border-radius:10px;font-weight:600;">📁 ${escape(p.projects.map(x => x.title).join(', '))}</span>`);
+            if (p.sites?.length) chips.push(`<span style="font-size:11px;padding:2px 8px;background:#fef3c7;color:#92400e;border-radius:10px;font-weight:600;">📍 ${escape(p.sites.map(x => x.name).join(', '))}</span>`);
+            if (p.localities?.length) chips.push(`<span style="font-size:11px;padding:2px 8px;background:#e9d5ff;color:#6b21a8;border-radius:10px;font-weight:600;">🏘️ ${escape(p.localities.map(localityLabel).filter(Boolean).join(' · '))}</span>`);
+
+            return `
+                <div style="background:${st.bg};border-left:4px solid ${st.border};padding:12px 16px;border-radius:8px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s;"
+                     onmouseover="this.style.transform='translateX(2px)';" onmouseout="this.style.transform='translateX(0)';"
+                     onclick="window.location.hash='#/pv'">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
+                        <span style="font-size:11px;font-weight:700;color:${st.border};">${st.icon} ${st.label}</span>
+                        <strong style="color:#202B5D;font-size:14px;">${escape(p.title)}</strong>
+                        <span style="font-size:11px;color:#166534;font-weight:600;">🗺️ ${escape(p.territorial_value)}</span>
+                        ${visitDate ? `<span style="font-size:11px;color:#62718D;font-weight:600;">📅 ${visitDate}</span>` : ''}
+                    </div>
+                    ${chips.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">${chips.join('')}</div>` : ''}
+                    <div style="font-size:12.5px;color:#2c3e50;line-height:1.45;">${escape(truncate(summary))}</div>
+                    <div style="font-size:11px;color:#8896AB;margin-top:4px;">— ${escape(author)}</div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="card mb-4" style="padding:16px;border-left:4px solid #27ae60;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:18px;">📋</span>
+                        <h3 style="margin:0;color:#166534;font-size:15px;">PV du Commandement Territorial</h3>
+                    </div>
+                    <a href="#/pv" style="font-size:12px;color:#27ae60;text-decoration:none;font-weight:600;">Tout voir →</a>
                 </div>
                 ${cards}
             </div>

@@ -2,6 +2,8 @@ const ProjectModel = require('../models/project.model');
 const ProjectStructure = require('../models/projectStructure.model');
 const StructureModel = require('../models/structure.model');
 const DashboardModel = require('../models/dashboard.model');
+const ObservationModel = require('../models/observation.model');
+const PvModel = require('../models/pv.model');
 const { canUserAccessProject } = require('../utils/projectAccess');
 
 const STATUS_LABELS = {
@@ -176,6 +178,90 @@ exports.listStructures = async (req, res, next) => {
     }
 };
 
+// ==================== GET /api/v1/observations ====================
+function toObservationDto(o) {
+    return {
+        id: o.id,
+        title: o.title,
+        content: o.content,
+        priority: o.priority,
+        deadline: o.deadline,
+        project_id: o.project_id,
+        project_title: o.project_title || null,
+        author: [o.author_first_name, o.author_last_name].filter(Boolean).join(' ') || o.author_username || null,
+        created_at: o.created_at,
+        updated_at: o.updated_at
+    };
+}
+
+exports.listObservations = async (req, res, next) => {
+    try {
+        const { project_id, priority, scope } = req.query;
+        const observations = await ObservationModel.findAll({ project_id, priority, scope });
+        res.json({
+            success: true,
+            count: observations.length,
+            generated_at: new Date().toISOString(),
+            filters: { project_id, priority, scope },
+            data: observations.map(toObservationDto)
+        });
+    } catch (error) { next(error); }
+};
+
+exports.getObservation = async (req, res, next) => {
+    try {
+        const o = await ObservationModel.findById(req.params.id);
+        if (!o) return res.status(404).json({ success: false, error: 'not_found', message: 'Observation non trouvée' });
+        res.json({ success: true, data: toObservationDto(o) });
+    } catch (error) { next(error); }
+};
+
+// ==================== GET /api/v1/pv ====================
+function toPvDto(p) {
+    return {
+        id: p.id,
+        title: p.title,
+        priority: p.priority,
+        territorial_level: p.territorial_level,
+        territorial_value: p.territorial_value,
+        visit_date: p.visit_date,
+        avancement: p.avancement,
+        observations: p.observations,
+        recommendations: p.recommendations,
+        content: p.content,
+        author: [p.author_first_name, p.author_last_name].filter(Boolean).join(' ') || p.author_username || null,
+        projects: (p.projects || []).map(x => ({ id: x.id, title: x.title })),
+        sites: (p.sites || []).map(x => ({ id: x.id, name: x.name })),
+        localities: (p.localities || []).map(x => ({
+            id: x.id, region: x.region, departement: x.departement,
+            arrondissement: x.arrondissement, commune: x.commune
+        })),
+        measures: (p.measures || []).map(x => ({ id: x.id, description: x.description })),
+        created_at: p.created_at,
+        updated_at: p.updated_at
+    };
+}
+
+exports.listPvs = async (req, res, next) => {
+    try {
+        const pvs = await PvModel.findAllVisible(req.user);
+        res.json({
+            success: true,
+            count: pvs.length,
+            generated_at: new Date().toISOString(),
+            data: pvs.map(toPvDto)
+        });
+    } catch (error) { next(error); }
+};
+
+exports.getPv = async (req, res, next) => {
+    try {
+        const pv = await PvModel.findByIdForUser(req.params.id, req.user);
+        if (!pv) return res.status(404).json({ success: false, error: 'not_found', message: 'PV non trouvé ou accès refusé' });
+        res.json({ success: true, data: toPvDto(pv) });
+    } catch (error) { next(error); }
+};
+
 // ==================== GET /api/v1/docs ====================
 exports.openapi = (req, res) => {
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -224,6 +310,37 @@ exports.openapi = (req, res) => {
                 get: {
                     summary: 'Liste les structures',
                     responses: { '200': { description: 'OK' } }
+                }
+            },
+            '/observations': {
+                get: {
+                    summary: 'Liste les observations du ministre',
+                    parameters: [
+                        { name: 'project_id', in: 'query', schema: { type: 'integer' } },
+                        { name: 'priority', in: 'query', schema: { type: 'string', enum: ['info','importante','urgente'] } },
+                        { name: 'scope', in: 'query', schema: { type: 'string', enum: ['global','project'] } }
+                    ],
+                    responses: { '200': { description: 'OK' } }
+                }
+            },
+            '/observations/{id}': {
+                get: {
+                    summary: "Détail d'une observation",
+                    parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+                    responses: { '200': { description: 'OK' }, '404': { description: 'Non trouvé' } }
+                }
+            },
+            '/pv': {
+                get: {
+                    summary: 'Liste les PV de visite visibles par la clé (filtrés par territoire/structure)',
+                    responses: { '200': { description: 'OK' } }
+                }
+            },
+            '/pv/{id}': {
+                get: {
+                    summary: "Détail d'un PV avec projets/sites/localités/mesures liés",
+                    parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+                    responses: { '200': { description: 'OK' }, '404': { description: 'Non trouvé ou accès refusé' } }
                 }
             }
         }
