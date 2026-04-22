@@ -659,6 +659,11 @@ const ProjectDetailPage = {
         }
     },
 
+    _isInSenegal(lat, lng) {
+        // Bounding box approximative du Sénégal
+        return lat >= 12.0 && lat <= 17.5 && lng >= -18.0 && lng <= -11.0;
+    },
+
     openMapPicker(index) {
         const site = this.data.editMode.sites[index];
         const hasCoords = site.latitude && site.longitude;
@@ -717,12 +722,16 @@ const ProjectDetailPage = {
 
             map.on('click', (e) => {
                 const { lat, lng } = e.latlng;
+                const inSN = this._isInSenegal(lat, lng);
                 if (this._mapPicker.marker) this._mapPicker.marker.setLatLng([lat, lng]);
                 else this._mapPicker.marker = L.marker([lat, lng]).addTo(map);
                 this._mapPicker.lat = lat;
                 this._mapPicker.lng = lng;
                 const precision = 7;
-                document.getElementById('map-picker-coords').textContent = `${lat.toFixed(precision)}, ${lng.toFixed(precision)}`;
+                const warn = inSN ? '' : '  ⚠️ hors Sénégal';
+                document.getElementById('map-picker-coords').innerHTML =
+                    `${lat.toFixed(precision)}, ${lng.toFixed(precision)}` +
+                    (warn ? `<span style="color:#e67e22;font-weight:600;">${warn}</span>` : '');
                 const btn = document.getElementById('map-picker-confirm');
                 btn.disabled = false;
                 btn.style.opacity = '1';
@@ -732,7 +741,7 @@ const ProjectDetailPage = {
             // Force la bonne taille après l'ouverture du modal
             setTimeout(() => map.invalidateSize(), 100);
 
-            // Recherche type Google Maps (Nominatim forward geocoding, scope Sénégal)
+            // Recherche type Google Maps — via proxy backend (Nominatim policy: 1 req/s max + User-Agent)
             const searchInput = document.getElementById('map-picker-search');
             const resultsBox = document.getElementById('map-picker-results');
             let searchTimer = null;
@@ -740,26 +749,27 @@ const ProjectDetailPage = {
                 resultsBox.innerHTML = '<div style="padding:10px;color:#8896AB;font-size:12px;">Recherche...</div>';
                 resultsBox.style.display = 'block';
                 try {
-                    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&countrycodes=sn&limit=8&addressdetails=1&accept-language=fr`;
-                    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
-                    if (!resp.ok) throw new Error('Erreur réseau');
-                    const list = await resp.json();
+                    const res = await API.decoupage.forwardGeocode(q);
+                    const list = res.data || [];
                     if (!list.length) {
                         resultsBox.innerHTML = '<div style="padding:10px;color:#8896AB;font-size:12px;">Aucun résultat.</div>';
                         return;
                     }
-                    resultsBox.innerHTML = list.map((r, i) => `
-                        <div class="map-picker-result" data-idx="${i}"
-                             style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f4f8;font-size:13px;"
-                             onmouseover="this.style.background='#f0f4f8';" onmouseout="this.style.background='white';">
-                            <div style="font-weight:600;color:#202B5D;">${(r.name || r.display_name.split(',')[0] || '').replace(/</g,'&lt;')}</div>
-                            <div style="font-size:11px;color:#62718D;">${(r.display_name || '').replace(/</g,'&lt;')}</div>
-                        </div>
-                    `).join('');
-                    // Attach click handlers
-                    resultsBox.querySelectorAll('.map-picker-result').forEach((el) => {
-                        el.addEventListener('click', () => {
-                            const r = list[parseInt(el.dataset.idx)];
+                    resultsBox.innerHTML = '';
+                    list.forEach((r, i) => {
+                        const row = document.createElement('div');
+                        row.className = 'map-picker-result';
+                        row.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f4f8;font-size:13px;';
+                        row.onmouseover = () => row.style.background = '#f0f4f8';
+                        row.onmouseout = () => row.style.background = 'white';
+                        const title = document.createElement('div');
+                        title.style.cssText = 'font-weight:600;color:#202B5D;';
+                        title.textContent = r.name || (r.display_name || '').split(',')[0] || '';
+                        const sub = document.createElement('div');
+                        sub.style.cssText = 'font-size:11px;color:#62718D;';
+                        sub.textContent = r.display_name || '';
+                        row.append(title, sub);
+                        row.addEventListener('click', () => {
                             const lat = parseFloat(r.lat);
                             const lng = parseFloat(r.lon);
                             if (this._mapPicker.marker) this._mapPicker.marker.setLatLng([lat, lng]);
@@ -767,17 +777,26 @@ const ProjectDetailPage = {
                             this._mapPicker.map.setView([lat, lng], 15);
                             this._mapPicker.lat = lat;
                             this._mapPicker.lng = lng;
-                            document.getElementById('map-picker-coords').textContent = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
+                            const inSN = this._isInSenegal(lat, lng);
+                            const warn = inSN ? '' : '  ⚠️ hors Sénégal';
+                            document.getElementById('map-picker-coords').innerHTML =
+                                `${lat.toFixed(7)}, ${lng.toFixed(7)}` +
+                                (warn ? `<span style="color:#e67e22;font-weight:600;">${warn}</span>` : '');
                             const btn = document.getElementById('map-picker-confirm');
                             btn.disabled = false;
                             btn.style.opacity = '1';
                             btn.style.cursor = 'pointer';
                             resultsBox.style.display = 'none';
-                            searchInput.value = r.display_name.split(',').slice(0, 2).join(', ');
+                            searchInput.value = (r.display_name || '').split(',').slice(0, 2).join(', ');
                         });
+                        resultsBox.appendChild(row);
                     });
                 } catch (err) {
-                    resultsBox.innerHTML = `<div style="padding:10px;color:#e74c3c;font-size:12px;">Erreur: ${err.message}</div>`;
+                    resultsBox.innerHTML = '';
+                    const errDiv = document.createElement('div');
+                    errDiv.style.cssText = 'padding:10px;color:#e74c3c;font-size:12px;';
+                    errDiv.textContent = 'Erreur: ' + (err.message || 'inconnue');
+                    resultsBox.appendChild(errDiv);
                 }
             };
             searchInput.addEventListener('input', (e) => {
@@ -787,14 +806,16 @@ const ProjectDetailPage = {
                     resultsBox.style.display = 'none';
                     return;
                 }
-                searchTimer = setTimeout(() => doSearch(q), 450);
+                searchTimer = setTimeout(() => doSearch(q), 1100);
             });
-            // Hide results when clicking outside
-            document.addEventListener('click', (e) => {
+            // Masquer les résultats au clic en dehors — handler nommé pour pouvoir le retirer à la fermeture
+            const onDocumentClick = (e) => {
                 if (!resultsBox.contains(e.target) && e.target !== searchInput) {
                     resultsBox.style.display = 'none';
                 }
-            }, { once: false });
+            };
+            document.addEventListener('click', onDocumentClick);
+            this._mapPicker._onDocumentClick = onDocumentClick;
         }, 50);
     },
 
@@ -828,12 +849,17 @@ const ProjectDetailPage = {
 
             this._mapPicker.lat = lat;
             this._mapPicker.lng = lng;
-            document.getElementById('map-picker-coords').textContent = `${lat.toFixed(7)}, ${lng.toFixed(7)} (±${acc} m)`;
+            const inSN = this._isInSenegal(lat, lng);
+            const warn = inSN ? '' : '  ⚠️ hors Sénégal';
+            document.getElementById('map-picker-coords').innerHTML =
+                `${lat.toFixed(7)}, ${lng.toFixed(7)} (±${acc} m)` +
+                (warn ? `<span style="color:#e67e22;font-weight:600;">${warn}</span>` : '');
             const btn = document.getElementById('map-picker-confirm');
             btn.disabled = false;
             btn.style.opacity = '1';
             btn.style.cursor = 'pointer';
-            Toast.success(`Position trouvée (précision ±${acc} m)`);
+            if (inSN) Toast.success(`Position trouvée (précision ±${acc} m)`);
+            else Toast.warning(`Position hors Sénégal (précision ±${acc} m). Vous pouvez la garder ou ajuster.`);
         }, (err) => {
             const msg = {
                 1: 'Permission refusée. Autorisez la géolocalisation dans votre navigateur.',
@@ -847,7 +873,12 @@ const ProjectDetailPage = {
     closeMapPicker() {
         const overlay = document.getElementById('map-picker-overlay');
         if (overlay) overlay.remove();
-        if (this._mapPicker && this._mapPicker.map) this._mapPicker.map.remove();
+        if (this._mapPicker) {
+            if (this._mapPicker._onDocumentClick) {
+                document.removeEventListener('click', this._mapPicker._onDocumentClick);
+            }
+            if (this._mapPicker.map) this._mapPicker.map.remove();
+        }
         this._mapPicker = null;
     },
 

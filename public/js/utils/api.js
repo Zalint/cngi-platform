@@ -267,6 +267,7 @@ const API = {
         },
         getStats: () => API.get('/decoupage/stats'),
         reverseGeocode: (lat, lon) => API.get(`/decoupage/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`),
+        forwardGeocode: (q) => API.get(`/decoupage/forward?q=${encodeURIComponent(q)}`),
         create: (data) => API.post('/decoupage', data),
         update: (id, data) => API.put(`/decoupage/${id}`, data),
         delete: (id) => API.delete(`/decoupage/${id}`)

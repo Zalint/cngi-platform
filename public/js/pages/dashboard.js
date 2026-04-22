@@ -637,27 +637,42 @@ const DashboardPage = {
                 div.style.fontSize = '12px';
                 div.style.lineHeight = '1.6';
                 div.style.maxWidth = '180px';
-                const rows = codes.map(code => {
+                // Construction via DOM API pour éviter toute injection via structure_code
+                const header = document.createElement('div');
+                header.style.cssText = 'font-weight:700;color:#202B5D;margin-bottom:6px;border-bottom:1px solid #eef;padding-bottom:4px;';
+                header.textContent = 'Structures';
+                div.appendChild(header);
+
+                codes.forEach(code => {
                     const color = (typeof StructureColors !== 'undefined') ? StructureColors.get(code) : '#3794C4';
                     const count = this.markersByStructure[code].length;
-                    return `
-                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                            <input type="checkbox" class="structure-filter-cb" data-code="${code}" checked>
-                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-                            <span style="flex:1;color:#202B5D;font-weight:600;">${code}</span>
-                            <span style="color:#8896AB;">${count}</span>
-                        </label>
-                    `;
-                }).join('');
-                div.innerHTML = `
-                    <div style="font-weight:700;color:#202B5D;margin-bottom:6px;border-bottom:1px solid #eef;padding-bottom:4px;">Structures</div>
-                    ${rows}
-                    <div style="display:flex;gap:6px;margin-top:6px;border-top:1px solid #eef;padding-top:6px;">
-                        <a href="#" class="structure-filter-all" style="font-size:11px;color:#3794C4;text-decoration:none;font-weight:600;">Tout</a>
-                        <span style="color:#ccc;">·</span>
-                        <a href="#" class="structure-filter-none" style="font-size:11px;color:#8896AB;text-decoration:none;font-weight:600;">Aucun</a>
-                    </div>
+                    const label = document.createElement('label');
+                    label.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'structure-filter-cb';
+                    cb.setAttribute('data-code', code);
+                    cb.checked = true;
+                    const swatch = document.createElement('span');
+                    swatch.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;`;
+                    const codeSpan = document.createElement('span');
+                    codeSpan.style.cssText = 'flex:1;color:#202B5D;font-weight:600;';
+                    codeSpan.textContent = code;
+                    const countSpan = document.createElement('span');
+                    countSpan.style.color = '#8896AB';
+                    countSpan.textContent = count;
+                    label.append(cb, swatch, codeSpan, countSpan);
+                    div.appendChild(label);
+                });
+
+                const footer = document.createElement('div');
+                footer.style.cssText = 'display:flex;gap:6px;margin-top:6px;border-top:1px solid #eef;padding-top:6px;';
+                footer.innerHTML = `
+                    <a href="#" class="structure-filter-all" style="font-size:11px;color:#3794C4;text-decoration:none;font-weight:600;">Tout</a>
+                    <span style="color:#ccc;">·</span>
+                    <a href="#" class="structure-filter-none" style="font-size:11px;color:#8896AB;text-decoration:none;font-weight:600;">Aucun</a>
                 `;
+                div.appendChild(footer);
                 L.DomEvent.disableClickPropagation(div);
                 L.DomEvent.disableScrollPropagation(div);
                 return div;

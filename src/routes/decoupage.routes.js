@@ -10,6 +10,7 @@ router.use(protect);
 router.get('/level/:level', decoupageController.getAllByLevel);
 router.get('/search', decoupageController.search);
 router.get('/reverse', decoupageController.reverseGeocode);
+router.get('/forward', decoupageController.forwardGeocode);
 router.get('/regions', decoupageController.getRegions);
 router.get('/departements', decoupageController.getDepartements);
 router.get('/arrondissements', decoupageController.getArrondissements);
