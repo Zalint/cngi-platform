@@ -474,6 +474,9 @@ const DashboardPage = {
             { position: 'topright', collapsed: false }
         ).addTo(this.map);
 
+        // Masque : tout ce qui n'est pas le Sénégal est grisé
+        this.addSenegalMask();
+
         const sites = this.data.mapSites || [];
         if (sites.length === 0) {
             // Default marker for Dakar if no sites
@@ -483,6 +486,8 @@ const DashboardPage = {
         }
 
         const bounds = [];
+        // Regroupe les marqueurs par code de structure pour pouvoir les filtrer
+        this.markersByStructure = {};
         sites.forEach(site => {
             const lat = parseFloat(site.latitude);
             const lng = parseFloat(site.longitude);
@@ -537,8 +542,11 @@ const DashboardPage = {
                 ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:${color};margin-left:4px;">📎 PCS</span>`
                 : '';
 
-            L.marker([lat, lng], { icon })
-                .addTo(this.map)
+            const marker = L.marker([lat, lng], { icon });
+            const code = site.structure_code || '—';
+            if (!this.markersByStructure[code]) this.markersByStructure[code] = [];
+            this.markersByStructure[code].push(marker);
+            marker.addTo(this.map)
                 .bindPopup(`
                     <div style="min-width:200px;">
                         <strong style="color:#202B5D;font-size:13px;">${site.name}</strong>${priorityBadge}${pcsBadge}<br>
@@ -562,6 +570,140 @@ const DashboardPage = {
             this.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
         } else if (bounds.length === 1) {
             this.map.setView(bounds[0], 13);
+        }
+
+        this.addStructureFilterControl();
+    },
+
+    async addSenegalMask() {
+        if (!this.map) return;
+        try {
+            const resp = await fetch('/data/senegal.geojson');
+            if (!resp.ok) return;
+            const gj = await resp.json();
+
+            // Récupère la ou les géométries externes (polygone ou multipolygone)
+            const rings = [];
+            for (const feat of gj.features || []) {
+                const g = feat.geometry || {};
+                if (g.type === 'Polygon') {
+                    // Leaflet [lat,lng] vs GeoJSON [lng,lat]
+                    rings.push(g.coordinates[0].map(c => [c[1], c[0]]));
+                } else if (g.type === 'MultiPolygon') {
+                    g.coordinates.forEach(poly => rings.push(poly[0].map(c => [c[1], c[0]])));
+                }
+            }
+            if (rings.length === 0) return;
+
+            // Polygone "beignet" : anneau extérieur = monde entier ; anneaux intérieurs (holes) = Sénégal
+            const worldRing = [[-89, -179], [-89, 179], [89, 179], [89, -179]];
+            const mask = L.polygon([worldRing, ...rings], {
+                stroke: false,
+                fillColor: '#f0f4f8',
+                fillOpacity: 1,
+                interactive: false,
+                smoothFactor: 1.5
+            });
+            mask.addTo(this.map);
+
+            // Fin contour du Sénégal pour le mettre en valeur
+            L.polygon(rings, {
+                color: '#202B5D',
+                weight: 2,
+                fill: false,
+                interactive: false
+            }).addTo(this.map);
+        } catch (e) {
+            console.warn('Masque Sénégal non chargé:', e.message);
+        }
+    },
+
+    addStructureFilterControl() {
+        if (!this.map || !this.markersByStructure) return;
+        // Retire un éventuel contrôle précédent
+        if (this._structureFilterCtrl) this._structureFilterCtrl.remove();
+
+        const codes = Object.keys(this.markersByStructure).sort();
+        if (codes.length < 2) return; // inutile s'il n'y a qu'une structure
+
+        const StructureFilter = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: () => {
+                const div = L.DomUtil.create('div', 'leaflet-bar structure-filter');
+                div.style.background = 'white';
+                div.style.padding = '8px 10px';
+                div.style.borderRadius = '8px';
+                div.style.boxShadow = '0 1px 5px rgba(0,0,0,0.3)';
+                div.style.fontSize = '12px';
+                div.style.lineHeight = '1.6';
+                div.style.maxWidth = '180px';
+                // Construction via DOM API pour éviter toute injection via structure_code
+                const header = document.createElement('div');
+                header.style.cssText = 'font-weight:700;color:#202B5D;margin-bottom:6px;border-bottom:1px solid #eef;padding-bottom:4px;';
+                header.textContent = 'Structures';
+                div.appendChild(header);
+
+                codes.forEach(code => {
+                    const color = (typeof StructureColors !== 'undefined') ? StructureColors.get(code) : '#3794C4';
+                    const count = this.markersByStructure[code].length;
+                    const label = document.createElement('label');
+                    label.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'structure-filter-cb';
+                    cb.setAttribute('data-code', code);
+                    cb.checked = true;
+                    const swatch = document.createElement('span');
+                    swatch.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;`;
+                    const codeSpan = document.createElement('span');
+                    codeSpan.style.cssText = 'flex:1;color:#202B5D;font-weight:600;';
+                    codeSpan.textContent = code;
+                    const countSpan = document.createElement('span');
+                    countSpan.style.color = '#8896AB';
+                    countSpan.textContent = count;
+                    label.append(cb, swatch, codeSpan, countSpan);
+                    div.appendChild(label);
+                });
+
+                const footer = document.createElement('div');
+                footer.style.cssText = 'display:flex;gap:6px;margin-top:6px;border-top:1px solid #eef;padding-top:6px;';
+                footer.innerHTML = `
+                    <a href="#" class="structure-filter-all" style="font-size:11px;color:#3794C4;text-decoration:none;font-weight:600;">Tout</a>
+                    <span style="color:#ccc;">·</span>
+                    <a href="#" class="structure-filter-none" style="font-size:11px;color:#8896AB;text-decoration:none;font-weight:600;">Aucun</a>
+                `;
+                div.appendChild(footer);
+                L.DomEvent.disableClickPropagation(div);
+                L.DomEvent.disableScrollPropagation(div);
+                return div;
+            }
+        });
+
+        this._structureFilterCtrl = new StructureFilter().addTo(this.map);
+
+        const container = document.querySelector('.structure-filter');
+        if (container) {
+            container.addEventListener('change', (e) => {
+                if (!e.target.matches('.structure-filter-cb')) return;
+                const code = e.target.dataset.code;
+                const visible = e.target.checked;
+                (this.markersByStructure[code] || []).forEach(m => {
+                    if (visible) m.addTo(this.map);
+                    else this.map.removeLayer(m);
+                });
+            });
+            container.querySelector('.structure-filter-all')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                container.querySelectorAll('.structure-filter-cb').forEach(cb => {
+                    if (!cb.checked) { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); }
+                });
+            });
+            container.querySelector('.structure-filter-none')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                container.querySelectorAll('.structure-filter-cb').forEach(cb => {
+                    if (cb.checked) { cb.checked = false; cb.dispatchEvent(new Event('change', { bubbles: true })); }
+                });
+            });
         }
     },
 

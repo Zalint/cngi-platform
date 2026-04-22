@@ -1,5 +1,26 @@
 const DecoupageModel = require('../models/decoupage.model');
 
+exports.forwardGeocode = async (req, res, next) => {
+    try {
+        const q = (req.query.q || '').trim();
+        if (q.length < 3) return res.json({ success: true, data: [] });
+        const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&countrycodes=sn&limit=8&addressdetails=1&accept-language=fr`;
+        try {
+            const resp = await fetch(url, {
+                headers: {
+                    'User-Agent': 'CNGIRI-Platform/1.0 (contact@cngiri.sn)',
+                    'Accept': 'application/json'
+                }
+            });
+            if (!resp.ok) throw new Error('Nominatim HTTP ' + resp.status);
+            const list = await resp.json();
+            res.json({ success: true, data: list });
+        } catch (err) {
+            res.json({ success: true, data: [], error: 'Geocoding indisponible: ' + err.message });
+        }
+    } catch (error) { next(error); }
+};
+
 exports.reverseGeocode = async (req, res, next) => {
     try {
         const lat = parseFloat(req.query.lat);

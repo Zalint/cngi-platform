@@ -282,7 +282,7 @@ const ProjectDetailPage = {
                     ${this.data.editMode.sites.map((site, index) => `
                         <div class="site-item" style="padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px;" data-index="${index}">
                             ${isProjectManager ? `
-                                <div style="display: grid; grid-template-columns: 1fr 1fr auto auto auto; gap: 10px; margin-bottom: 10px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr auto auto auto auto; gap: 10px; margin-bottom: 10px; align-items: center;">
                                     <input type="text" class="form-control" placeholder="Nom du site"
                                            value="${site.name || ''}"
                                            onchange="ProjectDetailPage.updateSiteField(${index}, 'name', this.value)">
@@ -292,6 +292,9 @@ const ProjectDetailPage = {
                                     <input type="text" class="form-control" placeholder="Lat,Lng" style="max-width:140px;"
                                            value="${site.latitude && site.longitude ? site.latitude + ',' + site.longitude : ''}"
                                            onchange="ProjectDetailPage.updateSiteCoordinates(${index}, this.value)">
+                                    <button class="btn btn-secondary" onclick="ProjectDetailPage.openMapPicker(${index})" title="Choisir la position sur une carte" style="font-size:12px;">
+                                        🗺️ Carte
+                                    </button>
                                     <button class="btn btn-secondary" onclick="ProjectDetailPage.autoFillSiteFromCoords(${index})" title="Déduire région/département/arrondissement/commune depuis les coordonnées GPS" style="font-size:12px;">
                                         📍 Auto
                                     </button>
@@ -656,6 +659,245 @@ const ProjectDetailPage = {
         }
     },
 
+    _isInSenegal(lat, lng) {
+        // Bounding box approximative du Sénégal
+        return lat >= 12.0 && lat <= 17.5 && lng >= -18.0 && lng <= -11.0;
+    },
+
+    openMapPicker(index) {
+        const site = this.data.editMode.sites[index];
+        const hasCoords = site.latitude && site.longitude;
+        const initLat = hasCoords ? parseFloat(site.latitude) : 14.4974;  // centre Sénégal
+        const initLng = hasCoords ? parseFloat(site.longitude) : -14.4524;
+        const initZoom = hasCoords ? 14 : 7;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'map-picker-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `
+            <div style="background:white;border-radius:12px;width:min(90vw,900px);height:min(85vh,700px);display:flex;flex-direction:column;overflow:hidden;">
+                <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <h3 style="margin:0;color:#202B5D;font-size:16px;">🗺️ Choisir la position sur la carte</h3>
+                        <small style="color:#62718D;">Cliquez sur la carte pour placer le marqueur. Vous pouvez zoomer, bouger et recliquer à volonté.</small>
+                    </div>
+                    <button class="btn btn-secondary" onclick="ProjectDetailPage.closeMapPicker()" style="font-size:20px;padding:4px 10px;">✕</button>
+                </div>
+                <div style="padding:10px 18px;border-bottom:1px solid #e2e8f0;position:relative;z-index:10500;">
+                    <input type="text" id="map-picker-search" class="form-control" placeholder="🔎 Rechercher un lieu (ex: Pikine, Touba, Dakar)..." autocomplete="off" style="width:100%;">
+                    <div id="map-picker-results" style="position:absolute;top:100%;left:18px;right:18px;background:white;border:1px solid #dce3ed;border-radius:0 0 8px 8px;max-height:280px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:10501;display:none;"></div>
+                </div>
+                <div id="map-picker-el" style="flex:1;"></div>
+                <div style="padding:12px 18px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <div id="map-picker-coords" style="font-family:monospace;color:#202B5D;font-size:14px;font-weight:600;">
+                        ${hasCoords ? `${site.latitude}, ${site.longitude}` : 'Aucune position sélectionnée'}
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-secondary" onclick="ProjectDetailPage.useMyLocation()" title="Utiliser la position GPS du navigateur">
+                            📍 Ma position
+                        </button>
+                        <button class="btn btn-secondary" onclick="ProjectDetailPage.closeMapPicker()">Annuler</button>
+                        <button class="btn btn-primary" id="map-picker-confirm" onclick="ProjectDetailPage.confirmMapPicker(${index})" ${hasCoords ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"'}>
+                            ✓ Valider
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        setTimeout(() => {
+            const map = L.map('map-picker-el', { zoomControl: true }).setView([initLat, initLng], initZoom);
+            const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 });
+            const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 19 });
+            osm.addTo(map);
+            L.control.layers({ 'Plan': osm, 'Satellite': sat }, null, { position: 'topright', collapsed: false }).addTo(map);
+
+            let marker = null;
+            if (hasCoords) {
+                marker = L.marker([initLat, initLng]).addTo(map);
+            }
+
+            this._mapPicker = { map, marker, lat: hasCoords ? initLat : null, lng: hasCoords ? initLng : null };
+
+            map.on('click', (e) => {
+                const { lat, lng } = e.latlng;
+                const inSN = this._isInSenegal(lat, lng);
+                if (this._mapPicker.marker) this._mapPicker.marker.setLatLng([lat, lng]);
+                else this._mapPicker.marker = L.marker([lat, lng]).addTo(map);
+                this._mapPicker.lat = lat;
+                this._mapPicker.lng = lng;
+                const precision = 7;
+                const warn = inSN ? '' : '  ⚠️ hors Sénégal';
+                document.getElementById('map-picker-coords').innerHTML =
+                    `${lat.toFixed(precision)}, ${lng.toFixed(precision)}` +
+                    (warn ? `<span style="color:#e67e22;font-weight:600;">${warn}</span>` : '');
+                const btn = document.getElementById('map-picker-confirm');
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            });
+
+            // Force la bonne taille après l'ouverture du modal
+            setTimeout(() => map.invalidateSize(), 100);
+
+            // Recherche type Google Maps — via proxy backend (Nominatim policy: 1 req/s max + User-Agent)
+            const searchInput = document.getElementById('map-picker-search');
+            const resultsBox = document.getElementById('map-picker-results');
+            let searchTimer = null;
+            const doSearch = async (q) => {
+                resultsBox.innerHTML = '<div style="padding:10px;color:#8896AB;font-size:12px;">Recherche...</div>';
+                resultsBox.style.display = 'block';
+                try {
+                    const res = await API.decoupage.forwardGeocode(q);
+                    const list = res.data || [];
+                    if (!list.length) {
+                        resultsBox.innerHTML = '<div style="padding:10px;color:#8896AB;font-size:12px;">Aucun résultat.</div>';
+                        return;
+                    }
+                    resultsBox.innerHTML = '';
+                    list.forEach((r, i) => {
+                        const row = document.createElement('div');
+                        row.className = 'map-picker-result';
+                        row.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f4f8;font-size:13px;';
+                        row.onmouseover = () => row.style.background = '#f0f4f8';
+                        row.onmouseout = () => row.style.background = 'white';
+                        const title = document.createElement('div');
+                        title.style.cssText = 'font-weight:600;color:#202B5D;';
+                        title.textContent = r.name || (r.display_name || '').split(',')[0] || '';
+                        const sub = document.createElement('div');
+                        sub.style.cssText = 'font-size:11px;color:#62718D;';
+                        sub.textContent = r.display_name || '';
+                        row.append(title, sub);
+                        row.addEventListener('click', () => {
+                            const lat = parseFloat(r.lat);
+                            const lng = parseFloat(r.lon);
+                            if (this._mapPicker.marker) this._mapPicker.marker.setLatLng([lat, lng]);
+                            else this._mapPicker.marker = L.marker([lat, lng]).addTo(this._mapPicker.map);
+                            this._mapPicker.map.setView([lat, lng], 15);
+                            this._mapPicker.lat = lat;
+                            this._mapPicker.lng = lng;
+                            const inSN = this._isInSenegal(lat, lng);
+                            const warn = inSN ? '' : '  ⚠️ hors Sénégal';
+                            document.getElementById('map-picker-coords').innerHTML =
+                                `${lat.toFixed(7)}, ${lng.toFixed(7)}` +
+                                (warn ? `<span style="color:#e67e22;font-weight:600;">${warn}</span>` : '');
+                            const btn = document.getElementById('map-picker-confirm');
+                            btn.disabled = false;
+                            btn.style.opacity = '1';
+                            btn.style.cursor = 'pointer';
+                            resultsBox.style.display = 'none';
+                            searchInput.value = (r.display_name || '').split(',').slice(0, 2).join(', ');
+                        });
+                        resultsBox.appendChild(row);
+                    });
+                } catch (err) {
+                    resultsBox.innerHTML = '';
+                    const errDiv = document.createElement('div');
+                    errDiv.style.cssText = 'padding:10px;color:#e74c3c;font-size:12px;';
+                    errDiv.textContent = 'Erreur: ' + (err.message || 'inconnue');
+                    resultsBox.appendChild(errDiv);
+                }
+            };
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimer);
+                const q = e.target.value.trim();
+                if (q.length < 3) {
+                    resultsBox.style.display = 'none';
+                    return;
+                }
+                searchTimer = setTimeout(() => doSearch(q), 1100);
+            });
+            // Masquer les résultats au clic en dehors — handler nommé pour pouvoir le retirer à la fermeture
+            const onDocumentClick = (e) => {
+                if (!resultsBox.contains(e.target) && e.target !== searchInput) {
+                    resultsBox.style.display = 'none';
+                }
+            };
+            document.addEventListener('click', onDocumentClick);
+            this._mapPicker._onDocumentClick = onDocumentClick;
+        }, 50);
+    },
+
+    useMyLocation() {
+        if (!navigator.geolocation) {
+            Toast.error('La géolocalisation n\'est pas disponible sur ce navigateur.');
+            return;
+        }
+        if (!this._mapPicker || !this._mapPicker.map) return;
+        Toast.info('Récupération de votre position...');
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const acc = Math.round(pos.coords.accuracy || 0);
+            const map = this._mapPicker.map;
+
+            if (this._mapPicker.marker) this._mapPicker.marker.setLatLng([lat, lng]);
+            else this._mapPicker.marker = L.marker([lat, lng]).addTo(map);
+
+            // Cercle de précision
+            if (this._mapPicker.accuracyCircle) map.removeLayer(this._mapPicker.accuracyCircle);
+            this._mapPicker.accuracyCircle = L.circle([lat, lng], {
+                radius: acc || 30,
+                color: '#3794C4',
+                fillColor: '#3794C4',
+                fillOpacity: 0.15,
+                weight: 1
+            }).addTo(map);
+
+            map.setView([lat, lng], 17);
+
+            this._mapPicker.lat = lat;
+            this._mapPicker.lng = lng;
+            const inSN = this._isInSenegal(lat, lng);
+            const warn = inSN ? '' : '  ⚠️ hors Sénégal';
+            document.getElementById('map-picker-coords').innerHTML =
+                `${lat.toFixed(7)}, ${lng.toFixed(7)} (±${acc} m)` +
+                (warn ? `<span style="color:#e67e22;font-weight:600;">${warn}</span>` : '');
+            const btn = document.getElementById('map-picker-confirm');
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            if (inSN) Toast.success(`Position trouvée (précision ±${acc} m)`);
+            else Toast.warning(`Position hors Sénégal (précision ±${acc} m). Vous pouvez la garder ou ajuster.`);
+        }, (err) => {
+            const msg = {
+                1: 'Permission refusée. Autorisez la géolocalisation dans votre navigateur.',
+                2: 'Position indisponible (pas de signal GPS ou réseau).',
+                3: 'Délai dépassé, réessayez.'
+            }[err.code] || err.message || 'Erreur de géolocalisation';
+            Toast.error(msg);
+        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    },
+
+    closeMapPicker() {
+        const overlay = document.getElementById('map-picker-overlay');
+        if (overlay) overlay.remove();
+        if (this._mapPicker) {
+            if (this._mapPicker._onDocumentClick) {
+                document.removeEventListener('click', this._mapPicker._onDocumentClick);
+            }
+            if (this._mapPicker.map) this._mapPicker.map.remove();
+        }
+        this._mapPicker = null;
+    },
+
+    confirmMapPicker(index) {
+        if (!this._mapPicker || this._mapPicker.lat == null) return;
+        const lat = Number(this._mapPicker.lat.toFixed(7));
+        const lng = Number(this._mapPicker.lng.toFixed(7));
+        this.data.editMode.sites[index].latitude = lat;
+        this.data.editMode.sites[index].longitude = lng;
+        // Met à jour l'input Lat,Lng visible
+        const row = document.querySelector(`.site-item[data-index="${index}"]`);
+        if (row) {
+            const latInput = row.querySelector('input[placeholder="Lat,Lng"]');
+            if (latInput) latInput.value = `${lat},${lng}`;
+        }
+        this.closeMapPicker();
+        Toast.success(`Position enregistrée : ${lat}, ${lng}`);
+    },
+
     async autoFillSiteFromCoords(index) {
         const site = this.data.editMode.sites[index];
         if (!site.latitude || !site.longitude) {
@@ -828,19 +1070,58 @@ const ProjectDetailPage = {
                 container = document.getElementById('sites-container');
                 html = this.data.editMode.sites.map((site, index) => `
                     <div class="site-item" style="padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px;" data-index="${index}">
-                        <div style="display: grid; grid-template-columns: 1fr 2fr 1fr 1fr; gap: 12px; align-items: start;">
-                            <input type="text" class="form-control" placeholder="Nom du site" 
-                                   value="${site.name || ''}" 
+                        <div style="display: grid; grid-template-columns: 1fr 1fr auto auto auto auto; gap: 10px; margin-bottom: 10px; align-items: center;">
+                            <input type="text" class="form-control" placeholder="Nom du site"
+                                   value="${site.name || ''}"
                                    onchange="ProjectDetailPage.updateSiteField(${index}, 'name', this.value)">
-                            <input type="text" class="form-control" placeholder="Description" 
-                                   value="${site.description || ''}" 
+                            <input type="text" class="form-control" placeholder="Description"
+                                   value="${site.description || ''}"
                                    onchange="ProjectDetailPage.updateSiteField(${index}, 'description', this.value)">
-                            <input type="text" class="form-control" placeholder="Latitude,Longitude" 
-                                   value="${site.latitude && site.longitude ? site.latitude + ',' + site.longitude : ''}" 
+                            <input type="text" class="form-control" placeholder="Lat,Lng" style="max-width:140px;"
+                                   value="${site.latitude && site.longitude ? site.latitude + ',' + site.longitude : ''}"
                                    onchange="ProjectDetailPage.updateSiteCoordinates(${index}, this.value)">
-                            <button class="btn btn-danger" onclick="ProjectDetailPage.removeSite(${index})">
-                                🗑️ Retirer
+                            <button class="btn btn-secondary" onclick="ProjectDetailPage.openMapPicker(${index})" title="Choisir la position sur une carte" style="font-size:12px;">
+                                🗺️ Carte
                             </button>
+                            <button class="btn btn-secondary" onclick="ProjectDetailPage.autoFillSiteFromCoords(${index})" title="Déduire région/département/arrondissement/commune depuis les coordonnées GPS" style="font-size:12px;">
+                                📍 Auto
+                            </button>
+                            <button class="btn btn-danger" onclick="ProjectDetailPage.removeSite(${index})" style="font-size:12px;">
+                                Retirer
+                            </button>
+                        </div>
+                        ${this.data.project.structure_code === 'DPGI' ? `
+                            <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#62718D;margin-bottom:8px;cursor:pointer;">
+                                <input type="checkbox" ${site.is_pcs ? 'checked' : ''}
+                                       onchange="ProjectDetailPage.updateSiteField(${index}, 'is_pcs', this.checked)">
+                                🏛️ PCS (Plan Communal de Sauvegarde)
+                            </label>
+                        ` : ''}
+                        <div style="position:relative; margin-bottom:8px;">
+                            <input type="text" class="form-control site-search" data-site-index="${index}"
+                                   placeholder="Rechercher localisation (commune, arrondissement...)"
+                                   oninput="ProjectDetailPage.onLocationSearch(${index}, 'site', this.value)"
+                                   onfocus="ProjectDetailPage.onLocationSearch(${index}, 'site', this.value)"
+                                   autocomplete="off">
+                            <div class="search-results" id="site-results-${index}" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:white;border:1px solid #dce3ed;border-radius:0 0 8px 8px;max-height:250px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+                            <select class="form-control site-region" data-site-index="${index}"
+                                    onchange="ProjectDetailPage.onSiteRegionChange(${index}, this.value)">
+                                <option value="">-- Région --</option>
+                            </select>
+                            <select class="form-control site-dept" data-site-index="${index}"
+                                    onchange="ProjectDetailPage.onSiteDeptChange(${index}, this.value)">
+                                <option value="">-- Département --</option>
+                            </select>
+                            <select class="form-control site-arrond" data-site-index="${index}"
+                                    onchange="ProjectDetailPage.onSiteArrondChange(${index}, this.value)">
+                                <option value="">-- Arrondissement --</option>
+                            </select>
+                            <select class="form-control site-commune" data-site-index="${index}"
+                                    onchange="ProjectDetailPage.updateSiteField(${index}, 'commune', this.value)">
+                                <option value="">-- Commune --</option>
+                            </select>
                         </div>
                     </div>
                 `).join('');
