@@ -9,7 +9,7 @@ class UserModel {
         const result = await db.query(`
             SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.role,
                    u.structure_id, u.is_active, u.last_login, u.created_at,
-                   u.territorial_level, u.territorial_value,
+                   u.territorial_level, u.territorial_value, u.title,
                    s.name as structure_name, s.code as structure_code
             FROM users u
             LEFT JOIN structures s ON u.structure_id = s.id
@@ -25,7 +25,7 @@ class UserModel {
         const result = await db.query(`
             SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.role,
                    u.structure_id, u.is_active, u.last_login, u.created_at,
-                   u.territorial_level, u.territorial_value,
+                   u.territorial_level, u.territorial_value, u.title,
                    s.name as structure_name, s.code as structure_code
             FROM users u
             LEFT JOIN structures s ON u.structure_id = s.id
@@ -65,16 +65,16 @@ class UserModel {
      * Créer un nouvel utilisateur
      */
     static async create(userData) {
-        const { username, password, email, first_name, last_name, role, structure_id, territorial_level, territorial_value } = userData;
+        const { username, password, email, first_name, last_name, role, structure_id, territorial_level, territorial_value, title } = userData;
 
         // Hasher le mot de passe
         const password_hash = await bcrypt.hash(password, 10);
 
         const result = await db.query(`
-            INSERT INTO users (username, password_hash, email, first_name, last_name, role, structure_id, territorial_level, territorial_value)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            RETURNING id, username, email, first_name, last_name, role, structure_id, territorial_level, territorial_value, is_active, created_at
-        `, [username, password_hash, email, first_name, last_name, role, structure_id || null, territorial_level || null, territorial_value || null]);
+            INSERT INTO users (username, password_hash, email, first_name, last_name, role, structure_id, territorial_level, territorial_value, title)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING id, username, email, first_name, last_name, role, structure_id, territorial_level, territorial_value, title, is_active, created_at
+        `, [username, password_hash, email, first_name, last_name, role, structure_id || null, territorial_level || null, territorial_value || null, title || null]);
 
         return result.rows[0];
     }
@@ -83,7 +83,7 @@ class UserModel {
      * Mettre à jour un utilisateur
      */
     static async update(id, userData) {
-        const { email, first_name, last_name, role, structure_id, is_active, territorial_level, territorial_value } = userData;
+        const { email, first_name, last_name, role, structure_id, is_active, territorial_level, territorial_value, title } = userData;
 
         const result = await db.query(`
             UPDATE users
@@ -94,10 +94,11 @@ class UserModel {
                 structure_id = COALESCE($5, structure_id),
                 is_active = COALESCE($6, is_active),
                 territorial_level = COALESCE($7, territorial_level),
-                territorial_value = COALESCE($8, territorial_value)
-            WHERE id = $9
-            RETURNING id, username, email, first_name, last_name, role, structure_id, territorial_level, territorial_value, is_active, updated_at
-        `, [email, first_name, last_name, role, structure_id, is_active, territorial_level, territorial_value, id]);
+                territorial_value = COALESCE($8, territorial_value),
+                title = COALESCE($9, title)
+            WHERE id = $10
+            RETURNING id, username, email, first_name, last_name, role, structure_id, territorial_level, territorial_value, title, is_active, updated_at
+        `, [email, first_name, last_name, role, structure_id, is_active, territorial_level, territorial_value, title === undefined ? null : title, id]);
 
         return result.rows[0];
     }

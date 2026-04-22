@@ -4,7 +4,7 @@ class ObservationModel {
     static async findAll(filters = {}) {
         let query = `
             SELECT o.*,
-                   u.username as author_username, u.first_name as author_first_name, u.last_name as author_last_name,
+                   u.username as author_username, u.first_name as author_first_name, u.last_name as author_last_name, u.title as author_title,
                    p.title as project_title, p.structure_id,
                    s.code as project_structure_code
             FROM observations o
@@ -33,13 +33,23 @@ class ObservationModel {
             o.created_at DESC`;
 
         const result = await db.query(query, params);
-        return result.rows;
+        const rows = result.rows;
+        if (rows.length === 0) return rows;
+        const ids = rows.map(r => r.id);
+        const att = await db.query(`
+            SELECT id, entity_id, filename, original_filename, label, mime_type, size
+            FROM uploads WHERE entity_type = 'observation' AND entity_id = ANY($1::int[])
+            ORDER BY uploaded_at DESC
+        `, [ids]);
+        const byId = att.rows.reduce((acc, r) => { (acc[r.entity_id] ||= []).push(r); return acc; }, {});
+        for (const r of rows) r.attachments = byId[r.id] || [];
+        return rows;
     }
 
     static async findById(id) {
         const result = await db.query(`
             SELECT o.*,
-                   u.username as author_username, u.first_name as author_first_name, u.last_name as author_last_name,
+                   u.username as author_username, u.first_name as author_first_name, u.last_name as author_last_name, u.title as author_title,
                    p.title as project_title
             FROM observations o
             LEFT JOIN users u ON o.author_id = u.id

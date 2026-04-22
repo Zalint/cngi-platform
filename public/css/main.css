@@ -1583,6 +1583,11 @@ tbody tr:hover {
     background: #27ae60;
 }
 
+.nav-badge-yellow {
+    background: #eab308;
+    color: #1f2937;
+}
+
 /* Poignée de redimensionnement (coin haut-gauche) */
 #chatbot-resize-handle {
     position: absolute;

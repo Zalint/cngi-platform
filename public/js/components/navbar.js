@@ -45,7 +45,7 @@ const Navbar = {
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H7v9a2 2 0 002 2h8a2 2 0 002-2v-9h-2"/><path d="M16 3h-8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/><path d="M10 12h4M10 16h4"/></svg>
                         </span>
                         <span>PV de visite</span>
-                        <span id="nav-pv-badge" class="nav-badge nav-badge-green" style="display:none;"></span>
+                        <span id="nav-pv-badge" class="nav-badge nav-badge-yellow" style="display:none;"></span>
                     </a>
 
                     ${isAdmin ? `

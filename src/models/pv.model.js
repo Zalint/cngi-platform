@@ -66,6 +66,7 @@ class PvModel {
                    u.username as author_username,
                    u.first_name as author_first_name,
                    u.last_name as author_last_name,
+                   u.title as author_title,
                    (SELECT read_at FROM pv_reads WHERE pv_id = pv.id AND user_id = $${visibility.params.length + 1}) as read_at
             FROM pv_reports pv
             LEFT JOIN users u ON pv.author_id = u.id
@@ -78,19 +79,21 @@ class PvModel {
         if (pvs.length === 0) return pvs;
 
         const ids = pvs.map(p => p.id);
-        const [pjs, pms, psi, pls] = await Promise.all([
+        const [pjs, pms, psi, pls, atts] = await Promise.all([
             db.query(`SELECT pp.pv_id, p.id, p.title FROM pv_projects pp JOIN projects p ON pp.project_id = p.id WHERE pp.pv_id = ANY($1::int[])`, [ids]),
             db.query(`SELECT pm.pv_id, m.id, m.description FROM pv_measures pm JOIN measures m ON pm.measure_id = m.id WHERE pm.pv_id = ANY($1::int[])`, [ids]),
             db.query(`SELECT ps.pv_id, s.id, s.name FROM pv_sites ps JOIN sites s ON ps.site_id = s.id WHERE ps.pv_id = ANY($1::int[])`, [ids]),
-            db.query(`SELECT pl.pv_id, l.id, l.region, l.departement, l.arrondissement, l.commune FROM pv_localities pl JOIN localities l ON pl.locality_id = l.id WHERE pl.pv_id = ANY($1::int[])`, [ids])
+            db.query(`SELECT pl.pv_id, l.id, l.region, l.departement, l.arrondissement, l.commune FROM pv_localities pl JOIN localities l ON pl.locality_id = l.id WHERE pl.pv_id = ANY($1::int[])`, [ids]),
+            db.query(`SELECT entity_id as pv_id, id, filename, original_filename, label, mime_type, size FROM uploads WHERE entity_type = 'pv' AND entity_id = ANY($1::int[]) ORDER BY uploaded_at DESC`, [ids])
         ]);
         const group = (rows) => rows.reduce((acc, r) => { (acc[r.pv_id] ||= []).push(r); return acc; }, {});
-        const gp = group(pjs.rows), gm = group(pms.rows), gs = group(psi.rows), gl = group(pls.rows);
+        const gp = group(pjs.rows), gm = group(pms.rows), gs = group(psi.rows), gl = group(pls.rows), ga = group(atts.rows);
         for (const pv of pvs) {
             pv.projects = (gp[pv.id] || []).map(({ pv_id, ...x }) => x);
             pv.measures = (gm[pv.id] || []).map(({ pv_id, ...x }) => x);
             pv.sites = (gs[pv.id] || []).map(({ pv_id, ...x }) => x);
             pv.localities = (gl[pv.id] || []).map(({ pv_id, ...x }) => x);
+            pv.attachments = (ga[pv.id] || []).map(({ pv_id, ...x }) => x);
         }
         return pvs;
     }
@@ -109,16 +112,18 @@ class PvModel {
         const pv = result.rows[0];
         if (!pv) return null;
 
-        const [projects, measures, sites, localities] = await Promise.all([
+        const [projects, measures, sites, localities, attachments] = await Promise.all([
             db.query(`SELECT p.id, p.title FROM pv_projects pp JOIN projects p ON pp.project_id = p.id WHERE pp.pv_id = $1`, [id]),
             db.query(`SELECT m.id, m.description FROM pv_measures pm JOIN measures m ON pm.measure_id = m.id WHERE pm.pv_id = $1`, [id]),
             db.query(`SELECT s.id, s.name FROM pv_sites ps JOIN sites s ON ps.site_id = s.id WHERE ps.pv_id = $1`, [id]),
-            db.query(`SELECT l.id, l.region, l.departement, l.arrondissement, l.commune FROM pv_localities pl JOIN localities l ON pl.locality_id = l.id WHERE pl.pv_id = $1`, [id])
+            db.query(`SELECT l.id, l.region, l.departement, l.arrondissement, l.commune FROM pv_localities pl JOIN localities l ON pl.locality_id = l.id WHERE pl.pv_id = $1`, [id]),
+            db.query(`SELECT id, filename, original_filename, label, mime_type, size FROM uploads WHERE entity_type = 'pv' AND entity_id = $1 ORDER BY uploaded_at DESC`, [id])
         ]);
         pv.projects = projects.rows;
         pv.measures = measures.rows;
         pv.sites = sites.rows;
         pv.localities = localities.rows;
+        pv.attachments = attachments.rows;
         return pv;
     }
 

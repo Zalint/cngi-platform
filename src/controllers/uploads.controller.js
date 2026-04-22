@@ -8,12 +8,12 @@ exports.uploadFile = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Aucun fichier fourni' });
         }
         
-        const { entity_type, entity_id } = req.body;
-        
+        const { entity_type, entity_id, label } = req.body;
+
         // Enregistrer les informations du fichier en base
         const result = await db.query(`
-            INSERT INTO uploads (filename, original_filename, path, mime_type, size, entity_type, entity_id, uploaded_by_user_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO uploads (filename, original_filename, path, mime_type, size, entity_type, entity_id, uploaded_by_user_id, label)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
         `, [
             req.file.filename,
@@ -23,7 +23,8 @@ exports.uploadFile = async (req, res, next) => {
             req.file.size,
             entity_type || null,
             entity_id || null,
-            req.user.id
+            req.user.id,
+            (label && label.trim()) ? label.trim() : null
         ]);
         
         res.status(201).json({

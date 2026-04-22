@@ -35,6 +35,7 @@ async function initDatabase() {
                 structure_id INTEGER REFERENCES structures(id) ON DELETE SET NULL,
                 territorial_level VARCHAR(20),
                 territorial_value VARCHAR(100),
+                title VARCHAR(150),
                 is_active BOOLEAN DEFAULT true,
                 last_login TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -49,6 +50,7 @@ async function initDatabase() {
                     CHECK (role IN ('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial'));
                 ALTER TABLE users ADD COLUMN IF NOT EXISTS territorial_level VARCHAR(20);
                 ALTER TABLE users ADD COLUMN IF NOT EXISTS territorial_value VARCHAR(100);
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS title VARCHAR(150);
             EXCEPTION WHEN others THEN NULL;
             END $$
         `);
@@ -285,6 +287,12 @@ async function initDatabase() {
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_uploads_entity ON uploads(entity_type, entity_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_uploads_user ON uploads(uploaded_by_user_id)`);
+        await client.query(`
+            DO $$ BEGIN
+                ALTER TABLE uploads ADD COLUMN IF NOT EXISTS label VARCHAR(255);
+            EXCEPTION WHEN duplicate_column THEN NULL;
+            END $$
+        `);
 
         // App Config (configurable dropdowns)
         await client.query(`

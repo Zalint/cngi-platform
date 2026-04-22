@@ -51,14 +51,22 @@ const ObservationsPage = {
         return '';
     },
 
+    getMinisterTitle() {
+        for (const o of this.data.observations) {
+            if (o.author_title) return o.author_title;
+        }
+        return '';
+    },
+
     renderIntro() {
         const ministerName = this.getMinisterName();
+        const ministerTitle = this.getMinisterTitle();
         return `
             <div class="card mb-4" style="background: linear-gradient(135deg, #202B5D 0%, #3794C4 100%); color: white; border: none;">
                 <div style="display:flex;align-items:flex-start;gap:16px;">
                     <div style="font-size:38px;">📜</div>
                     <div>
-                        <h2 style="margin:0 0 6px;color:white;">Observation du ministre${ministerName ? ' ' + ministerName : ''}</h2>
+                        <h2 style="margin:0 0 6px;color:white;">Observation${ministerTitle || ministerName ? ' — ' + this.escape([ministerTitle, ministerName].filter(Boolean).join(' ')) : ''}</h2>
                         <p style="margin:0;opacity:0.9;font-size:13px;">
                             ${this.isSupervisor()
                                 ? 'Publiez ici vos directives et observations à l\'attention des structures.'
@@ -129,10 +137,11 @@ const ObservationsPage = {
         const prioStyle = {
             urgente:    { bg: '#fee2e2', border: '#e74c3c', text: '#b91c1c', icon: '🔴', label: 'URGENTE' },
             importante: { bg: '#fef3c7', border: '#e67e22', text: '#b45309', icon: '🟠', label: 'IMPORTANTE' },
-            info:       { bg: '#dbeafe', border: '#3794C4', text: '#1e40af', icon: '🔵', label: 'INFO' }
+            info:       { bg: '#ffe4e6', border: '#e11d48', text: '#9f1239', icon: '🔴', label: 'INFO' }
         }[o.priority || 'info'];
 
-        const author = [o.author_first_name, o.author_last_name].filter(Boolean).join(' ') || o.author_username || '—';
+        const authorName = [o.author_first_name, o.author_last_name].filter(Boolean).join(' ') || o.author_username || '—';
+        const author = o.author_title ? `${o.author_title} ${authorName}` : authorName;
         const createdAt = new Date(o.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
         const deadline = o.deadline ? new Date(o.deadline).toLocaleDateString('fr-FR') : null;
         const overdue = o.deadline && new Date(o.deadline) < new Date();
@@ -169,8 +178,75 @@ const ObservationsPage = {
                     ` : ''}
                 </div>
                 <div style="color:#2c3e50;line-height:1.6;white-space:pre-wrap;">${this.escape(o.content)}</div>
+                ${this.renderAttachments(o, canEdit)}
             </div>
         `;
+    },
+
+    renderAttachments(o, canEdit) {
+        const icon = (mime = '') => {
+            if (mime.includes('pdf')) return '📄';
+            if (mime.includes('word') || mime.includes('doc')) return '📝';
+            if (mime.includes('sheet') || mime.includes('excel')) return '📊';
+            if (mime.includes('image')) return '🖼️';
+            return '📎';
+        };
+        const fmtSize = (s) => !s ? '' : (s < 1024*1024 ? Math.round(s / 1024) + ' Ko' : (s / 1024 / 1024).toFixed(1) + ' Mo');
+        const list = (o.attachments || []).map(d => `
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:white;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:4px;">
+                <span>${icon(d.mime_type)}</span>
+                <div style="flex:1;min-width:0;">
+                    <a href="/uploads/${d.filename}" target="_blank" style="color:#202B5D;text-decoration:none;font-size:13px;font-weight:600;">${this.escape(d.label || d.original_filename)}</a>
+                    ${d.label ? `<div style="font-size:11px;color:#8896AB;">${this.escape(d.original_filename)}</div>` : ''}
+                </div>
+                <span style="font-size:11px;color:#8896AB;">${fmtSize(d.size)}</span>
+                ${canEdit ? `<button class="btn-icon" style="color:#e74c3c;" onclick="ObservationsPage.deleteAttachment(${d.id})" title="Supprimer">&#10005;</button>` : ''}
+            </div>
+        `).join('');
+        const uploader = canEdit ? `
+            <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#202B5D;color:white;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;margin-top:6px;">
+                📎 Ajouter un document
+                <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" style="display:none;" onchange="ObservationsPage.uploadAttachment(this, ${o.id})">
+            </label>
+        ` : '';
+        if (!list && !uploader) return '';
+        return `
+            <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e2e8f0;">
+                <div style="font-size:12px;font-weight:700;color:#62718D;margin-bottom:6px;">📎 Documents joints</div>
+                ${list}
+                ${uploader}
+            </div>
+        `;
+    },
+
+    async uploadAttachment(input, obsId) {
+        const file = input.files[0];
+        if (!file) return;
+        const defaultName = file.name.replace(/\.[^.]+$/, '');
+        const label = (prompt('Titre du document :', defaultName) || '').trim();
+        if (!label) { input.value = ''; return; }
+        try {
+            const res = await API.uploads.upload(file, 'observation', obsId, label);
+            if (res.success) {
+                Toast.success('Document ajouté.');
+                await this.loadData();
+                document.getElementById('observations-list').innerHTML = this.renderList(true);
+            } else {
+                Toast.error(res.message || 'Erreur upload');
+            }
+        } catch (err) { Toast.error('Erreur: ' + (err.message || 'inconnue')); }
+        input.value = '';
+    },
+
+    deleteAttachment(docId) {
+        Toast.confirm('Supprimer ce document ?', async () => {
+            try {
+                await API.uploads.delete(docId);
+                Toast.success('Document supprimé.');
+                await this.loadData();
+                document.getElementById('observations-list').innerHTML = this.renderList(true);
+            } catch (err) { Toast.error('Erreur: ' + (err.message || 'inconnue')); }
+        }, { type: 'danger', confirmText: 'Supprimer' });
     },
 
     escape(str) {

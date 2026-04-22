@@ -117,12 +117,18 @@ const DashboardPage = {
 
         const escape = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 
-        // Nom du ministre à partir de l'auteur de la première observation
+        // Titre + nom du superviseur à partir de l'auteur de la première observation
         let ministerName = '';
+        let ministerTitle = '';
         for (const o of obs) {
             const name = [o.author_first_name, o.author_last_name].filter(Boolean).join(' ').trim();
-            if (name) { ministerName = name; break; }
+            if (name) {
+                ministerName = name;
+                ministerTitle = o.author_title || '';
+                break;
+            }
         }
+        const headerLabel = [ministerTitle, ministerName].filter(Boolean).join(' ');
         const truncate = (s, n = 180) => {
             const clean = String(s || '').replace(/\s+/g, ' ').trim();
             return clean.length > n ? clean.slice(0, n) + '…' : clean;
@@ -131,17 +137,18 @@ const DashboardPage = {
         const prioStyle = {
             urgente:    { bg: 'linear-gradient(90deg,#fee2e2 0%,#fff 60%)', border: '#e74c3c', icon: '🔴', label: 'URGENTE' },
             importante: { bg: 'linear-gradient(90deg,#fef3c7 0%,#fff 60%)', border: '#e67e22', icon: '🟠', label: 'IMPORTANTE' },
-            info:       { bg: 'linear-gradient(90deg,#dbeafe 0%,#fff 60%)', border: '#3794C4', icon: '🔵', label: 'INFO' }
+            info:       { bg: 'linear-gradient(90deg,#ffe4e6 0%,#fff 60%)', border: '#e11d48', icon: '🔴', label: 'INFO' }
         };
 
-        const cards = obs.map(o => {
+        const cards = obs.map((o, idx) => {
             const st = prioStyle[o.priority || 'info'];
             const deadline = o.deadline ? new Date(o.deadline).toLocaleDateString('fr-FR') : null;
             const overdue = o.deadline && new Date(o.deadline) < new Date();
-            const author = [o.author_first_name, o.author_last_name].filter(Boolean).join(' ') || o.author_username || '—';
+            const authorName = [o.author_first_name, o.author_last_name].filter(Boolean).join(' ') || o.author_username || '—';
+            const author = o.author_title ? `${o.author_title} ${authorName}` : authorName;
 
             return `
-                <div style="background:${st.bg};border-left:4px solid ${st.border};padding:12px 16px;border-radius:8px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s;"
+                <div class="obs-slide" data-idx="${idx}" style="display:${idx === 0 ? 'block' : 'none'};background:${st.bg};border-left:4px solid ${st.border};padding:12px 16px;border-radius:8px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s;"
                      onmouseover="this.style.transform='translateX(2px)';" onmouseout="this.style.transform='translateX(0)';"
                      onclick="window.location.hash='#/observations'">
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
@@ -155,16 +162,23 @@ const DashboardPage = {
             `;
         }).join('');
 
+        const dots = obs.length > 1 ? obs.map((_, i) =>
+            `<span class="obs-dot" data-idx="${i}" style="width:6px;height:6px;border-radius:50%;background:${i === 0 ? '#202B5D' : '#d1d5db'};display:inline-block;transition:background 0.3s;"></span>`
+        ).join('') : '';
+
         return `
             <div class="card mb-4" style="padding:16px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="font-size:18px;">📜</span>
-                        <h3 style="margin:0;color:#202B5D;font-size:15px;">Observation du ministre${ministerName ? ' ' + escape(ministerName) : ''}</h3>
+                        <h3 style="margin:0;color:#202B5D;font-size:15px;">Observation${headerLabel ? ' — ' + escape(headerLabel) : ''}</h3>
                     </div>
-                    <a href="#/observations" style="font-size:12px;color:#3794C4;text-decoration:none;font-weight:600;">Tout voir →</a>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        ${dots ? `<div style="display:flex;gap:4px;">${dots}</div>` : ''}
+                        <a href="#/observations" style="font-size:12px;color:#3794C4;text-decoration:none;font-weight:600;">Tout voir →</a>
+                    </div>
                 </div>
-                ${cards}
+                <div id="obs-carousel">${cards}</div>
             </div>
         `;
     },
@@ -182,7 +196,7 @@ const DashboardPage = {
         const prioStyle = {
             urgente:    { bg: 'linear-gradient(90deg,#fee2e2 0%,#fff 60%)', border: '#e74c3c', icon: '🔴', label: 'URGENTE' },
             importante: { bg: 'linear-gradient(90deg,#fef3c7 0%,#fff 60%)', border: '#e67e22', icon: '🟠', label: 'IMPORTANTE' },
-            info:       { bg: 'linear-gradient(90deg,#dcfce7 0%,#fff 60%)', border: '#27ae60', icon: '🟢', label: 'INFO' }
+            info:       { bg: 'linear-gradient(90deg,#fef9c3 0%,#fff 60%)', border: '#eab308', icon: '🟡', label: 'INFO' }
         };
 
         const localityLabel = (l) => {
@@ -190,10 +204,19 @@ const DashboardPage = {
             return parts.join(' › ');
         };
 
-        const cards = pvs.map(p => {
+        // Libellé d'en-tête dynamique depuis l'auteur du 1er PV (titre + nom)
+        let pvHeaderLabel = '';
+        for (const p of pvs) {
+            const name = [p.author_first_name, p.author_last_name].filter(Boolean).join(' ').trim();
+            pvHeaderLabel = [p.author_title, name].filter(Boolean).join(' ');
+            if (pvHeaderLabel) break;
+        }
+
+        const cards = pvs.map((p, idx) => {
             const st = prioStyle[p.priority || 'info'];
             const visitDate = p.visit_date ? new Date(p.visit_date).toLocaleDateString('fr-FR') : null;
-            const author = [p.author_first_name, p.author_last_name].filter(Boolean).join(' ') || p.author_username || '—';
+            const authorName = [p.author_first_name, p.author_last_name].filter(Boolean).join(' ') || p.author_username || '—';
+            const author = p.author_title ? `${p.author_title} ${authorName}` : authorName;
             const summary = p.avancement || p.observations || p.recommendations || p.content || '';
 
             const chips = [];
@@ -202,13 +225,13 @@ const DashboardPage = {
             if (p.localities?.length) chips.push(`<span style="font-size:11px;padding:2px 8px;background:#e9d5ff;color:#6b21a8;border-radius:10px;font-weight:600;">🏘️ ${escape(p.localities.map(localityLabel).filter(Boolean).join(' · '))}</span>`);
 
             return `
-                <div style="background:${st.bg};border-left:4px solid ${st.border};padding:12px 16px;border-radius:8px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s;"
+                <div class="pv-slide" data-idx="${idx}" style="display:${idx === 0 ? 'block' : 'none'};background:${st.bg};border-left:4px solid ${st.border};padding:12px 16px;border-radius:8px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s;"
                      onmouseover="this.style.transform='translateX(2px)';" onmouseout="this.style.transform='translateX(0)';"
                      onclick="window.location.hash='#/pv'">
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
                         <span style="font-size:11px;font-weight:700;color:${st.border};">${st.icon} ${st.label}</span>
                         <strong style="color:#202B5D;font-size:14px;">${escape(p.title)}</strong>
-                        <span style="font-size:11px;color:#166534;font-weight:600;">🗺️ ${escape(p.territorial_value)}</span>
+                        <span style="font-size:11px;color:#854d0e;font-weight:600;">🗺️ ${escape(p.territorial_value)}</span>
                         ${visitDate ? `<span style="font-size:11px;color:#62718D;font-weight:600;">📅 ${visitDate}</span>` : ''}
                     </div>
                     ${chips.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">${chips.join('')}</div>` : ''}
@@ -218,16 +241,23 @@ const DashboardPage = {
             `;
         }).join('');
 
+        const pvDots = pvs.length > 1 ? pvs.map((_, i) =>
+            `<span class="pv-dot" data-idx="${i}" style="width:6px;height:6px;border-radius:50%;background:${i === 0 ? '#eab308' : '#d1d5db'};display:inline-block;transition:background 0.3s;"></span>`
+        ).join('') : '';
+
         return `
-            <div class="card mb-4" style="padding:16px;border-left:4px solid #27ae60;">
+            <div class="card mb-4" style="padding:16px;border-left:4px solid #eab308;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="font-size:18px;">📋</span>
-                        <h3 style="margin:0;color:#166534;font-size:15px;">PV du Commandement Territorial</h3>
+                        <h3 style="margin:0;color:#854d0e;font-size:15px;">PV${pvHeaderLabel ? ' — ' + escape(pvHeaderLabel) : ''}</h3>
                     </div>
-                    <a href="#/pv" style="font-size:12px;color:#27ae60;text-decoration:none;font-weight:600;">Tout voir →</a>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        ${pvDots ? `<div style="display:flex;gap:4px;">${pvDots}</div>` : ''}
+                        <a href="#/pv" style="font-size:12px;color:#ca8a04;text-decoration:none;font-weight:600;">Tout voir →</a>
+                    </div>
                 </div>
-                ${cards}
+                <div id="pv-carousel">${cards}</div>
             </div>
         `;
     },
@@ -422,10 +452,27 @@ const DashboardPage = {
             minZoom: 7
         }).fitBounds(senegalBounds);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap',
-            maxZoom: 18
-        }).addTo(this.map);
+            maxZoom: 19
+        });
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+            maxZoom: 19
+        });
+        const satelliteLabelsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '&copy; Esri',
+            maxZoom: 19,
+            pane: 'overlayPane'
+        });
+        const satelliteGroup = L.layerGroup([satelliteLayer, satelliteLabelsLayer]);
+
+        osmLayer.addTo(this.map);
+        L.control.layers(
+            { 'Plan': osmLayer, 'Satellite': satelliteGroup },
+            null,
+            { position: 'topright', collapsed: false }
+        ).addTo(this.map);
 
         const sites = this.data.mapSites || [];
         if (sites.length === 0) {
@@ -823,6 +870,45 @@ const DashboardPage = {
         Navbar.updateActiveMenu();
         // Init map after DOM is ready
         setTimeout(() => this.initMap(), 100);
+        this.startCarousels();
+    },
+
+    _carouselTimers: [],
+
+    startCarousels() {
+        // Clear previous timers (navigation between pages)
+        this._carouselTimers.forEach(t => clearInterval(t));
+        this._carouselTimers = [];
+
+        const rotate = (slideSel, dotSel, activeColor) => {
+            const slides = document.querySelectorAll(slideSel);
+            const dots = document.querySelectorAll(dotSel);
+            if (slides.length < 2) return;
+            slides.forEach(s => { s.style.transition = 'opacity 0.4s ease, transform 0.4s ease'; });
+            let idx = 0;
+            const t = setInterval(() => {
+                const cur = slides[idx];
+                cur.style.opacity = '0';
+                cur.style.transform = 'translateX(-12px)';
+                if (dots[idx]) dots[idx].style.background = '#d1d5db';
+                setTimeout(() => {
+                    cur.style.display = 'none';
+                    idx = (idx + 1) % slides.length;
+                    const next = slides[idx];
+                    next.style.display = 'block';
+                    next.style.opacity = '0';
+                    next.style.transform = 'translateX(12px)';
+                    // force reflow so the transition plays
+                    void next.offsetWidth;
+                    next.style.opacity = '1';
+                    next.style.transform = 'translateX(0)';
+                    if (dots[idx]) dots[idx].style.background = activeColor;
+                }, 400);
+            }, 10000);
+            this._carouselTimers.push(t);
+        };
+        rotate('.obs-slide', '.obs-dot', '#202B5D');
+        rotate('.pv-slide', '.pv-dot', '#eab308');
     }
 };
 

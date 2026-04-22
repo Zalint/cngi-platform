@@ -188,7 +188,11 @@ function toObservationDto(o) {
         deadline: o.deadline,
         project_id: o.project_id,
         project_title: o.project_title || null,
+        author_first_name: o.author_first_name || null,
+        author_last_name: o.author_last_name || null,
         author: [o.author_first_name, o.author_last_name].filter(Boolean).join(' ') || o.author_username || null,
+        author_title: o.author_title || null,
+        author_username: o.author_username || null,
         created_at: o.created_at,
         updated_at: o.updated_at
     };
@@ -229,7 +233,11 @@ function toPvDto(p) {
         observations: p.observations,
         recommendations: p.recommendations,
         content: p.content,
+        author_first_name: p.author_first_name || null,
+        author_last_name: p.author_last_name || null,
         author: [p.author_first_name, p.author_last_name].filter(Boolean).join(' ') || p.author_username || null,
+        author_title: p.author_title || null,
+        author_username: p.author_username || null,
         projects: (p.projects || []).map(x => ({ id: x.id, title: x.title })),
         sites: (p.sites || []).map(x => ({ id: x.id, name: x.name })),
         localities: (p.localities || []).map(x => ({

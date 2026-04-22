@@ -136,6 +136,21 @@ const UsersPage = {
                                     </select>
                                 </div>
 
+                                <div id="title-section" style="display:none;">
+                                    <div class="form-group">
+                                        <label>Titre / Fonction</label>
+                                        <select id="title_select" class="form-control" style="display:none;" onchange="UsersPage.onTitleSelectChange(this.value)">
+                                            <option value="">-- Choisir --</option>
+                                            <option value="Gouverneur">Gouverneur</option>
+                                            <option value="Préfet">Préfet</option>
+                                            <option value="Sous-Préfet">Sous-Préfet</option>
+                                            <option value="__other__">Autre (libre)...</option>
+                                        </select>
+                                        <input type="text" id="title" class="form-control" maxlength="150" placeholder="ex: Ministre, Secrétaire Général..." style="margin-top:6px;">
+                                        <small style="color:#8896AB;">Affiché à côté du nom dans les observations et PV.</small>
+                                    </div>
+                                </div>
+
                                 <div id="territorial-section" style="display:none;">
                                     <div class="form-group">
                                         <label>Niveau territorial *</label>
@@ -201,13 +216,45 @@ const UsersPage = {
     onRoleChange(role) {
         const structureGroup = document.getElementById('structure-group');
         const territorialSection = document.getElementById('territorial-section');
+        const titleSection = document.getElementById('title-section');
         if (role === 'commandement_territorial') {
             if (structureGroup) structureGroup.style.display = 'none';
             if (territorialSection) territorialSection.style.display = 'block';
+            if (titleSection) titleSection.style.display = 'none';
             document.getElementById('structure_id').value = '';
         } else {
             if (structureGroup) structureGroup.style.display = 'block';
             if (territorialSection) territorialSection.style.display = 'none';
+        }
+        if (titleSection) titleSection.style.display = (role === 'superviseur' || role === 'commandement_territorial') ? 'block' : 'none';
+
+        const sel = document.getElementById('title_select');
+        const input = document.getElementById('title');
+        if (!sel || !input) return;
+        if (role === 'commandement_territorial') {
+            sel.style.display = 'block';
+            input.style.display = 'none';
+            input.value = '';
+            sel.value = '';
+        } else if (role === 'superviseur') {
+            sel.style.display = 'none';
+            input.style.display = 'block';
+        } else {
+            sel.style.display = 'none';
+            input.style.display = 'none';
+        }
+    },
+
+    onTitleSelectChange(val) {
+        const input = document.getElementById('title');
+        if (!input) return;
+        if (val === '__other__') {
+            input.style.display = 'block';
+            input.value = '';
+            input.focus();
+        } else {
+            input.style.display = 'none';
+            input.value = val || '';
         }
     },
 
@@ -267,6 +314,26 @@ const UsersPage = {
                     document.getElementById('territorial_value').value = user.territorial_value || '';
                 }
             }
+            if (user.role === 'superviseur') {
+                document.getElementById('title').value = user.title || '';
+            } else if (user.role === 'commandement_territorial') {
+                const sel = document.getElementById('title_select');
+                const input = document.getElementById('title');
+                const preset = ['Gouverneur', 'Préfet', 'Sous-Préfet'];
+                if (user.title && preset.includes(user.title)) {
+                    sel.value = user.title;
+                    input.value = user.title;
+                    input.style.display = 'none';
+                } else if (user.title) {
+                    sel.value = '__other__';
+                    input.value = user.title;
+                    input.style.display = 'block';
+                } else {
+                    sel.value = '';
+                    input.value = '';
+                    input.style.display = 'none';
+                }
+            }
 
             document.getElementById('userModal').style.display = 'flex';
         } catch (error) {
@@ -293,7 +360,8 @@ const UsersPage = {
             structure_id: role === 'commandement_territorial' ? null : (document.getElementById('structure_id').value || null),
             is_active: document.getElementById('is_active').checked,
             territorial_level: role === 'commandement_territorial' ? (document.getElementById('territorial_level').value || null) : null,
-            territorial_value: role === 'commandement_territorial' ? (document.getElementById('territorial_value').value || null) : null
+            territorial_value: role === 'commandement_territorial' ? (document.getElementById('territorial_value').value || null) : null,
+            title: (role === 'superviseur' || role === 'commandement_territorial') ? (document.getElementById('title').value.trim() || null) : null
         };
 
         const password = document.getElementById('password').value;

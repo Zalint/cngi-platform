@@ -172,6 +172,45 @@ class DecoupageModel {
     /**
      * Statistiques du decoupage administratif
      */
+    /**
+     * Normalise (lowercase, sans accents, trim) pour comparer des noms OSM/ANSD
+     */
+    static _normalize(s) {
+        return String(s || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+    }
+
+    /**
+     * Cherche dans le découpage les valeurs qui matchent les candidats fournis par OSM.
+     * candidates: { region, departement, arrondissement, commune } — chaînes libres, peuvent être null.
+     * Renvoie un objet avec les colonnes qui matchent (ou null).
+     */
+    static async matchByNames(candidates) {
+        const all = await db.query(`SELECT DISTINCT region, departement, arrondissement, commune FROM decoupage`);
+        const rows = all.rows;
+        const norm = this._normalize.bind(this);
+        const pickOne = (candidate, col) => {
+            if (!candidate) return null;
+            const c = norm(candidate);
+            if (!c) return null;
+            // exact match
+            let hit = rows.find(r => norm(r[col]) === c);
+            if (hit) return hit[col];
+            // contains
+            hit = rows.find(r => norm(r[col]) && (norm(r[col]).includes(c) || c.includes(norm(r[col]))));
+            return hit ? hit[col] : null;
+        };
+        const region = pickOne(candidates.region, 'region');
+        const departement = pickOne(candidates.departement, 'departement');
+        const arrondissement = pickOne(candidates.arrondissement, 'arrondissement');
+        const commune = pickOne(candidates.commune, 'commune');
+        return { region, departement, arrondissement, commune };
+    }
+
     static async getStats() {
         const result = await db.query(`
             SELECT

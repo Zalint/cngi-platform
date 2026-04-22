@@ -230,12 +230,13 @@ const API = {
 
     // === Uploads endpoints ===
     uploads: {
-        upload: async (file, entityType, entityId) => {
+        upload: async (file, entityType, entityId, label = null) => {
             const formData = new FormData();
             formData.append('file', file);
             if (entityType) formData.append('entity_type', entityType);
             if (entityId) formData.append('entity_id', entityId);
-            
+            if (label) formData.append('label', label);
+
             const token = Auth.getToken();
             const response = await fetch(`${API.baseURL}/uploads`, {
                 method: 'POST',
@@ -244,7 +245,7 @@ const API = {
                 },
                 body: formData
             });
-            
+
             return await response.json();
         },
         getById: (id) => API.get(`/uploads/${id}`),
@@ -265,6 +266,7 @@ const API = {
             return API.get(`/decoupage${query ? '?' + query : ''}`);
         },
         getStats: () => API.get('/decoupage/stats'),
+        reverseGeocode: (lat, lon) => API.get(`/decoupage/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`),
         create: (data) => API.post('/decoupage', data),
         update: (id, data) => API.put(`/decoupage/${id}`, data),
         delete: (id) => API.delete(`/decoupage/${id}`)

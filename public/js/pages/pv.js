@@ -14,10 +14,11 @@ const PvPage = {
             API.pv.markAllRead().catch(() => {});
             if (typeof Navbar !== 'undefined' && Navbar.refreshPvBadge) Navbar.refreshPvBadge();
 
+            const topHeader = this.getAuthorHeader();
             return `
                 ${Navbar.render()}
                 <div class="main-content with-sidebar">
-                    ${Navbar.renderTopBar("PV du Commandement Territorial")}
+                    ${Navbar.renderTopBar("PV" + (topHeader ? " — " + topHeader : ""))}
                     <div class="content-area">
                         ${this.renderIntro()}
                         ${this.renderToolbar()}
@@ -46,13 +47,23 @@ const PvPage = {
 
     isTerritorial() { return Auth.hasRole('commandement_territorial'); },
 
+    getAuthorHeader() {
+        for (const p of this.data.pvs) {
+            const name = [p.author_first_name, p.author_last_name].filter(Boolean).join(' ').trim();
+            const label = [p.author_title, name].filter(Boolean).join(' ');
+            if (label) return label;
+        }
+        return '';
+    },
+
     renderIntro() {
+        const header = this.getAuthorHeader();
         return `
-            <div class="card mb-4" style="background: linear-gradient(135deg, #1f8a3a 0%, #27ae60 100%); color: white; border: none;">
+            <div class="card mb-4" style="background: linear-gradient(135deg, #ca8a04 0%, #eab308 100%); color: white; border: none;">
                 <div style="display:flex;align-items:flex-start;gap:16px;">
                     <div style="font-size:38px;">📋</div>
                     <div>
-                        <h2 style="margin:0 0 6px;color:white;">PV du Commandement Territorial</h2>
+                        <h2 style="margin:0 0 6px;color:white;">PV${header ? ' — ' + this.escape(header) : ''}</h2>
                         <p style="margin:0;opacity:0.9;font-size:13px;">
                             ${this.isTerritorial()
                                 ? "Comptes rendus de visite : avancement, observations, recommandations."
@@ -69,7 +80,7 @@ const PvPage = {
             <div class="toolbar">
                 <div></div>
                 ${this.isTerritorial() ? `
-                    <button class="btn btn-primary" style="background:#27ae60;border-color:#27ae60;" onclick="PvPage.openForm()">
+                    <button class="btn btn-primary" style="background:#eab308;border-color:#eab308;color:#1f2937;" onclick="PvPage.openForm()">
                         <span>➕</span>
                         <span>Nouveau PV</span>
                     </button>
@@ -100,10 +111,11 @@ const PvPage = {
         const prioStyle = {
             urgente:    { bg: '#fee2e2', border: '#e74c3c', text: '#b91c1c', icon: '🔴', label: 'URGENTE' },
             importante: { bg: '#fef3c7', border: '#e67e22', text: '#b45309', icon: '🟠', label: 'IMPORTANTE' },
-            info:       { bg: '#dcfce7', border: '#27ae60', text: '#166534', icon: '🟢', label: 'INFO' }
+            info:       { bg: '#fef9c3', border: '#eab308', text: '#854d0e', icon: '🟡', label: 'INFO' }
         }[p.priority || 'info'];
 
-        const author = [p.author_first_name, p.author_last_name].filter(Boolean).join(' ') || p.author_username || '—';
+        const authorName = [p.author_first_name, p.author_last_name].filter(Boolean).join(' ') || p.author_username || '—';
+        const author = p.author_title ? `${p.author_title} ${authorName}` : authorName;
         const createdAt = new Date(p.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
         const visitDate = p.visit_date ? new Date(p.visit_date).toLocaleDateString('fr-FR') : null;
 
@@ -116,11 +128,13 @@ const PvPage = {
         if (p.content) sections.push(this.renderSection('✍️ Notes', p.content));
 
         const refs = [];
-        if (p.projects?.length) refs.push(`<span style="font-weight:600;color:#166534;">Projets :</span> ${p.projects.map(x => this.escape(x.title)).join(', ')}`);
-        if (p.sites?.length) refs.push(`<span style="font-weight:600;color:#166534;">Sites :</span> ${p.sites.map(x => this.escape(x.name)).join(', ')}`);
-        if (p.localities?.length) refs.push(`<span style="font-weight:600;color:#166534;">Localités :</span> ${p.localities.map(x => this.escape([x.region, x.departement, x.commune].filter(Boolean).join(' › '))).join(', ')}`);
-        if (p.measures?.length) refs.push(`<span style="font-weight:600;color:#166534;">Mesures :</span> ${p.measures.map(x => this.escape((x.description || '').slice(0, 60))).join(', ')}`);
-        if (refs.length) sections.push(`<div style="margin-top:8px;padding:10px;background:#f0fdf4;border-radius:6px;font-size:12.5px;color:#2c3e50;line-height:1.7;">${refs.join('<br>')}</div>`);
+        if (p.projects?.length) refs.push(`<span style="font-weight:600;color:#854d0e;">Projets :</span> ${p.projects.map(x => this.escape(x.title)).join(', ')}`);
+        if (p.sites?.length) refs.push(`<span style="font-weight:600;color:#854d0e;">Sites :</span> ${p.sites.map(x => this.escape(x.name)).join(', ')}`);
+        if (p.localities?.length) refs.push(`<span style="font-weight:600;color:#854d0e;">Localités :</span> ${p.localities.map(x => this.escape([x.region, x.departement, x.commune].filter(Boolean).join(' › '))).join(', ')}`);
+        if (p.measures?.length) refs.push(`<span style="font-weight:600;color:#854d0e;">Mesures :</span> ${p.measures.map(x => this.escape((x.description || '').slice(0, 60))).join(', ')}`);
+        if (refs.length) sections.push(`<div style="margin-top:8px;padding:10px;background:#fefce8;border-radius:6px;font-size:12.5px;color:#2c3e50;line-height:1.7;">${refs.join('<br>')}</div>`);
+
+        sections.push(this.renderAttachments(p, canEdit));
 
         return `
             <div class="card mb-3" style="border-left:4px solid ${prioStyle.border};">
@@ -130,7 +144,7 @@ const PvPage = {
                             <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:${prioStyle.bg};color:${prioStyle.text};border-radius:10px;font-size:11px;font-weight:700;">
                                 ${prioStyle.icon} ${prioStyle.label}
                             </span>
-                            <span style="padding:3px 10px;background:#e6f7ee;color:#166534;border-radius:10px;font-size:11px;font-weight:600;">🗺️ ${territoryLabel}</span>
+                            <span style="padding:3px 10px;background:#fef9c3;color:#854d0e;border-radius:10px;font-size:11px;font-weight:600;">🗺️ ${territoryLabel}</span>
                             ${visitDate ? `<span style="padding:3px 10px;background:#f0f4f8;color:#62718D;border-radius:10px;font-size:11px;font-weight:600;">📅 Visite : ${visitDate}</span>` : ''}
                         </div>
                         <h3 style="margin:0 0 4px;color:#202B5D;font-size:18px;">${this.escape(p.title)}</h3>
@@ -148,10 +162,76 @@ const PvPage = {
         `;
     },
 
+    renderAttachments(p, canEdit) {
+        const icon = (mime = '') => {
+            if (mime.includes('pdf')) return '📄';
+            if (mime.includes('word') || mime.includes('doc')) return '📝';
+            if (mime.includes('sheet') || mime.includes('excel')) return '📊';
+            if (mime.includes('image')) return '🖼️';
+            return '📎';
+        };
+        const fmtSize = (s) => !s ? '' : (s < 1024*1024 ? Math.round(s / 1024) + ' Ko' : (s / 1024 / 1024).toFixed(1) + ' Mo');
+        const list = (p.attachments || []).map(d => `
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:white;border:1px solid #fde68a;border-radius:6px;margin-bottom:4px;">
+                <span>${icon(d.mime_type)}</span>
+                <div style="flex:1;min-width:0;">
+                    <a href="/uploads/${d.filename}" target="_blank" style="color:#202B5D;text-decoration:none;font-size:13px;font-weight:600;">${this.escape(d.label || d.original_filename)}</a>
+                    ${d.label ? `<div style="font-size:11px;color:#8896AB;">${this.escape(d.original_filename)}</div>` : ''}
+                </div>
+                <span style="font-size:11px;color:#8896AB;">${fmtSize(d.size)}</span>
+                ${canEdit ? `<button class="btn-icon" style="color:#e74c3c;" onclick="PvPage.deleteAttachment(${d.id}, ${p.id})" title="Supprimer">&#10005;</button>` : ''}
+            </div>
+        `).join('');
+        const uploader = canEdit ? `
+            <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#eab308;color:white;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;margin-top:6px;">
+                📎 Ajouter un document
+                <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" style="display:none;" onchange="PvPage.uploadAttachment(this, ${p.id})">
+            </label>
+        ` : '';
+        if (!list && !uploader) return '';
+        return `
+            <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #fde68a;">
+                <div style="font-size:12px;font-weight:700;color:#854d0e;margin-bottom:6px;">📎 Documents joints</div>
+                ${list}
+                ${uploader}
+            </div>
+        `;
+    },
+
+    async uploadAttachment(input, pvId) {
+        const file = input.files[0];
+        if (!file) return;
+        const defaultName = file.name.replace(/\.[^.]+$/, '');
+        const label = (prompt('Titre du document :', defaultName) || '').trim();
+        if (!label) { input.value = ''; return; }
+        try {
+            const res = await API.uploads.upload(file, 'pv', pvId, label);
+            if (res.success) {
+                Toast.success('Document ajouté.');
+                await this.loadData();
+                document.getElementById('pv-list').innerHTML = this.renderList(true);
+            } else {
+                Toast.error(res.message || 'Erreur upload');
+            }
+        } catch (err) { Toast.error('Erreur: ' + (err.message || 'inconnue')); }
+        input.value = '';
+    },
+
+    deleteAttachment(docId, pvId) {
+        Toast.confirm('Supprimer ce document ?', async () => {
+            try {
+                await API.uploads.delete(docId);
+                Toast.success('Document supprimé.');
+                await this.loadData();
+                document.getElementById('pv-list').innerHTML = this.renderList(true);
+            } catch (err) { Toast.error('Erreur: ' + (err.message || 'inconnue')); }
+        }, { type: 'danger', confirmText: 'Supprimer' });
+    },
+
     renderSection(title, body) {
         return `
             <div style="margin-bottom:10px;">
-                <div style="font-size:12px;font-weight:700;color:#27ae60;margin-bottom:4px;">${title}</div>
+                <div style="font-size:12px;font-weight:700;color:#eab308;margin-bottom:4px;">${title}</div>
                 <div style="color:#2c3e50;line-height:1.6;white-space:pre-wrap;">${this.escape(body)}</div>
             </div>
         `;
@@ -183,7 +263,7 @@ const PvPage = {
         modal.className = 'confirm-overlay confirm-visible';
         modal.innerHTML = `
             <div class="confirm-dialog" style="text-align:left;max-width:720px;max-height:90vh;overflow-y:auto;">
-                <h3 style="margin-bottom:16px;color:#27ae60;">${isEdit ? 'Modifier' : 'Nouveau'} PV de visite</h3>
+                <h3 style="margin-bottom:16px;color:#eab308;">${isEdit ? 'Modifier' : 'Nouveau'} PV de visite</h3>
                 <div class="form-group">
                     <label>Titre <span style="color:#e74c3c;">*</span></label>
                     <input type="text" id="pv-title" class="form-control" maxlength="200" placeholder="ex: Visite des sites de curage - Dakar" value="${existing ? this.escape(existing.title) : ''}">
@@ -245,7 +325,7 @@ const PvPage = {
                 </div>
                 <div class="confirm-actions" style="margin-top:20px;">
                     <button class="confirm-btn confirm-btn-cancel" onclick="this.closest('.confirm-overlay').remove()">Annuler</button>
-                    <button class="confirm-btn confirm-btn-ok" style="background:#27ae60;" onclick="PvPage.save(${isEdit ? id : 'null'})">${isEdit ? 'Enregistrer' : 'Publier'}</button>
+                    <button class="confirm-btn confirm-btn-ok" style="background:#eab308;" onclick="PvPage.save(${isEdit ? id : 'null'})">${isEdit ? 'Enregistrer' : 'Publier'}</button>
                 </div>
             </div>
         `;
