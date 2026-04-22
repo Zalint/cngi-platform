@@ -315,6 +315,49 @@ class DashboardModel {
         return result.rows;
     }
 
+    static async getLateProjectsByTerritory(level, value) {
+        const sub = this._territorySubquery(level);
+        const result = await db.query(`
+            SELECT p.id, p.title, p.progress_percentage, p.deadline_date,
+                   s.name as structure_name, s.code as structure_code,
+                   CURRENT_DATE - p.deadline_date as days_late
+            FROM projects p
+            LEFT JOIN structures s ON p.structure_id = s.id
+            WHERE p.status != 'termine'
+              AND p.deadline_date < CURRENT_DATE
+              AND p.id IN ${sub}
+            ORDER BY p.deadline_date ASC
+        `, [value]);
+        return result.rows;
+    }
+
+    static async getMeasureTypesByTerritory(level, value) {
+        const sub = this._territorySubquery(level);
+        const result = await db.query(`
+            SELECT m.type, COUNT(*) as count
+            FROM measures m
+            INNER JOIN projects p ON m.project_id = p.id
+            WHERE m.type IS NOT NULL
+              AND p.id IN ${sub}
+            GROUP BY m.type ORDER BY count DESC
+        `, [value]);
+        return result.rows;
+    }
+
+    static async getBudgetStatsByTerritory(level, value) {
+        const sub = this._territorySubquery(level);
+        const result = await db.query(`
+            SELECT
+                SUM(p.budget) as total_budget,
+                SUM(CASE WHEN p.status = 'en_cours' THEN p.budget ELSE 0 END) as budget_en_cours,
+                SUM(CASE WHEN p.status = 'termine' THEN p.budget ELSE 0 END) as budget_termine
+            FROM projects p
+            WHERE p.budget IS NOT NULL
+              AND p.id IN ${sub}
+        `, [value]);
+        return result.rows[0];
+    }
+
     /**
      * Récupérer les métriques filtrées par territoire
      */
@@ -337,6 +380,8 @@ class DashboardModel {
                 COUNT(CASE WHEN p.status = 'en_cours' THEN 1 END) as actions_en_cours,
                 COUNT(CASE WHEN p.status = 'termine' THEN 1 END) as ouvrages_realises,
                 COUNT(CASE WHEN p.status = 'retard' THEN 1 END) as ouvrages_retardes,
+                COUNT(CASE WHEN p.priority = 'urgente' THEN 1 END) as projets_urgents,
+                COUNT(CASE WHEN p.priority = 'haute' THEN 1 END) as projets_priorite_haute,
                 AVG(p.progress_percentage) as avg_progress
             FROM projects p
             ${territoryFilter}

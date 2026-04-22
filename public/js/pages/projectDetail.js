@@ -282,7 +282,7 @@ const ProjectDetailPage = {
                     ${this.data.editMode.sites.map((site, index) => `
                         <div class="site-item" style="padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px;" data-index="${index}">
                             ${isProjectManager ? `
-                                <div style="display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 10px; margin-bottom: 10px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr auto auto auto; gap: 10px; margin-bottom: 10px;">
                                     <input type="text" class="form-control" placeholder="Nom du site"
                                            value="${site.name || ''}"
                                            onchange="ProjectDetailPage.updateSiteField(${index}, 'name', this.value)">
@@ -292,6 +292,9 @@ const ProjectDetailPage = {
                                     <input type="text" class="form-control" placeholder="Lat,Lng" style="max-width:140px;"
                                            value="${site.latitude && site.longitude ? site.latitude + ',' + site.longitude : ''}"
                                            onchange="ProjectDetailPage.updateSiteCoordinates(${index}, this.value)">
+                                    <button class="btn btn-secondary" onclick="ProjectDetailPage.autoFillSiteFromCoords(${index})" title="Déduire région/département/arrondissement/commune depuis les coordonnées GPS" style="font-size:12px;">
+                                        📍 Auto
+                                    </button>
                                     <button class="btn btn-danger" onclick="ProjectDetailPage.removeSite(${index})" style="font-size:12px;">
                                         Retirer
                                     </button>
@@ -640,6 +643,57 @@ const ProjectDetailPage = {
         if (arrond && communeSel) {
             const res = await API.decoupage.getCommunes(arrond);
             res.data.forEach(c => { communeSel.innerHTML += `<option value="${c}">${c}</option>`; });
+        }
+    },
+
+    async autoFillSiteFromCoords(index) {
+        const site = this.data.editMode.sites[index];
+        if (!site.latitude || !site.longitude) {
+            Toast.warning('Saisissez d\'abord les coordonnées Lat,Lng.');
+            return;
+        }
+        Toast.info('Recherche de la localisation...');
+        try {
+            const res = await API.decoupage.reverseGeocode(site.latitude, site.longitude);
+            if (!res.success) {
+                Toast.warning('Géocodage indisponible. Saisie manuelle requise.');
+                return;
+            }
+            const d = res.data || {};
+
+            // Appliquer en cascade. Si pas de match, ne rien mettre (l'utilisateur peut saisir manuellement).
+            if (d.region) {
+                const regionSel = document.querySelector(`.site-region[data-site-index="${index}"]`);
+                if (regionSel) regionSel.value = d.region;
+                await this.onSiteRegionChange(index, d.region);
+            }
+            if (d.departement) {
+                const deptSel = document.querySelector(`.site-dept[data-site-index="${index}"]`);
+                if (deptSel) deptSel.value = d.departement;
+                await this.onSiteDeptChange(index, d.departement);
+            }
+            if (d.arrondissement) {
+                const arrSel = document.querySelector(`.site-arrond[data-site-index="${index}"]`);
+                if (arrSel) arrSel.value = d.arrondissement;
+                await this.onSiteArrondChange(index, d.arrondissement);
+            }
+            if (d.commune) {
+                const comSel = document.querySelector(`.site-commune[data-site-index="${index}"]`);
+                if (comSel) comSel.value = d.commune;
+                this.updateSiteField(index, 'commune', d.commune);
+            }
+
+            const filled = [d.region, d.departement, d.arrondissement, d.commune].filter(Boolean);
+            if (filled.length === 0) {
+                const hint = res.candidates && (res.candidates.region || res.candidates.commune)
+                    ? `OSM a proposé : ${Object.entries(res.candidates).filter(([,v]) => v).map(([k,v]) => k + '=' + v).join(', ')} (aucun match dans la base décou­page).`
+                    : 'Aucun résultat. Saisie manuelle requise.';
+                Toast.warning(hint);
+            } else {
+                Toast.success(`Localisation trouvée : ${filled.join(' › ')}. Vous pouvez modifier ou effacer les champs si besoin.`);
+            }
+        } catch (err) {
+            Toast.error('Erreur géocodage : ' + (err.message || 'inconnue'));
         }
     },
 

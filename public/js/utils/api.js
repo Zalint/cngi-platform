@@ -184,6 +184,33 @@ const API = {
         getChartData: (structureId) => API.get(`/dashboard/chart-data${structureId ? '?structure_id=' + structureId : ''}`)
     },
 
+    // === Observations endpoints ===
+    observations: {
+        list: (filters = {}) => {
+            const params = new URLSearchParams(filters).toString();
+            return API.get(`/observations${params ? '?' + params : ''}`);
+        },
+        getById: (id) => API.get(`/observations/${id}`),
+        create: (data) => API.post('/observations', data),
+        update: (id, data) => API.put(`/observations/${id}`, data),
+        delete: (id) => API.delete(`/observations/${id}`),
+        getUnreadCount: () => API.get('/observations/unread-count'),
+        markRead: () => API.post('/observations/mark-read')
+    },
+
+    // === PV (Commandement territorial) endpoints ===
+    pv: {
+        list: () => API.get('/pv'),
+        getPickable: () => API.get('/pv/pickable'),
+        getById: (id) => API.get(`/pv/${id}`),
+        create: (data) => API.post('/pv', data),
+        update: (id, data) => API.put(`/pv/${id}`, data),
+        delete: (id) => API.delete(`/pv/${id}`),
+        getUnreadCount: () => API.get('/pv/unread-count'),
+        markAllRead: () => API.post('/pv/mark-read'),
+        markOneRead: (id) => API.post(`/pv/${id}/mark-read`)
+    },
+
     // === API Keys endpoints ===
     apiKeys: {
         list: () => API.get('/api-keys'),
@@ -203,12 +230,13 @@ const API = {
 
     // === Uploads endpoints ===
     uploads: {
-        upload: async (file, entityType, entityId) => {
+        upload: async (file, entityType, entityId, label = null) => {
             const formData = new FormData();
             formData.append('file', file);
             if (entityType) formData.append('entity_type', entityType);
             if (entityId) formData.append('entity_id', entityId);
-            
+            if (label) formData.append('label', label);
+
             const token = Auth.getToken();
             const response = await fetch(`${API.baseURL}/uploads`, {
                 method: 'POST',
@@ -217,7 +245,7 @@ const API = {
                 },
                 body: formData
             });
-            
+
             return await response.json();
         },
         getById: (id) => API.get(`/uploads/${id}`),
@@ -238,6 +266,7 @@ const API = {
             return API.get(`/decoupage${query ? '?' + query : ''}`);
         },
         getStats: () => API.get('/decoupage/stats'),
+        reverseGeocode: (lat, lon) => API.get(`/decoupage/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`),
         create: (data) => API.post('/decoupage', data),
         update: (id, data) => API.put(`/decoupage/${id}`, data),
         delete: (id) => API.delete(`/decoupage/${id}`)

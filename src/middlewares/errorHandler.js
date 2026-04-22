@@ -11,8 +11,8 @@ const notFound = (req, res, next) => {
  * Middleware de gestion centralisée des erreurs
  */
 const errorHandler = (err, req, res, next) => {
-    // Déterminer le status code
-    let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+    // Déterminer le status code (honore err.statusCode si défini par le code applicatif)
+    let statusCode = err.statusCode || (res.statusCode === 200 ? 500 : res.statusCode);
     let message = err.message;
     
     // Erreurs spécifiques PostgreSQL

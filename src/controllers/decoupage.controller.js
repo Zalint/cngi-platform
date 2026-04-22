@@ -1,5 +1,57 @@
 const DecoupageModel = require('../models/decoupage.model');
 
+exports.reverseGeocode = async (req, res, next) => {
+    try {
+        const lat = parseFloat(req.query.lat);
+        const lon = parseFloat(req.query.lon);
+        if (!isFinite(lat) || !isFinite(lon)) {
+            return res.status(400).json({ success: false, message: 'lat/lon requis' });
+        }
+
+        // Appel Nominatim OSM (gratuit, pas de clé). User-Agent obligatoire.
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=fr`;
+        let osm;
+        try {
+            const resp = await fetch(url, {
+                headers: {
+                    'User-Agent': 'CNGIRI-Platform/1.0 (contact@cngiri.sn)',
+                    'Accept': 'application/json'
+                }
+            });
+            if (!resp.ok) throw new Error('Nominatim HTTP ' + resp.status);
+            osm = await resp.json();
+        } catch (err) {
+            return res.json({
+                success: true,
+                source: 'none',
+                data: { region: null, departement: null, arrondissement: null, commune: null },
+                raw: null,
+                error: 'Reverse geocoding indisponible : ' + err.message
+            });
+        }
+
+        const addr = osm.address || {};
+        const candidates = {
+            region: addr.state || addr.region || null,
+            departement: addr.county || addr.state_district || null,
+            arrondissement: addr.municipality || null,
+            commune: addr.city || addr.town || addr.village || addr.suburb || addr.municipality || null
+        };
+
+        const matched = await DecoupageModel.matchByNames(candidates);
+
+        res.json({
+            success: true,
+            source: 'nominatim',
+            data: matched,
+            candidates,
+            raw: { display_name: osm.display_name || null, lat, lon }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 exports.getAllByLevel = async (req, res, next) => {
     try {
         const { level } = req.params;

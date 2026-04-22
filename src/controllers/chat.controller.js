@@ -2,6 +2,8 @@ const OpenAI = require('openai');
 const ProjectModel = require('../models/project.model');
 const ProjectStructure = require('../models/projectStructure.model');
 const StructureModel = require('../models/structure.model');
+const ObservationModel = require('../models/observation.model');
+const PvModel = require('../models/pv.model');
 const { canUserAccessProject } = require('../utils/projectAccess');
 
 const STATUS_LABELS = {
@@ -77,6 +79,41 @@ const tools = [
             name: 'list_structures',
             description: 'Liste toutes les structures du CNGIRI (DPGI, ONAS, BNSP, CETUD, AGEROUTE, DPC, etc.).',
             parameters: { type: 'object', properties: {} }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'list_observations',
+            description: "Liste les observations/directives du Ministre (Superviseur). Filtres optionnels : projet, priorité, portée (globale ou liée à un projet).",
+            parameters: {
+                type: 'object',
+                properties: {
+                    project_id: { type: 'integer' },
+                    priority: { type: 'string', enum: ['info', 'importante', 'urgente'] },
+                    scope: { type: 'string', enum: ['global', 'project'] }
+                }
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'list_pv',
+            description: "Liste les PV de visite du Commandement Territorial visibles par l'utilisateur. Chaque PV contient avancement, observations, recommandations + projets/sites/localités/mesures liés.",
+            parameters: { type: 'object', properties: {} }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'get_pv',
+            description: 'Récupère le détail complet d\'un PV de visite par ID.',
+            parameters: {
+                type: 'object',
+                properties: { id: { type: 'integer' } },
+                required: ['id']
+            }
         }
     }
 ];
@@ -168,6 +205,73 @@ async function executeTool(name, args, user) {
             return all.map(s => ({ id: s.id, code: s.code, name: s.name, description: s.description }));
         }
 
+        if (name === 'list_observations') {
+            const observations = await ObservationModel.findAll(args || {});
+            return observations.map(o => ({
+                id: o.id,
+                titre: o.title,
+                contenu: o.content,
+                priorite: o.priority,
+                echeance: o.deadline,
+                projet_id: o.project_id,
+                projet_titre: o.project_title || null,
+                auteur_prenom: o.author_first_name || null,
+                auteur_nom: o.author_last_name || null,
+                auteur_nom_complet: [o.author_first_name, o.author_last_name].filter(Boolean).join(' ') || o.author_username || null,
+                auteur_titre: o.author_title || null,
+                auteur_username: o.author_username || null,
+                cree_le: o.created_at
+            }));
+        }
+
+        if (name === 'list_pv') {
+            const pvs = await PvModel.findAllVisible(user);
+            return pvs.map(p => ({
+                id: p.id,
+                titre: p.title,
+                priorite: p.priority,
+                territoire: `${p.territorial_level}=${p.territorial_value}`,
+                date_visite: p.visit_date,
+                avancement: p.avancement,
+                observations: p.observations,
+                recommandations: p.recommendations,
+                notes: p.content,
+                auteur_prenom: p.author_first_name || null,
+                auteur_nom: p.author_last_name || null,
+                auteur_nom_complet: [p.author_first_name, p.author_last_name].filter(Boolean).join(' ') || p.author_username || null,
+                auteur_titre: p.author_title || null,
+                projets: (p.projects || []).map(x => ({ id: x.id, titre: x.title })),
+                sites: (p.sites || []).map(x => ({ id: x.id, nom: x.name })),
+                localites: (p.localities || []).map(x => [x.region, x.departement, x.arrondissement, x.commune].filter(Boolean).join(' › ')),
+                mesures: (p.measures || []).map(x => ({ id: x.id, description: x.description })),
+                cree_le: p.created_at
+            }));
+        }
+
+        if (name === 'get_pv') {
+            const pv = await PvModel.findByIdForUser(args.id, user);
+            if (!pv) return { error: 'PV non trouvé ou accès refusé' };
+            return {
+                id: pv.id,
+                titre: pv.title,
+                priorite: pv.priority,
+                territoire: `${pv.territorial_level}=${pv.territorial_value}`,
+                date_visite: pv.visit_date,
+                avancement: pv.avancement,
+                observations: pv.observations,
+                recommandations: pv.recommendations,
+                notes: pv.content,
+                auteur_prenom: pv.author_first_name || null,
+                auteur_nom: pv.author_last_name || null,
+                auteur_nom_complet: [pv.author_first_name, pv.author_last_name].filter(Boolean).join(' ') || pv.author_username || null,
+                auteur_titre: pv.author_title || null,
+                projets: (pv.projects || []).map(x => ({ id: x.id, titre: x.title })),
+                sites: (pv.sites || []).map(x => ({ id: x.id, nom: x.name })),
+                localites: (pv.localities || []).map(x => ({ id: x.id, region: x.region, departement: x.departement, arrondissement: x.arrondissement, commune: x.commune })),
+                mesures: (pv.measures || []).map(x => ({ id: x.id, description: x.description }))
+            };
+        }
+
         return { error: `Tool ${name} inconnu` };
     } catch (err) {
         return { error: err.message };
@@ -207,7 +311,9 @@ Utilisateur connecté : ${who}
 Ton rôle : répondre aux questions sur l'état des projets de gestion des inondations en utilisant les données réelles de la plateforme.
 
 Consignes :
-- Utilise TOUJOURS les tools disponibles (list_projects, get_project, get_stats, list_structures) pour obtenir les données actualisées. Ne fabrique jamais de chiffres.
+- Utilise TOUJOURS les tools disponibles (list_projects, get_project, get_stats, list_structures, list_observations, list_pv, get_pv) pour obtenir les données actualisées. Ne fabrique jamais de chiffres.
+- Pour les questions sur les directives du Ministre, utilise list_observations.
+- Pour les questions sur les visites de terrain, comptes-rendus, PV, recommandations du Préfet/Gouverneur, utilise list_pv (et get_pv pour le détail).
 - Réponds en français, ton direct et factuel.
 - Formate tes réponses en Markdown : gras, listes, tableaux quand c'est pertinent.
 - Reste concis : va à l'essentiel, pas de longs préambules.
