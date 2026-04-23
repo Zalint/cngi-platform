@@ -65,6 +65,9 @@ const AdminPage = {
                         <button class="admin-tab" data-tab="api-keys" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
                             Clés API
                         </button>
+                        <button class="admin-tab" data-tab="docs" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
+                            📖 Documentation
+                        </button>
                     </div>
                     <div style="display: none;">
                         <!-- Boutons seed/reset masqués -->
@@ -168,6 +171,183 @@ const AdminPage = {
         `;
     },
 
+    renderDocumentation() {
+        const section = (title, body) => `
+            <div style="margin-bottom:32px;">
+                <h2 style="color:#202B5D;border-bottom:2px solid #3794C4;padding-bottom:6px;margin-bottom:16px;">${title}</h2>
+                ${body}
+            </div>`;
+
+        const table = (headers, rows) => `
+            <div class="table-container" style="margin-bottom:12px;">
+                <table style="width:100%;font-size:13px;">
+                    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                    <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+                </table>
+            </div>`;
+
+        return `
+            <div class="card" style="padding:30px;line-height:1.6;">
+                <div style="background:linear-gradient(135deg,#202B5D 0%,#3794C4 100%);color:white;padding:24px;border-radius:10px;margin-bottom:32px;">
+                    <h1 style="margin:0 0 8px 0;color:white;">📖 Documentation CNGIRI</h1>
+                    <p style="margin:0;opacity:0.9;">Guide de référence des rôles, entités et concepts de la plateforme.</p>
+                </div>
+
+                ${section('🎯 Mission de la plateforme', `
+                    <p>La plateforme <strong>CNGIRI</strong> (Comité National de Gestion Intégrée du Risque d'Inondation) centralise
+                    le suivi des projets, mesures et interventions liés à la gestion des inondations au Sénégal. Elle fait travailler
+                    ensemble les structures techniques (ONAS, BNSP, DPGI…), le commandement territorial (Gouverneurs, Préfets, Sous-préfets)
+                    et la tutelle ministérielle.</p>
+                `)}
+
+                ${section('👥 Rôles utilisateur', `
+                    <p>La plateforme définit <strong>5 rôles</strong>. Chaque utilisateur a exactement un rôle, ce qui détermine ce qu'il voit et peut faire.</p>
+                    ${table(
+                        ['Rôle', 'Persona', 'Voit', 'Peut créer / modifier'],
+                        [
+                            ['<strong>Admin</strong>', 'Administrateur système', 'Tout', 'Utilisateurs, structures, configuration, clés API, tous projets'],
+                            ['<strong>Superviseur</strong>', 'Ministre / cabinet', 'Tous les projets', 'Observations (directives adressées aux structures)'],
+                            ['<strong>Commandement Territorial</strong>', 'Gouverneur (région) · Préfet (département) · Sous-préfet (arrondissement)', 'Projets de son territoire uniquement', 'PV de visite liés à son territoire'],
+                            ['<strong>Directeur</strong>', 'Directeur de structure (ex. DG ONAS)', 'Projets de sa structure', 'Projets de sa structure, assignations de mesures'],
+                            ['<strong>Utilisateur</strong>', 'Agent opérationnel d\'une structure', 'Projets de sa structure', 'Projets de sa structure, mise à jour statut des mesures qui lui sont assignées']
+                        ]
+                    )}
+                    <p style="background:#fff8e1;border-left:3px solid #f39c12;padding:10px;font-size:12px;">
+                        <strong>Note :</strong> le Superviseur et le Commandement Territorial n'appartiennent à <em>aucune</em> structure technique — ils observent et pilotent.
+                    </p>
+                `)}
+
+                ${section('⭐ Le « Chef de projet »', `
+                    <p><strong>Ce n'est pas un rôle</strong>, mais une <em>désignation</em> faite sur un projet (champ
+                    <code>project_manager_id</code>). N'importe quel utilisateur ou directeur peut être désigné chef de projet au moment
+                    de la création du projet.</p>
+                    ${table(
+                        ['Action', 'Chef de projet', 'Utilisateur lambda', 'Admin'],
+                        [
+                            ['Assigner un utilisateur à une mesure', '✅', '❌', '✅'],
+                            ['Réassigner une mesure (structure + utilisateur)', '✅', '❌', '✅'],
+                            ['Modifier le statut d\'une mesure', '✅ (toutes)', '✅ uniquement celles qui lui sont assignées', '✅'],
+                            ['Modifier les infos du projet', '✅ (s\'il est de la structure)', '✅ (s\'il est de la structure)', '✅']
+                        ]
+                    )}
+                `)}
+
+                ${section('🏢 Structures', `
+                    <p>Les <strong>structures</strong> sont les organismes publics qui portent les projets CNGIRI. Chaque utilisateur
+                    (hors admin/superviseur/commandement) appartient à <em>une</em> structure et ne voit que les projets qui lui sont rattachés.</p>
+                    ${table(
+                        ['Code', 'Nom complet', 'Rôle métier'],
+                        [
+                            ['<strong>DPGI</strong>', 'Direction de la Prévention et de la Gestion des Inondations', 'Coordination / prévention'],
+                            ['<strong>ONAS</strong>', 'Office National de l\'Assainissement du Sénégal', 'Assainissement, eaux usées, drainage'],
+                            ['<strong>BNSP</strong>', 'Brigade Nationale des Sapeurs-Pompiers', 'Interventions d\'urgence et secours'],
+                            ['<strong>CETUD</strong>', 'Conseil Exécutif des Transports Urbains de Dakar', 'Infrastructures de transport urbain'],
+                            ['<strong>AGEROUTE</strong>', 'Agence des Travaux et de Gestion des Routes', 'Entretien et gestion du réseau routier'],
+                            ['<strong>DPC</strong>', 'Direction de la Protection Civile', 'Coordination de la protection civile']
+                        ]
+                    )}
+                    <p style="font-size:12px;color:#62718D;">Un projet a une structure <strong>principale</strong>, plus éventuellement des structures <strong>secondaires</strong> qui y contribuent.</p>
+                `)}
+
+                ${section('📦 Projet', `
+                    <p>Un <strong>projet</strong> est une initiative de gestion des inondations : travaux de drainage, renforcement
+                    de capacités, construction d'ouvrages, etc.</p>
+                    <ul>
+                        <li><strong>Statut</strong> : <em>Démarrage</em> → <em>En cours</em> → <em>Terminé</em> (ou <em>En retard</em>, <em>Annulé</em>).</li>
+                        <li><strong>Priorité</strong> : Normale, Haute, Urgente.</li>
+                        <li><strong>Type</strong> : <em>Renforcement de la résilience</em> ou <em>Structurant</em>.</li>
+                        <li><strong>Avancement</strong> (%) calculé à partir des mesures réalisées.</li>
+                        <li>Budget, dates de début / échéance, chef de projet désigné.</li>
+                        <li>Contient plusieurs <em>sites</em>, plusieurs <em>localités</em>, plusieurs <em>mesures</em>.</li>
+                    </ul>
+                `)}
+
+                ${section('🔧 Action / Mesure', `
+                    <p>Une <strong>mesure</strong> est une action concrète à mener sur un projet, attribuée à une structure et
+                    éventuellement à un utilisateur précis.</p>
+                    <ul>
+                        <li><strong>Types</strong> : Pompage, Nettoyage, Curage, Équipement, Organisation, Construction, Réhabilitation, Autre.</li>
+                        <li><strong>Statuts</strong> : <em>Préconisée</em> → <em>Exécutée</em> (ou <em>Non exécutée</em>, <em>Observations</em>).</li>
+                        <li>Chaque mesure est assignée à une <strong>structure</strong> (qui exécute) et optionnellement à un <strong>utilisateur</strong>.</li>
+                        <li>Peut être rattachée à un <strong>site</strong> précis.</li>
+                        <li>Des commentaires peuvent être ajoutés pour traçabilité.</li>
+                    </ul>
+                    <p style="background:#e3f2fd;border-left:3px solid #3794C4;padding:10px;font-size:12px;">
+                        C'est le grain le plus fin du suivi : c'est au niveau des mesures que les utilisateurs déclarent l'exécution du travail.
+                    </p>
+                `)}
+
+                ${section('📍 Localité & Site', `
+                    <p><strong>Localité</strong> = zone administrative liée au projet (Région → Département → Arrondissement → Commune).
+                    Le découpage administratif du Sénégal est pré-chargé en base.</p>
+                    <p><strong>Site</strong> = lieu d'intervention concret, géolocalisé (latitude / longitude), rattaché à un projet
+                    et optionnellement à une localité. Un site peut être marqué comme <em>PCS</em> (Plan Communal de Sauvegarde).
+                    Les sites s'affichent sur la carte du tableau de bord.</p>
+                `)}
+
+                ${section('🗣️ Observations (Ministre)', `
+                    <p>Fonctionnalité exclusive du rôle <strong>Superviseur</strong> (= Ministre). Les observations sont des
+                    <strong>directives</strong> adressées aux structures ou à un projet en particulier :</p>
+                    <ul>
+                        <li><strong>Priorité</strong> : Info, Importante, Urgente.</li>
+                        <li>Peuvent avoir une <strong>échéance</strong> (deadline).</li>
+                        <li>Peuvent être <em>globales</em> (visibles par tous) ou liées à un <em>projet précis</em>.</li>
+                        <li>Un badge compte les observations non lues par chaque utilisateur.</li>
+                        <li>Apparaissent en bannière en haut du tableau de bord.</li>
+                    </ul>
+                `)}
+
+                ${section('📋 PV du Commandement Territorial', `
+                    <p>Le <strong>Commandement Territorial</strong> regroupe les autorités déconcentrées qui supervisent le terrain :</p>
+                    ${table(
+                        ['Niveau territorial', 'Autorité', 'Champ <code>territorial_level</code>'],
+                        [
+                            ['Région', 'Gouverneur', '<code>region</code>'],
+                            ['Département', 'Préfet', '<code>departement</code>'],
+                            ['Arrondissement', 'Sous-préfet', '<code>arrondissement</code>']
+                        ]
+                    )}
+                    <p>Un <strong>PV</strong> (procès-verbal de visite) est un compte-rendu structuré :</p>
+                    <ul>
+                        <li><strong>Date de visite</strong>, titre, priorité.</li>
+                        <li><strong>Avancement constaté</strong> sur le terrain.</li>
+                        <li><strong>Observations</strong> et <strong>recommandations</strong>.</li>
+                        <li>Référence aux projets / mesures / sites / localités visités.</li>
+                        <li>Peut avoir des pièces jointes (photos, documents).</li>
+                    </ul>
+                `)}
+
+                ${section('📝 Formulaires', `
+                    <p>Les <strong>formulaires</strong> permettent aux administrateurs de créer des questionnaires dynamiques assignés
+                    à une structure. Les utilisateurs de cette structure les remplissent (<strong>soumissions</strong>) pour collecter
+                    des données structurées hors du modèle projet/mesure classique.</p>
+                `)}
+
+                ${section('🔑 Clés API', `
+                    <p>Onglet <strong>Clés API</strong> : l'admin peut créer des clés d'accès pour des intégrations externes
+                    (monitoring, exports automatisés, etc.). Chaque clé est liée à un rôle et expire à une date définie.</p>
+                `)}
+
+                ${section('🔐 Qui voit quoi — résumé', `
+                    ${table(
+                        ['Entité', 'Admin / Superviseur', 'Commandement Territorial', 'Directeur / Utilisateur'],
+                        [
+                            ['Projets', 'Tous', 'Ceux de son territoire', 'Ceux de sa structure'],
+                            ['Mesures', 'Toutes', 'Via les projets visibles', 'Via les projets visibles'],
+                            ['Observations Ministre', 'Toutes', 'Celles globales ou de ses projets', 'Celles globales ou de ses projets'],
+                            ['PV Commandement', 'Tous', 'Les siens + ceux de son niveau', 'Ceux liés à ses projets'],
+                            ['Utilisateurs / Structures', 'Gestion complète', 'Lecture seule', 'Lecture seule']
+                        ]
+                    )}
+                `)}
+
+                <div style="background:#f0f4f8;padding:16px;border-radius:8px;margin-top:32px;font-size:12px;color:#62718D;text-align:center;">
+                    Documentation générée à partir de la structure actuelle de la plateforme. Si un rôle, une structure ou un processus évolue, pense à mettre à jour cet onglet dans <code>public/js/pages/admin.js</code>.
+                </div>
+            </div>
+        `;
+    },
+
     getRoleLabel(role) {
         const labels = {
             'admin': 'Administrateur',
@@ -206,6 +386,8 @@ const AdminPage = {
                     this.loadApiKeys().then(() => {
                         content.innerHTML = this.renderApiKeys();
                     });
+                } else if (tabName === 'docs') {
+                    content.innerHTML = this.renderDocumentation();
                 }
             });
         });
