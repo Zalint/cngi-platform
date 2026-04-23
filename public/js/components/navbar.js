@@ -133,6 +133,24 @@ const Navbar = {
                             onmouseover="this.style.background='#e1e9f0';" onmouseout="this.style.background='#f0f4f8';">
                         🔄 Actualiser
                     </button>
+
+                    <div style="position:relative;" id="notif-bell-wrap">
+                        <button id="notif-bell-btn" onclick="Navbar.toggleNotifications(event)" aria-label="Notifications"
+                                title="Notifications"
+                                style="position:relative;display:inline-flex;align-items:center;justify-content:center;padding:8px;background:#f0f4f8;border:1px solid #dce3ed;border-radius:8px;cursor:pointer;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#202B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                            <span id="notif-bell-badge" style="display:none;position:absolute;top:-3px;right:-3px;background:#c0392b;color:white;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;min-width:18px;text-align:center;border:2px solid white;">0</span>
+                        </button>
+                        <div id="notif-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;width:360px;max-height:500px;overflow:hidden;background:white;border:1px solid #dce3ed;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:1000;">
+                            <div style="padding:10px 14px;border-bottom:1px solid #eef;display:flex;justify-content:space-between;align-items:center;">
+                                <strong style="color:#202B5D;font-size:13px;">Notifications</strong>
+                                <button onclick="event.stopPropagation(); Navbar.markAllNotificationsRead();" style="background:none;border:none;color:#3794C4;font-size:11px;font-weight:600;cursor:pointer;">Tout marquer lu</button>
+                            </div>
+                            <div id="notif-list" style="max-height:420px;overflow-y:auto;">
+                                <div style="padding:30px;text-align:center;color:#8896AB;font-size:12px;">Chargement...</div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="user-profile" id="user-profile-trigger" style="cursor:pointer;position:relative;" onclick="Navbar.toggleUserMenu(event)">
                         <div class="user-info">
                             <div class="user-name">${Auth.getFullName()}</div>
@@ -275,6 +293,95 @@ const Navbar = {
             if (n > 0) {
                 badge.textContent = n > 9 ? '9+' : String(n);
                 badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        } catch (e) { /* silencieux */ }
+    },
+
+    async toggleNotifications(e) {
+        e.stopPropagation();
+        const dd = document.getElementById('notif-dropdown');
+        if (!dd) return;
+        const visible = dd.style.display === 'block';
+        dd.style.display = visible ? 'none' : 'block';
+        if (!visible) {
+            await this.loadNotifications();
+            // Close on outside click
+            setTimeout(() => {
+                const closeHandler = (ev) => {
+                    if (!dd.contains(ev.target) && !document.getElementById('notif-bell-btn')?.contains(ev.target)) {
+                        dd.style.display = 'none';
+                        document.removeEventListener('click', closeHandler);
+                    }
+                };
+                document.addEventListener('click', closeHandler);
+            }, 0);
+        }
+    },
+
+    async loadNotifications() {
+        const list = document.getElementById('notif-list');
+        if (!list) return;
+        try {
+            const res = await API.notifications.list({ limit: 20 });
+            const items = res.data || [];
+            if (items.length === 0) {
+                list.innerHTML = '<div style="padding:30px;text-align:center;color:#8896AB;font-size:12px;">Aucune notification</div>';
+                return;
+            }
+            const esc = (t) => { const s = String(t||''); return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); };
+            const iconForType = (t) => ({
+                measure_assigned:       '📋',
+                measure_comment:        '💬',
+                measure_status_changed: '🔄'
+            }[t] || '🔔');
+            list.innerHTML = items.map(n => `
+                <div onclick="Navbar.openNotification(${n.id}, ${JSON.stringify(n.link_url || '').replace(/"/g, '&quot;')})"
+                     style="padding:12px 14px;border-bottom:1px solid #f0f4f8;cursor:pointer;background:${n.is_read ? 'white' : '#f0f9ff'};transition:background 0.1s;"
+                     onmouseover="this.style.background='#e8f4fc'" onmouseout="this.style.background='${n.is_read ? 'white' : '#f0f9ff'}'">
+                    <div style="display:flex;gap:10px;align-items:flex-start;">
+                        <div style="font-size:18px;flex-shrink:0;">${iconForType(n.type)}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:${n.is_read ? '500' : '700'};color:#202B5D;font-size:13px;margin-bottom:2px;line-height:1.3;">${esc(n.title)}</div>
+                            ${n.body ? `<div style="color:#62718D;font-size:12px;margin-bottom:4px;line-height:1.4;">${esc(n.body)}</div>` : ''}
+                            <div style="color:#8896AB;font-size:11px;">${new Date(n.created_at).toLocaleString('fr-FR')}</div>
+                        </div>
+                        ${!n.is_read ? '<div style="width:8px;height:8px;background:#3794C4;border-radius:50%;flex-shrink:0;margin-top:4px;"></div>' : ''}
+                    </div>
+                </div>
+            `).join('');
+        } catch (err) {
+            list.innerHTML = `<div style="padding:20px;color:#c0392b;font-size:12px;">Erreur : ${err.message || ''}</div>`;
+        }
+    },
+
+    async openNotification(id, linkUrl) {
+        try { await API.notifications.markRead(id); } catch {}
+        if (linkUrl) window.location.hash = linkUrl;
+        document.getElementById('notif-dropdown').style.display = 'none';
+        this.refreshNotificationBell();
+    },
+
+    async markAllNotificationsRead() {
+        try {
+            await API.notifications.markAllRead();
+            await this.loadNotifications();
+            this.refreshNotificationBell();
+        } catch (err) {
+            Toast.error('Erreur : ' + (err.message || ''));
+        }
+    },
+
+    async refreshNotificationBell() {
+        const badge = document.getElementById('notif-bell-badge');
+        if (!badge) return;
+        try {
+            const res = await API.notifications.unreadCount();
+            const n = res.count || 0;
+            if (n > 0) {
+                badge.textContent = n > 99 ? '99+' : String(n);
+                badge.style.display = 'inline-block';
             } else {
                 badge.style.display = 'none';
             }

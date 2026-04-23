@@ -17,6 +17,7 @@ class ProjectModel {
             LEFT JOIN structures s ON p.structure_id = s.id
             LEFT JOIN users u ON p.created_by_user_id = u.id
             WHERE 1=1
+              AND p.deleted_at IS NULL
         `;
         
         const params = [];
@@ -39,7 +40,15 @@ class ProjectModel {
             params.push(filters.created_by_user_id);
             paramCount++;
         }
-        
+
+        if (filters.q && String(filters.q).trim()) {
+            // Recherche plein texte basique sur titre + description. ILIKE = case-insensitive.
+            const term = `%${String(filters.q).trim()}%`;
+            query += ` AND (p.title ILIKE $${paramCount} OR p.description ILIKE $${paramCount})`;
+            params.push(term);
+            paramCount++;
+        }
+
         query += ' ORDER BY p.created_at DESC';
         
         const result = await db.query(query, params);
@@ -85,7 +94,7 @@ class ProjectModel {
             LEFT JOIN structures s ON p.structure_id = s.id
             LEFT JOIN users u ON p.created_by_user_id = u.id
             LEFT JOIN users pm ON p.project_manager_id = pm.id
-            WHERE p.id = $1
+            WHERE p.id = $1 AND p.deleted_at IS NULL
         `, [id]);
         
         if (result.rows.length === 0) return null;
@@ -266,14 +275,51 @@ class ProjectModel {
     }
 
     /**
-     * Supprimer un projet
+     * Supprimer un projet (soft delete : marque deleted_at au lieu de supprimer).
+     * Les projets supprimés sont ensuite exclus de toutes les requêtes findAll / findById.
+     * Un admin peut restaurer via restore(id) ou purger définitivement via hardDelete(id).
      */
     static async delete(id) {
         const result = await db.query(`
-            DELETE FROM projects WHERE id = $1 RETURNING id
+            UPDATE projects SET deleted_at = CURRENT_TIMESTAMP
+            WHERE id = $1 AND deleted_at IS NULL
+            RETURNING id
         `, [id]);
-        
         return result.rows[0];
+    }
+
+    /**
+     * Restaure un projet supprimé (remet deleted_at à NULL). Admin uniquement.
+     */
+    static async restore(id) {
+        const result = await db.query(`
+            UPDATE projects SET deleted_at = NULL
+            WHERE id = $1 AND deleted_at IS NOT NULL
+            RETURNING id
+        `, [id]);
+        return result.rows[0];
+    }
+
+    /**
+     * Suppression définitive (purge). Réservé à un usage admin exceptionnel.
+     */
+    static async hardDelete(id) {
+        const result = await db.query(`DELETE FROM projects WHERE id = $1 RETURNING id`, [id]);
+        return result.rows[0];
+    }
+
+    /**
+     * Liste les projets supprimés (corbeille). Admin uniquement.
+     */
+    static async findDeleted() {
+        const result = await db.query(`
+            SELECT p.*, s.code as structure_code, s.name as structure_name
+            FROM projects p
+            LEFT JOIN structures s ON p.structure_id = s.id
+            WHERE p.deleted_at IS NOT NULL
+            ORDER BY p.deleted_at DESC
+        `);
+        return result.rows;
     }
 
     /**

@@ -140,6 +140,7 @@ const App = {
                 if (Navbar.refreshObservationBadge) Navbar.refreshObservationBadge();
                 if (Navbar.refreshPvBadge) Navbar.refreshPvBadge();
                 if (Navbar.refreshMyMeasuresBadge) Navbar.refreshMyMeasuresBadge();
+                if (Navbar.refreshNotificationBell) Navbar.refreshNotificationBell();
             }
 
         } catch (error) {

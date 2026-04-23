@@ -136,9 +136,13 @@ const MyMeasuresPage = {
                 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:white;background:#e67e22;">🟠 HAUTE</span>'
                 : '';
 
-            const commentsBadge = m.comments_count > 0
-                ? `<span style="padding:2px 8px;background:#dbeafe;color:#1e40af;border-radius:10px;font-size:11px;font-weight:600;">💬 ${m.comments_count}</span>`
-                : '';
+            const commentsBadge = `
+                <button onclick="MyMeasuresPage.toggleComments(${m.id})"
+                        id="comments-toggle-${m.id}"
+                        style="padding:2px 8px;background:${m.comments_count > 0 ? '#dbeafe' : '#f0f4f8'};color:${m.comments_count > 0 ? '#1e40af' : '#62718D'};border-radius:10px;font-size:11px;font-weight:600;border:none;cursor:pointer;">
+                    💬 ${m.comments_count || 0} ${m.comments_count > 0 ? 'commentaire(s)' : 'commenter'}
+                </button>
+            `;
 
             const canMarkDone = m.status !== 'executee' && Auth.canWrite();
             const actionButtons = canMarkDone ? `
@@ -175,6 +179,18 @@ const MyMeasuresPage = {
                             </a>
                         </div>
                     </div>
+                    <div id="comments-section-${m.id}" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #e8ecf1;">
+                        <div id="comments-list-${m.id}" style="margin-bottom:10px;">
+                            <div style="color:#8896AB;font-size:12px;font-style:italic;">Chargement...</div>
+                        </div>
+                        <form onsubmit="event.preventDefault(); MyMeasuresPage.addComment(${m.id});" style="display:flex;gap:6px;">
+                            <input type="text" id="comment-input-${m.id}" placeholder="Ajouter un commentaire..." maxlength="1000"
+                                   style="flex:1;padding:8px 12px;border:1px solid #dce3ed;border-radius:6px;font-size:13px;">
+                            <button type="submit" style="padding:8px 14px;background:#202B5D;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+                                Envoyer
+                            </button>
+                        </form>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -189,6 +205,84 @@ const MyMeasuresPage = {
         if (content) {
             content.innerHTML = this.renderStats() + this.renderFilters() + this.renderMeasures();
         }
+    },
+
+    async toggleComments(measureId) {
+        const section = document.getElementById(`comments-section-${measureId}`);
+        if (!section) return;
+        const isOpen = section.style.display === 'block';
+        if (isOpen) {
+            section.style.display = 'none';
+            return;
+        }
+        section.style.display = 'block';
+        // Charger la liste des commentaires
+        await this.loadComments(measureId);
+    },
+
+    async loadComments(measureId) {
+        const list = document.getElementById(`comments-list-${measureId}`);
+        if (!list) return;
+        try {
+            const res = await API.measureComments.getByMeasure(measureId);
+            const comments = res.data || [];
+            if (comments.length === 0) {
+                list.innerHTML = '<div style="color:#8896AB;font-size:12px;font-style:italic;">Aucun commentaire. Sois le premier à en ajouter un.</div>';
+                return;
+            }
+            const esc = (t) => this._escapeHtml(t);
+            const currentUser = Auth.getUser();
+            const isAdmin = currentUser?.role === 'admin';
+            list.innerHTML = comments.map(c => {
+                const canDelete = c.user_id === currentUser?.id || isAdmin;
+                const author = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.username || 'Utilisateur';
+                const when = c.created_at ? new Date(c.created_at).toLocaleString('fr-FR') : '';
+                return `
+                    <div style="padding:8px 10px;background:#f8f9fa;border-radius:6px;margin-bottom:6px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <span style="font-size:11px;color:#62718D;font-weight:600;">${esc(author)} · ${esc(when)}</span>
+                            ${canDelete ? `<button onclick="MyMeasuresPage.deleteComment(${c.id}, ${measureId})" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:11px;">🗑</button>` : ''}
+                        </div>
+                        <div style="font-size:13px;color:#202B5D;white-space:pre-wrap;">${esc(c.comment)}</div>
+                    </div>
+                `;
+            }).join('');
+        } catch (err) {
+            list.innerHTML = `<div style="color:#c0392b;font-size:12px;">Erreur de chargement : ${this._escapeHtml(err.message || '')}</div>`;
+        }
+    },
+
+    async addComment(measureId) {
+        const input = document.getElementById(`comment-input-${measureId}`);
+        if (!input) return;
+        const text = input.value.trim();
+        if (!text) return;
+        try {
+            await API.measureComments.create(measureId, text);
+            input.value = '';
+            await this.loadComments(measureId);
+            // Rafraîchir les stats + badge
+            await this.loadData();
+            const toggle = document.getElementById(`comments-toggle-${measureId}`);
+            if (toggle) {
+                const measure = this.data.measures.find(x => x.id === measureId);
+                if (measure) toggle.innerHTML = `💬 ${measure.comments_count || 0} commentaire(s)`;
+            }
+        } catch (err) {
+            Toast.error('Erreur : ' + (err.message || 'inconnue'));
+        }
+    },
+
+    async deleteComment(commentId, measureId) {
+        Toast.confirm('Supprimer ce commentaire ?', async () => {
+            try {
+                await API.measureComments.delete(commentId);
+                await this.loadComments(measureId);
+                Toast.success('Commentaire supprimé');
+            } catch (err) {
+                Toast.error('Erreur : ' + (err.message || 'inconnue'));
+            }
+        }, { type: 'danger', confirmText: 'Supprimer' });
     },
 
     async markAsDone(measureId, projectId) {

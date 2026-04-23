@@ -109,13 +109,14 @@ async function initDatabase() {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_projects_created_by ON projects(created_by_user_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_projects_manager ON projects(project_manager_id)`);
 
-        // Migration: new columns on projects (constraints, expected_measures, priority, project_type)
+        // Migration: new columns on projects (constraints, expected_measures, priority, project_type, deleted_at)
         await client.query(`
             DO $$ BEGIN
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS constraints TEXT;
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS expected_measures TEXT;
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS priority VARCHAR(20) DEFAULT 'normale';
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type VARCHAR(50);
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
                 ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_priority_check;
                 ALTER TABLE projects ADD CONSTRAINT projects_priority_check
                     CHECK (priority IN ('normale', 'haute', 'urgente'));
@@ -125,6 +126,7 @@ async function initDatabase() {
             EXCEPTION WHEN others THEN NULL;
             END $$
         `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_projects_deleted_at ON projects(deleted_at)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_projects_priority ON projects(priority)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_projects_type ON projects(project_type)`);
 
@@ -415,6 +417,24 @@ async function initDatabase() {
                 PRIMARY KEY (pv_id, user_id)
             )
         `);
+
+        // Notifications in-app : file d'événements personnalisés par utilisateur.
+        // Types actuels : measure_assigned, measure_comment, measure_status_changed.
+        // Le champ link_url permet au clic de rediriger vers la ressource concernée.
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS notifications (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                type VARCHAR(50) NOT NULL,
+                title VARCHAR(255) NOT NULL,
+                body TEXT,
+                link_url VARCHAR(512),
+                is_read BOOLEAN NOT NULL DEFAULT false,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                read_at TIMESTAMP
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC)`);
 
         // API Keys (authentification de l'API externe v1)
         await client.query(`
