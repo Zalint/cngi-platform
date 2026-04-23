@@ -1,0 +1,263 @@
+{
+  "type": "FeatureCollection",
+  "name": "CNGIRI — jeu factice de géométries (couverture nationale)",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+  "features": [
+
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Canal principal Pikine — Axe A",
+        "description": "Canal de drainage principal, évacue vers le bassin de Yeumbeul",
+        "structure_code": "ONAS",
+        "type": "drainage"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-17.4050, 14.7520], [-17.4010, 14.7535], [-17.3970, 14.7548],
+          [-17.3925, 14.7560], [-17.3880, 14.7568], [-17.3835, 14.7575],
+          [-17.3790, 14.7582], [-17.3745, 14.7590]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Canal secondaire Guinaw Rails",
+        "description": "Collecteur secondaire vers le canal principal",
+        "structure_code": "ONAS",
+        "type": "drainage"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-17.3920, 14.7605], [-17.3925, 14.7590],
+          [-17.3925, 14.7575], [-17.3925, 14.7560]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Collecteur Guédiawaye — Parcelles Assainies",
+        "description": "Collecte les eaux pluviales du secteur Parcelles vers la mer",
+        "structure_code": "ONAS",
+        "type": "drainage"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-17.4260, 14.7695], [-17.4245, 14.7720],
+          [-17.4225, 14.7745], [-17.4205, 14.7770], [-17.4180, 14.7795]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Réseau drainage Saint-Louis centre",
+        "description": "Réseau historique de drainage de l'île (vulnérable élévation du niveau marin)",
+        "structure_code": "ONAS",
+        "type": "drainage"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-16.4900, 16.0280], [-16.4890, 16.0295],
+          [-16.4870, 16.0310], [-16.4855, 16.0325], [-16.4840, 16.0340]
+        ]
+      }
+    },
+
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Itinéraire intervention BNSP — Pikine",
+        "description": "Trajet prioritaire depuis la caserne vers les zones critiques",
+        "structure_code": "BNSP",
+        "type": "intervention"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-17.4120, 14.7490], [-17.4080, 14.7510],
+          [-17.4030, 14.7525], [-17.3980, 14.7548],
+          [-17.3935, 14.7572], [-17.3895, 14.7595]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Itinéraire intervention BNSP — Dakar Plateau",
+        "description": "Desserte du centre-ville depuis caserne Hann",
+        "structure_code": "BNSP",
+        "type": "intervention"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-17.4485, 14.6920], [-17.4450, 14.6870],
+          [-17.4420, 14.6820], [-17.4400, 14.6770],
+          [-17.4380, 14.6720], [-17.4370, 14.6670]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Itinéraire intervention BNSP — Saint-Louis",
+        "description": "Axe d'évacuation île → continent",
+        "structure_code": "BNSP",
+        "type": "intervention"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-16.4820, 16.0290], [-16.4790, 16.0300],
+          [-16.4760, 16.0315], [-16.4725, 16.0330]
+        ]
+      }
+    },
+
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Zone inondable — Pikine Irrégulier Sud",
+        "description": "Cuvette récurrente, ~3.2 km² affectés en 2022",
+        "structure_code": "DPGI",
+        "type": "zone_inondable"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-17.3970, 14.7530], [-17.3920, 14.7525], [-17.3880, 14.7535],
+          [-17.3860, 14.7555], [-17.3870, 14.7580], [-17.3905, 14.7595],
+          [-17.3945, 14.7590], [-17.3975, 14.7570], [-17.3985, 14.7550],
+          [-17.3970, 14.7530]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Zone inondable — Guédiawaye Nord",
+        "description": "Dépression entre Parcelles et la mer, régulièrement inondée",
+        "structure_code": "DPGI",
+        "type": "zone_inondable"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-17.4200, 14.7760], [-17.4160, 14.7755], [-17.4130, 14.7770],
+          [-17.4125, 14.7795], [-17.4145, 14.7815], [-17.4180, 14.7815],
+          [-17.4205, 14.7795], [-17.4200, 14.7760]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Zone inondable — Kaolack centre",
+        "description": "Partie basse de la ville, proche du Saloum, inondations saisonnières",
+        "structure_code": "DPGI",
+        "type": "zone_inondable"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-16.0760, 14.1460], [-16.0710, 14.1455], [-16.0680, 14.1470],
+          [-16.0670, 14.1495], [-16.0690, 14.1515], [-16.0730, 14.1520],
+          [-16.0760, 14.1505], [-16.0770, 14.1485], [-16.0760, 14.1460]
+        ]]
+      }
+    },
+
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Bassin de rétention Yeumbeul",
+        "description": "Exutoire du canal principal, capacité 45 000 m³",
+        "structure_code": "ONAS",
+        "type": "zone_inondable"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-17.3745, 14.7585], [-17.3720, 14.7590], [-17.3710, 14.7605],
+          [-17.3720, 14.7620], [-17.3745, 14.7620], [-17.3755, 14.7605],
+          [-17.3745, 14.7585]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Bassin de rétention Thiès",
+        "description": "Bassin tampon à la sortie sud de la ville",
+        "structure_code": "ONAS",
+        "type": "zone_inondable"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-16.9380, 14.7880], [-16.9355, 14.7875], [-16.9340, 14.7890],
+          [-16.9345, 14.7910], [-16.9370, 14.7915], [-16.9390, 14.7900],
+          [-16.9380, 14.7880]
+        ]]
+      }
+    },
+
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Section routière réhabilitée — Pikine / Thiaroye",
+        "description": "Tronçon surélevé avec caniveaux neufs suite aux dégâts 2022",
+        "structure_code": "AGEROUTE",
+        "type": "drainage"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-17.3940, 14.7640], [-17.3910, 14.7650],
+          [-17.3880, 14.7660], [-17.3850, 14.7670]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Voie réhabilitée — Dakar VDN",
+        "description": "Tronçon de la VDN reprofilé pour améliorer l'écoulement",
+        "structure_code": "AGEROUTE",
+        "type": "drainage"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-17.4620, 14.7310], [-17.4605, 14.7345],
+          [-17.4590, 14.7380], [-17.4575, 14.7415]
+        ]
+      }
+    },
+
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Couloir bus BRT — zone sensible Petersen",
+        "description": "Tronçon BRT à surveiller en saison des pluies",
+        "structure_code": "CETUD",
+        "type": "intervention"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-17.4405, 14.6745], [-17.4390, 14.6755],
+          [-17.4375, 14.6770], [-17.4360, 14.6790]
+        ]
+      }
+    }
+
+  ]
+}

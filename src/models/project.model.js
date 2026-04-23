@@ -12,7 +12,8 @@ class ProjectModel {
                    u.username as creator_username, u.first_name as creator_first_name, u.last_name as creator_last_name,
                    (SELECT COUNT(*) FROM sites WHERE project_id = p.id) as sites_count,
                    (SELECT COUNT(*) FROM measures WHERE project_id = p.id) as measures_count,
-                   (SELECT COUNT(*) FROM stakeholders WHERE project_id = p.id) as stakeholders_count
+                   (SELECT COUNT(*) FROM stakeholders WHERE project_id = p.id) as stakeholders_count,
+                   (SELECT COUNT(*) FROM geometries WHERE project_id = p.id) as geometries_count
             FROM projects p
             LEFT JOIN structures s ON p.structure_id = s.id
             LEFT JOIN users u ON p.created_by_user_id = u.id

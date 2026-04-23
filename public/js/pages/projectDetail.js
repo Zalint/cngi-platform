@@ -45,6 +45,12 @@ const ProjectDetailPage = {
             this.data.comments = commentsRes.data || [];
             this.data.documents = docsRes.data || [];
 
+            // Tracés / géométries du projet
+            try {
+                const geomRes = await API.projects.listGeometries(id);
+                this.data.geometries = geomRes.data || [];
+            } catch { this.data.geometries = []; }
+
             // Initialiser les données d'édition
             this.data.editMode.localities = JSON.parse(JSON.stringify(this.data.project.localities || []));
             this.data.editMode.sites = JSON.parse(JSON.stringify(this.data.project.sites || []));
@@ -59,6 +65,7 @@ const ProjectDetailPage = {
                         ${this.renderProjectInfo()}
                         ${this.renderBudgetAndProgress()}
                         ${this.renderLocalitiesAndSitesEditable()}
+                        ${this.renderGeometriesSection()}
                         ${this.renderMeasuresEditable()}
                         ${this.renderFinancingEditable()}
                         ${this.renderDocuments()}
@@ -482,6 +489,338 @@ const ProjectDetailPage = {
                 ` : ''}
             </div>
         `;
+    },
+
+    _escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const s = String(text);
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' };
+        return s.replace(/[&<>"'`]/g, c => map[c]);
+    },
+
+    renderGeometriesSection() {
+        const geoms = this.data.geometries || [];
+        const canManage = Auth.hasAnyRole('admin', 'utilisateur', 'directeur');
+        const esc = (t) => ProjectDetailPage._escapeHtml(t);
+
+        // Ces lookups sont whitelistés : toute clé inconnue tombe sur une valeur sûre
+        const USAGE_LABELS = { drainage: 'Drainage', intervention: 'Intervention', zone_inondable: 'Zone inondable', autre: 'Autre' };
+        const USAGE_ICONS = { drainage: '💧', intervention: '🚒', zone_inondable: '🌊', autre: '📐' };
+        const usageLabel = (u) => USAGE_LABELS[u] || 'Autre';
+        const usageIcon  = (u) => USAGE_ICONS[u]  || '📐';
+
+        // Résumé par structure (code source = table structures, mais on échappe par précaution)
+        const byStructure = {};
+        for (const g of geoms) {
+            const k = g.structure_code || '—';
+            byStructure[k] = (byStructure[k] || 0) + 1;
+        }
+        const summary = Object.entries(byStructure).map(([code, n]) => `${n} ${esc(code)}`).join(' · ') || 'Aucun tracé';
+
+        const cards = geoms.map(g => {
+            const color = (typeof StructureColors !== 'undefined' ? StructureColors.get(g.structure_code) : null) || '#3794C4';
+            const truncatedDesc = g.description
+                ? (g.description.length > 80 ? g.description.slice(0, 80) + '…' : g.description)
+                : '';
+            return `
+                <div style="background:#f8f9fa;border-left:4px solid ${color};border-radius:8px;padding:12px 14px;min-width:220px;flex:1;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                        <span style="font-size:16px;">${usageIcon(g.usage_type)}</span>
+                        <strong style="color:#202B5D;font-size:13px;">${esc(g.name)}</strong>
+                    </div>
+                    <div style="font-size:11px;color:#62718D;margin-bottom:8px;">
+                        <span style="display:inline-block;padding:2px 6px;background:${color};color:white;border-radius:8px;font-weight:700;margin-right:4px;">${esc(g.structure_code || '—')}</span>
+                        <span style="display:inline-block;padding:2px 6px;background:#e8ecf1;color:#202B5D;border-radius:8px;font-weight:600;margin-right:4px;">${esc(usageLabel(g.usage_type))}</span>
+                        ${ProjectDetailPage.renderVulnBadge(g.vulnerability_level)}
+                    </div>
+                    ${truncatedDesc ? `<div style="font-size:11px;color:#62718D;margin-bottom:8px;">${esc(truncatedDesc)}</div>` : ''}
+                    ${canManage ? `
+                        <div style="display:flex;gap:6px;">
+                            <button class="btn btn-danger" style="font-size:11px;padding:4px 10px;" onclick="ProjectDetailPage.deleteGeometry(${g.id})">🗑 Supprimer</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="card mb-4">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+                    <div>
+                        <h2 style="margin:0;">🗺 Tracés / Géométries</h2>
+                        <div style="font-size:12px;color:#62718D;margin-top:4px;">${summary}</div>
+                    </div>
+                    ${canManage ? `
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-secondary" onclick="ProjectDetailPage.openImportGeometriesModal()">
+                                ⬆ Importer GeoJSON
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+                ${geoms.length === 0
+                    ? `<div style="padding:30px;background:#f8f9fa;border-radius:8px;text-align:center;color:#8896AB;font-size:13px;">Aucun tracé pour ce projet. Importe un fichier GeoJSON (depuis geojson.io, QGIS…) pour ajouter le réseau de drainage, les itinéraires d'intervention ou les zones inondables.</div>`
+                    : `<div style="display:flex;flex-wrap:wrap;gap:12px;">${cards}</div>`
+                }
+            </div>
+        `;
+    },
+
+    openImportGeometriesModal() {
+        const project = this.data.project;
+        const structures = this.data.structures || [];
+        const esc = (t) => ProjectDetailPage._escapeHtml(t);
+        const structureOptions = structures.map(s => {
+            const selected = s.id === project.structure_id ? 'selected' : '';
+            const isMain = s.id === project.structure_id ? ' (structure principale)' : '';
+            return `<option value="${s.id}" data-code="${esc(s.code)}" ${selected}>${esc(s.code)} — ${esc(s.name)}${isMain}</option>`;
+        }).join('');
+
+        const modal = document.createElement('div');
+        modal.className = 'confirm-overlay confirm-visible';
+        modal.innerHTML = `
+            <div class="confirm-dialog" style="text-align:left;max-width:560px;">
+                <h3 style="margin-bottom:8px;color:#202B5D;">⬆ Importer un tracé</h3>
+                <p style="color:#62718D;font-size:13px;margin-bottom:16px;">
+                    Charge un fichier GeoJSON (depuis geojson.io, QGIS…) et renseigne la structure et le type ici.
+                    Le fichier n'a besoin de contenir que la géométrie — pas les propriétés.
+                </p>
+
+                <div style="background:linear-gradient(135deg,#e0f2fe 0%,#f0f9ff 100%);border-left:3px solid #3794C4;padding:12px 14px;border-radius:6px;margin-bottom:16px;">
+                    <div style="font-weight:700;color:#202B5D;font-size:13px;margin-bottom:4px;">Pas de fichier ?</div>
+                    <div style="font-size:12px;color:#62718D;margin-bottom:8px;">
+                        Dessine tes tracés directement dans le navigateur avec geojson.io, télécharge le <code>.geojson</code> et reviens ici.
+                    </div>
+                    <a href="https://geojson.io/#map=12/14.75/-17.40" target="_blank" rel="noopener noreferrer"
+                       style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#202B5D;color:white;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;">
+                        ✏ Ouvrir geojson.io →
+                    </a>
+                </div>
+
+                <div class="form-group">
+                    <label>Nom du tracé *</label>
+                    <input type="text" id="geom-import-name" class="form-control" placeholder="Ex : Canal principal Thiès centre" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Structure responsable *</label>
+                    <select id="geom-import-structure" class="form-control" required>
+                        ${structureOptions}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Type d'usage *</label>
+                    <select id="geom-import-type" class="form-control" required>
+                        <option value="drainage">💧 Drainage (trait continu)</option>
+                        <option value="intervention">🚒 Intervention (trait pointillé)</option>
+                        <option value="zone_inondable">🌊 Zone inondable (polygone)</option>
+                        <option value="autre">📐 Autre</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>⚠ Vulnérabilité</label>
+                    <select id="geom-import-vuln" class="form-control">
+                        <option value="normal" selected>Normale</option>
+                        <option value="elevee">Élevée</option>
+                        <option value="tres_elevee">Très élevée</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Description (optionnel)</label>
+                    <input type="text" id="geom-import-description" class="form-control" placeholder="Contexte / précisions">
+                </div>
+
+                <div class="form-group">
+                    <label>Source du tracé *</label>
+                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                        <button type="button" id="geom-src-tab-file" class="btn btn-secondary" style="flex:1;padding:6px 10px;font-size:12px;background:#202B5D;color:white;border:none;border-radius:6px;cursor:pointer;">📂 Fichier</button>
+                        <button type="button" id="geom-src-tab-paste" class="btn btn-secondary" style="flex:1;padding:6px 10px;font-size:12px;background:#f0f4f8;color:#202B5D;border:none;border-radius:6px;cursor:pointer;">📋 Coller JSON</button>
+                    </div>
+                    <div id="geom-src-file-pane">
+                        <input type="file" id="geom-import-file" accept=".geojson,.json" class="form-control">
+                    </div>
+                    <div id="geom-src-paste-pane" style="display:none;">
+                        <textarea id="geom-import-paste" class="form-control" rows="10"
+                                  placeholder='Colle ici ton JSON, ex :&#10;{&#10;  "type": "FeatureCollection",&#10;  "features": [&#10;    {&#10;      "type": "Feature",&#10;      "properties": {},&#10;      "geometry": {&#10;        "coordinates": [&#10;          [-17.438258000560097, 14.711432170692632],&#10;          [-17.4377425280735, 14.712842523400681],&#10;          [-17.4362835128031, 14.714169803942298]&#10;        ],&#10;        "type": "LineString"&#10;      }&#10;    }&#10;  ]&#10;}'
+                                  style="font-family:monospace;font-size:11px;resize:vertical;"></textarea>
+                    </div>
+                </div>
+
+                <div id="geom-import-secondary-note" style="display:none;background:#fff8e1;border-left:3px solid #f39c12;padding:10px;border-radius:6px;font-size:11px;color:#8a6d3b;margin:12px 0;">
+                    ⚠ Cette structure est différente de la structure principale du projet. Elle sera automatiquement ajoutée en <strong>structure secondaire</strong>.
+                </div>
+
+                <div class="confirm-actions" style="margin-top:16px;">
+                    <button class="confirm-btn confirm-btn-cancel" onclick="this.closest('.confirm-overlay').remove()">Annuler</button>
+                    <button class="confirm-btn confirm-btn-ok" style="background:#202B5D;" id="geom-import-btn" onclick="ProjectDetailPage.submitImportGeometries()">Importer</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Affiche la note "structure secondaire" dynamiquement
+        const sel = document.getElementById('geom-import-structure');
+        const note = document.getElementById('geom-import-secondary-note');
+        const mainId = project.structure_id;
+        const updateNote = () => {
+            note.style.display = (parseInt(sel.value) !== mainId) ? 'block' : 'none';
+        };
+        sel.addEventListener('change', updateNote);
+        updateNote();
+
+        // Toggle entre onglets "Fichier" et "Coller JSON"
+        const tabFile = document.getElementById('geom-src-tab-file');
+        const tabPaste = document.getElementById('geom-src-tab-paste');
+        const paneFile = document.getElementById('geom-src-file-pane');
+        const panePaste = document.getElementById('geom-src-paste-pane');
+        const setSource = (src) => {
+            const active = { background: '#202B5D', color: 'white' };
+            const inactive = { background: '#f0f4f8', color: '#202B5D' };
+            if (src === 'file') {
+                Object.assign(tabFile.style, active);
+                Object.assign(tabPaste.style, inactive);
+                paneFile.style.display = 'block';
+                panePaste.style.display = 'none';
+            } else {
+                Object.assign(tabFile.style, inactive);
+                Object.assign(tabPaste.style, active);
+                paneFile.style.display = 'none';
+                panePaste.style.display = 'block';
+            }
+        };
+        tabFile.addEventListener('click', () => setSource('file'));
+        tabPaste.addEventListener('click', () => setSource('paste'));
+    },
+
+    async submitImportGeometries() {
+        const btn = document.getElementById('geom-import-btn');
+        const name = document.getElementById('geom-import-name').value.trim();
+        const structureSel = document.getElementById('geom-import-structure');
+        const structureId = parseInt(structureSel.value);
+        const structureCode = structureSel.options[structureSel.selectedIndex]?.dataset?.code || '';
+        const usageType = document.getElementById('geom-import-type').value;
+        const vulnerabilityLevel = document.getElementById('geom-import-vuln').value;
+        const description = document.getElementById('geom-import-description').value.trim();
+        const fileInput = document.getElementById('geom-import-file');
+        const pasteInput = document.getElementById('geom-import-paste');
+        const file = fileInput?.files?.[0];
+        const pastedText = (pasteInput?.value || '').trim();
+
+        if (!name) { Toast.error('Renseigne un nom.'); return; }
+        if (!Number.isFinite(structureId)) { Toast.error('Choisis une structure.'); return; }
+        if (!file && !pastedText) { Toast.error('Fournis un fichier ou colle le JSON.'); return; }
+
+        try {
+            btn.disabled = true;
+            btn.textContent = '⏳ Import en cours...';
+
+            const text = file ? await file.text() : pastedText;
+            let geojson;
+            try { geojson = JSON.parse(text); } catch {
+                Toast.error('JSON invalide.');
+                btn.disabled = false; btn.textContent = 'Importer';
+                return;
+            }
+
+            // Injecte les métadonnées saisies dans la modale dans CHAQUE feature du fichier.
+            // Si le fichier contient plusieurs tracés, ils partagent tous ces métadonnées
+            // (sauf le nom, qui reçoit un suffixe #2, #3… pour distinguer).
+            if (!geojson || geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features)) {
+                Toast.error('Le fichier doit être un FeatureCollection GeoJSON.');
+                btn.disabled = false; btn.textContent = 'Importer';
+                return;
+            }
+
+            let counter = 0;
+            for (const feat of geojson.features) {
+                if (!feat || feat.type !== 'Feature' || !feat.geometry) continue;
+                counter++;
+                feat.properties = {
+                    ...(feat.properties || {}),
+                    name: counter === 1 ? name : `${name} #${counter}`,
+                    description: description || null,
+                    structure_code: structureCode,
+                    type: usageType,
+                    vulnerability_level: vulnerabilityLevel
+                };
+            }
+
+            const res = await API.projects.importGeometries(this.data.project.id, geojson);
+
+            // Si la structure choisie est différente de la principale → l'ajouter en secondaire.
+            // En cas d'échec on prévient explicitement l'utilisateur : le tracé est importé
+            // mais le rattachement structure devra être fait à la main.
+            let secondarySyncFailed = null;
+            const mainId = this.data.project.structure_id;
+            if (structureId !== mainId) {
+                try {
+                    const existing = await API.projects.getProjectStructures(this.data.project.id);
+                    const existingIds = (existing.data || []).map(s => s.id);
+                    if (!existingIds.includes(structureId)) {
+                        await API.projects.assignProjectStructures(
+                            this.data.project.id,
+                            [...existingIds, structureId]
+                        );
+                    }
+                } catch (e) {
+                    console.warn('Impossible d\'ajouter la structure en secondaire :', e);
+                    secondarySyncFailed = e?.message || 'erreur inconnue';
+                }
+            }
+
+            document.querySelector('.confirm-overlay')?.remove();
+
+            // Message principal : distinguer 0 feature importée (avertissement) vs succès.
+            if (res.count === 0) {
+                Toast.warning(
+                    'Aucun tracé n\'a été importé. Seuls les types LineString et Polygon sont supportés — '
+                    + 'vérifie que ton fichier contient bien ce type de géométries.'
+                );
+            } else {
+                Toast.success(res.message || `${res.count} tracé(s) importé(s).`);
+            }
+
+            // Rapport des features ignorées : 3 premières raisons en toast détaillé + console pour le reste.
+            if (Array.isArray(res.skipped) && res.skipped.length > 0) {
+                const preview = res.skipped.slice(0, 3)
+                    .map(s => `• ${s.name} — ${s.reason}`)
+                    .join('\n');
+                const suffix = res.skipped.length > 3 ? `\n… et ${res.skipped.length - 3} autre(s). Voir la console pour le détail.` : '';
+                Toast.warning(
+                    `${res.skipped.length} feature(s) ignorée(s) :\n${preview}${suffix}`
+                );
+                console.warn('Features GeoJSON ignorées à l\'import :', res.skipped);
+            }
+
+            // Message secondaire si le rattachement structure a échoué.
+            if (secondarySyncFailed) {
+                Toast.warning(
+                    `Le tracé a été importé, mais la structure n'a pas pu être ajoutée en secondaire : ${secondarySyncFailed}. `
+                    + 'Ajoute-la manuellement si nécessaire.'
+                );
+            }
+
+            App.router();
+        } catch (err) {
+            console.error(err);
+            Toast.error('Erreur : ' + (err.message || 'inconnue'));
+            if (btn) { btn.disabled = false; btn.textContent = 'Importer'; }
+        }
+    },
+
+    async deleteGeometry(geomId) {
+        Toast.confirm('Supprimer ce tracé ?', async () => {
+            try {
+                await API.projects.deleteGeometry(this.data.project.id, geomId);
+                Toast.success('Tracé supprimé');
+                App.router();
+            } catch (err) {
+                Toast.error('Erreur : ' + (err.message || 'inconnue'));
+            }
+        }, { type: 'danger', confirmText: 'Supprimer' });
     },
 
     renderFinancingEditable() {
