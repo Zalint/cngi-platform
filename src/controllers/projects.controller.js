@@ -1,7 +1,53 @@
 const ProjectModel = require('../models/project.model');
 const ProjectStructure = require('../models/projectStructure.model');
+const NotificationModel = require('../models/notification.model');
+const db = require('../config/db');
 const { validateProjectData, validateProjectDataForUpdate } = require('../utils/validators');
 const { canUserAccessProject } = require('../utils/projectAccess');
+
+const STATUS_LABELS = {
+    preconisee:   'Préconisée',
+    executee:     'Exécutée',
+    non_executee: 'Non exécutée',
+    observations: 'Observations'
+};
+
+/**
+ * Renvoie la liste des IDs utilisateurs qui doivent être informés d'un événement
+ * sur une mesure d'un projet : le ou les admins, le directeur de la structure
+ * principale du projet, le chef de projet et l'assigné de la mesure.
+ * Exclut l'utilisateur qui a provoqué l'événement (excludeUserId).
+ *
+ * Robustesse : on utilise $N IS NOT NULL plutôt qu'un fallback `|| 0` côté JS,
+ * ainsi un user.id qui serait à 0 (edge-case) n'empoisonne pas la logique, et
+ * NULL reste correctement géré comme "pas d'assigné / pas d'exclusion".
+ */
+async function collectMeasureWatchers(projectId, measureAssignedUserId, excludeUserId) {
+    try {
+        const pid = Number.isFinite(parseInt(projectId)) ? parseInt(projectId) : null;
+        if (!pid) return [];
+        const assigned = Number.isFinite(parseInt(measureAssignedUserId)) ? parseInt(measureAssignedUserId) : null;
+        const exclude  = Number.isFinite(parseInt(excludeUserId)) ? parseInt(excludeUserId) : null;
+
+        const result = await db.query(`
+            SELECT DISTINCT u.id
+            FROM users u
+            LEFT JOIN projects p ON p.id = $1
+            WHERE u.is_active = true
+              AND ($2::int IS NULL OR u.id <> $2)
+              AND (
+                    u.role = 'admin'
+                 OR (u.role = 'directeur' AND u.structure_id = p.structure_id)
+                 OR u.id = p.project_manager_id
+                 OR ($3::int IS NOT NULL AND u.id = $3)
+              )
+        `, [pid, exclude, assigned]);
+        return result.rows.map(r => r.id);
+    } catch (err) {
+        console.error('collectMeasureWatchers failed:', err.message);
+        return [];
+    }
+}
 
 // Masque les données financières pour les rôles qui n'ont pas le droit de les voir.
 // Seul `lecteur` est redacté ; `auditeur` a accès complet.
@@ -40,6 +86,7 @@ exports.getAllProjects = async (req, res, next) => {
             const filters = {};
             if (req.query.structure_id) filters.structure_id = req.query.structure_id;
             if (req.query.status) filters.status = req.query.status;
+            if (req.query.q) filters.q = req.query.q;
             projects = await ProjectModel.findAll(filters);
         } else if (req.user.role === 'commandement_territorial') {
             // Commandement territorial voit les projets de son territoire
@@ -55,6 +102,7 @@ exports.getAllProjects = async (req, res, next) => {
             const filters = {};
             if (req.query.structure_id) filters.structure_id = req.query.structure_id;
             if (req.query.status) filters.status = req.query.status;
+            if (req.query.q) filters.q = req.query.q;
             projects = await ProjectModel.findAll(filters);
         }
 
@@ -203,7 +251,45 @@ exports.deleteProject = async (req, res, next) => {
         }
         
         await ProjectModel.delete(req.params.id);
-        res.json({ success: true, message: 'Projet supprimé avec succès' });
+        res.json({ success: true, message: 'Projet supprimé avec succès (restaurable par un admin)' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Lister les projets supprimés (corbeille) — admin uniquement.
+ */
+exports.listDeleted = async (req, res, next) => {
+    try {
+        const rows = await ProjectModel.findDeleted();
+        res.json({ success: true, count: rows.length, data: rows });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Restaurer un projet supprimé — admin uniquement.
+ */
+exports.restoreProject = async (req, res, next) => {
+    try {
+        const row = await ProjectModel.restore(req.params.id);
+        if (!row) return res.status(404).json({ success: false, message: 'Projet non trouvé dans la corbeille' });
+        res.json({ success: true, message: 'Projet restauré', data: row });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Suppression définitive — admin uniquement.
+ */
+exports.hardDeleteProject = async (req, res, next) => {
+    try {
+        const row = await ProjectModel.hardDelete(req.params.id);
+        if (!row) return res.status(404).json({ success: false, message: 'Projet non trouvé' });
+        res.json({ success: true, message: 'Projet supprimé définitivement' });
     } catch (error) {
         next(error);
     }
@@ -379,6 +465,20 @@ exports.assignUserToMeasure = async (req, res, next) => {
         }
 
         const updated = await ProjectModel.assignUserToMeasure(measureId, userId);
+
+        // Notification à l'utilisateur assigné (best-effort, non bloquant)
+        if (parseInt(userId) !== req.user.id) {
+            const projTitle = measure.title || `Projet #${req.params.projectId}`;
+            const measureDesc = (updated?.description || '').slice(0, 120);
+            NotificationModel.create({
+                userId: parseInt(userId),
+                type: 'measure_assigned',
+                title: `Nouvelle mesure assignée : ${projTitle}`,
+                body: measureDesc || null,
+                linkUrl: `#/my-measures`
+            }).catch(err => console.error('Notification create failed:', err));
+        }
+
         res.json({ success: true, message: 'Utilisateur assigné à la mesure', data: updated });
     } catch (error) {
         next(error);
@@ -406,6 +506,17 @@ exports.reassignMeasure = async (req, res, next) => {
 
         if (!updated) {
             return res.status(404).json({ success: false, message: 'Mesure non trouvée pour ce projet' });
+        }
+
+        // Notification si nouvelle assignation utilisateur (≠ actuel)
+        if (assigned_user_id && parseInt(assigned_user_id) !== req.user.id) {
+            NotificationModel.create({
+                userId: parseInt(assigned_user_id),
+                type: 'measure_assigned',
+                title: 'Une mesure vient de vous être assignée',
+                body: (updated.description || '').slice(0, 120) || null,
+                linkUrl: `#/my-measures`
+            }).catch(err => console.error('Notification create failed:', err));
         }
 
         res.json({ success: true, message: 'Mesure réassignée', data: updated });
@@ -445,6 +556,28 @@ exports.updateMeasureStatus = async (req, res, next) => {
         }
 
         const updated = await ProjectModel.updateMeasureStatus(measureId, status, constraints);
+
+        // Notifier tous les "watchers" du projet/mesure : admins, directeur de
+        // la structure, chef de projet, utilisateur assigné. On exclut celui
+        // qui vient d'effectuer le changement pour ne pas se notifier soi-même.
+        collectMeasureWatchers(
+            req.params.projectId,
+            measure.assigned_user_id,
+            req.user.id
+        ).then(userIds => {
+            const statusLabel = STATUS_LABELS[status] || status;
+            const projTitle = project.title || `Projet #${req.params.projectId}`;
+            const body = (measure.description || '').slice(0, 140) || null;
+            const link = `#/projects/${req.params.projectId}`;
+            return Promise.all(userIds.map(uid => NotificationModel.create({
+                userId: uid,
+                type: 'measure_status_changed',
+                title: `Statut changé → ${statusLabel} · ${projTitle}`,
+                body,
+                linkUrl: link
+            })));
+        }).catch(err => console.error('Notify watchers failed:', err));
+
         res.json({ success: true, message: 'Statut de la mesure mis à jour', data: updated });
     } catch (error) {
         next(error);

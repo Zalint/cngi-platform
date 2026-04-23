@@ -65,6 +65,9 @@ const AdminPage = {
                         <button class="admin-tab" data-tab="api-keys" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
                             Clés API
                         </button>
+                        <button class="admin-tab" data-tab="trash" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
+                            🗑 Corbeille
+                        </button>
                         <button class="admin-tab" data-tab="docs" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
                             📖 Documentation
                         </button>
@@ -169,6 +172,99 @@ const AdminPage = {
                 </div>
             </div>
         `;
+    },
+
+    async loadTrash() {
+        try {
+            const res = await API.projects.listDeleted();
+            this.data.deletedProjects = res.data || [];
+        } catch (e) { this.data.deletedProjects = []; }
+    },
+
+    renderTrash() {
+        const items = this.data.deletedProjects || [];
+        const esc = (t) => { const s = String(t||''); return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); };
+
+        if (items.length === 0) {
+            return `
+                <div class="card" style="padding:60px 20px;text-align:center;">
+                    <div style="font-size:48px;margin-bottom:12px;opacity:0.4;">🗑</div>
+                    <h3 style="margin:0 0 8px;">Corbeille vide</h3>
+                    <p style="color:#62718D;font-size:13px;margin:0;">Aucun projet supprimé à restaurer.</p>
+                </div>
+            `;
+        }
+
+        const rows = items.map(p => `
+            <tr>
+                <td><strong>${esc(p.title)}</strong></td>
+                <td>${esc(p.structure_code || '—')}</td>
+                <td>${p.deleted_at ? new Date(p.deleted_at).toLocaleString('fr-FR') : ''}</td>
+                <td>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-primary" style="font-size:12px;padding:6px 12px;" onclick="AdminPage.restoreProject(${p.id})">♻ Restaurer</button>
+                        <button class="btn btn-danger" style="font-size:12px;padding:6px 12px;" onclick="AdminPage.hardDeleteProject(${p.id}, ${JSON.stringify(p.title).replace(/"/g, '&quot;')})">🗑 Purger</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        return `
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+                    <h2 style="margin:0;">🗑 Corbeille des projets</h2>
+                    <div style="color:#62718D;font-size:12px;">${items.length} projet(s) supprimé(s)</div>
+                </div>
+                <p style="color:#62718D;font-size:13px;margin-bottom:16px;">
+                    Les projets supprimés sont conservés ici. Tu peux les <strong>restaurer</strong> à tout moment
+                    (ils réapparaîtront dans la liste des projets avec toutes leurs données) ou les <strong>purger</strong>
+                    définitivement.
+                </p>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Projet</th>
+                                <th>Structure</th>
+                                <th>Supprimé le</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    },
+
+    async restoreProject(id) {
+        try {
+            await API.projects.restore(id);
+            Toast.success('Projet restauré');
+            await this.loadTrash();
+            const content = document.getElementById('admin-content');
+            if (content) content.innerHTML = this.renderTrash();
+        } catch (err) {
+            Toast.error('Erreur : ' + (err.message || ''));
+        }
+    },
+
+    async hardDeleteProject(id, title) {
+        Toast.confirm(
+            `⚠ Supprimer DÉFINITIVEMENT le projet "${title}" ?\n\nCette action est irréversible.`,
+            async () => {
+                try {
+                    await API.projects.hardDelete(id);
+                    Toast.success('Projet purgé définitivement');
+                    await this.loadTrash();
+                    const content = document.getElementById('admin-content');
+                    if (content) content.innerHTML = this.renderTrash();
+                } catch (err) {
+                    Toast.error('Erreur : ' + (err.message || ''));
+                }
+            },
+            { type: 'danger', confirmText: 'Purger définitivement' }
+        );
     },
 
     renderDocumentation() {
@@ -403,6 +499,11 @@ const AdminPage = {
                     });
                 } else if (tabName === 'docs') {
                     content.innerHTML = this.renderDocumentation();
+                } else if (tabName === 'trash') {
+                    content.innerHTML = '<div class="card" style="padding:40px;text-align:center;color:#8896AB;">Chargement...</div>';
+                    this.loadTrash().then(() => {
+                        content.innerHTML = this.renderTrash();
+                    });
                 }
             });
         });

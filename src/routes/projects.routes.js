@@ -9,6 +9,10 @@ router.use(protect);
 router.get('/', projectsController.getAllProjects);
 router.post('/', authorize('admin', 'utilisateur'), projectsController.createProject);
 router.get('/stats', projectsController.getStats);
+// Corbeille (soft delete) — admin uniquement
+router.get('/deleted', authorize('admin'), projectsController.listDeleted);
+router.post('/:id/restore', authorize('admin'), projectsController.restoreProject);
+router.delete('/:id/hard', authorize('admin'), projectsController.hardDeleteProject);
 router.get('/export/xlsx', authorize('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial', 'auditeur'), exportController.exportProjectsXlsx);
 router.get('/:id', projectsController.getProjectById);
 router.put('/:id', authorize('admin', 'utilisateur'), projectsController.updateProject);

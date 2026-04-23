@@ -130,6 +130,9 @@ const API = {
         update: (id, data) => API.put(`/projects/${id}`, data),
         updateProgress: (id, progress) => API.patch(`/projects/${id}/progress`, { progress_percentage: progress }),
         delete: (id) => API.delete(`/projects/${id}`),
+        listDeleted: () => API.get('/projects/deleted'),
+        restore: (id) => API.post(`/projects/${id}/restore`, {}),
+        hardDelete: (id) => API.delete(`/projects/${id}/hard`),
         addLocality: (id, data) => API.post(`/projects/${id}/localities`, data),
         addSite: (id, data) => API.post(`/projects/${id}/sites`, data),
         addMeasure: (id, data) => API.post(`/projects/${id}/measures`, data),
@@ -172,6 +175,27 @@ const API = {
         create: (measureId, comment) => API.post(`/measures/${measureId}/comments`, { comment }),
         getByMeasure: (measureId) => API.get(`/measures/${measureId}/comments`),
         delete: (commentId) => API.delete(`/comments/${commentId}`)
+    },
+
+    // === Measures (mes mesures) ===
+    measures: {
+        listMine: (filters = {}) => {
+            const params = new URLSearchParams(filters).toString();
+            return API.get(`/measures/my${params ? '?' + params : ''}`);
+        },
+        myStats: () => API.get('/measures/my/stats')
+    },
+
+    // === Notifications ===
+    notifications: {
+        list: (filters = {}) => {
+            const params = new URLSearchParams(filters).toString();
+            return API.get(`/notifications${params ? '?' + params : ''}`);
+        },
+        unreadCount: () => API.get('/notifications/unread-count'),
+        markRead: (id) => API.post(`/notifications/${id}/read`, {}),
+        markAllRead: () => API.post('/notifications/mark-all-read', {}),
+        delete: (id) => API.delete(`/notifications/${id}`)
     },
 
     // === Dashboard endpoints ===

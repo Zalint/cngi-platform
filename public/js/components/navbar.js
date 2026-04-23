@@ -33,6 +33,13 @@ const Navbar = {
                         </span>
                         <span>Projets</span>
                     </a>
+                    <a href="#/my-measures" class="menu-item" data-page="my-measures">
+                        <span class="menu-item-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                        </span>
+                        <span>Mes mesures</span>
+                        <span id="nav-my-measures-badge" class="nav-badge" style="display:none;"></span>
+                    </a>
                     <a href="#/observations" class="menu-item" data-page="observations">
                         <span class="menu-item-icon">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
@@ -126,16 +133,74 @@ const Navbar = {
                             onmouseover="this.style.background='#e1e9f0';" onmouseout="this.style.background='#f0f4f8';">
                         🔄 Actualiser
                     </button>
-                    <div class="user-profile">
+
+                    <div style="position:relative;" id="notif-bell-wrap">
+                        <button id="notif-bell-btn" onclick="Navbar.toggleNotifications(event)" aria-label="Notifications"
+                                title="Notifications"
+                                style="position:relative;display:inline-flex;align-items:center;justify-content:center;padding:8px;background:#f0f4f8;border:1px solid #dce3ed;border-radius:8px;cursor:pointer;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#202B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                            <span id="notif-bell-badge" style="display:none;position:absolute;top:-3px;right:-3px;background:#c0392b;color:white;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;min-width:18px;text-align:center;border:2px solid white;">0</span>
+                        </button>
+                        <div id="notif-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;width:360px;max-height:500px;overflow:hidden;background:white;border:1px solid #dce3ed;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:1000;">
+                            <div style="padding:10px 14px;border-bottom:1px solid #eef;display:flex;justify-content:space-between;align-items:center;">
+                                <strong style="color:#202B5D;font-size:13px;">Notifications</strong>
+                                <button onclick="event.stopPropagation(); Navbar.markAllNotificationsRead();" style="background:none;border:none;color:#3794C4;font-size:11px;font-weight:600;cursor:pointer;">Tout marquer lu</button>
+                            </div>
+                            <div id="notif-list" style="max-height:420px;overflow-y:auto;">
+                                <div style="padding:30px;text-align:center;color:#8896AB;font-size:12px;">Chargement...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="user-profile" id="user-profile-trigger" style="cursor:pointer;position:relative;" onclick="Navbar.toggleUserMenu(event)">
                         <div class="user-info">
                             <div class="user-name">${Auth.getFullName()}</div>
                             <div class="user-role">${roleLabels[user.role] || user.role}${user.structure_name ? ' - ' + user.structure_code : ''}</div>
                         </div>
                         <div class="user-avatar">${Auth.getInitials()}</div>
+                        <div id="user-menu-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:220px;background:white;border:1px solid #dce3ed;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:1000;overflow:hidden;">
+                            <button onclick="event.stopPropagation(); Navbar.openChangePasswordModal();"
+                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#202B5D;font-weight:600;"
+                                    onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='transparent'">
+                                <span style="font-size:16px;">🔑</span> Changer le mot de passe
+                            </button>
+                            <div style="height:1px;background:#eef;"></div>
+                            <button onclick="event.stopPropagation(); Navbar.logout();"
+                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#c0392b;font-weight:600;"
+                                    onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
+                                <span style="font-size:16px;">🚪</span> Déconnexion
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
+    },
+
+    toggleUserMenu(e) {
+        e.stopPropagation();
+        const dd = document.getElementById('user-menu-dropdown');
+        if (!dd) return;
+        const visible = dd.style.display === 'block';
+        dd.style.display = visible ? 'none' : 'block';
+        if (!visible) {
+            // Fermer au clic ailleurs
+            setTimeout(() => {
+                const closeHandler = (ev) => {
+                    if (!dd.contains(ev.target)) {
+                        dd.style.display = 'none';
+                        document.removeEventListener('click', closeHandler);
+                    }
+                };
+                document.addEventListener('click', closeHandler);
+            }, 0);
+        }
+    },
+
+    openChangePasswordModal() {
+        document.getElementById('user-menu-dropdown')?.style && (document.getElementById('user-menu-dropdown').style.display = 'none');
+        if (typeof ChangePasswordModal !== 'undefined') {
+            ChangePasswordModal.open();
+        }
     },
 
     toggleSidebar() {
@@ -228,6 +293,131 @@ const Navbar = {
             if (n > 0) {
                 badge.textContent = n > 9 ? '9+' : String(n);
                 badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        } catch (e) { /* silencieux */ }
+    },
+
+    async toggleNotifications(e) {
+        e.stopPropagation();
+        const dd = document.getElementById('notif-dropdown');
+        if (!dd) return;
+        const visible = dd.style.display === 'block';
+        dd.style.display = visible ? 'none' : 'block';
+        if (!visible) {
+            await this.loadNotifications();
+            // Close on outside click
+            setTimeout(() => {
+                const closeHandler = (ev) => {
+                    if (!dd.contains(ev.target) && !document.getElementById('notif-bell-btn')?.contains(ev.target)) {
+                        dd.style.display = 'none';
+                        document.removeEventListener('click', closeHandler);
+                    }
+                };
+                document.addEventListener('click', closeHandler);
+            }, 0);
+        }
+    },
+
+    async loadNotifications() {
+        const list = document.getElementById('notif-list');
+        if (!list) return;
+        try {
+            const res = await API.notifications.list({ limit: 20 });
+            const items = res.data || [];
+            if (items.length === 0) {
+                list.innerHTML = '<div style="padding:30px;text-align:center;color:#8896AB;font-size:12px;">Aucune notification</div>';
+                return;
+            }
+            const esc = (t) => { const s = String(t||''); return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); };
+            const iconForType = (t) => ({
+                measure_assigned:       '📋',
+                measure_comment:        '💬',
+                measure_status_changed: '🔄'
+            }[t] || '🔔');
+            // On utilise des data-attributes + un handler délégué plutôt que d'injecter
+            // directement n.link_url dans un onclick inline (évite tout risque d'XSS
+            // via une URL malformée, et protège contre les caractères non quotés).
+            list.innerHTML = items.map(n => `
+                <div class="notif-item" data-id="${n.id}" data-link="${esc(n.link_url || '')}"
+                     style="padding:12px 14px;border-bottom:1px solid #f0f4f8;cursor:pointer;background:${n.is_read ? 'white' : '#f0f9ff'};transition:background 0.1s;"
+                     onmouseover="this.style.background='#e8f4fc'" onmouseout="this.style.background='${n.is_read ? 'white' : '#f0f9ff'}'">
+                    <div style="display:flex;gap:10px;align-items:flex-start;">
+                        <div style="font-size:18px;flex-shrink:0;">${iconForType(n.type)}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:${n.is_read ? '500' : '700'};color:#202B5D;font-size:13px;margin-bottom:2px;line-height:1.3;">${esc(n.title)}</div>
+                            ${n.body ? `<div style="color:#62718D;font-size:12px;margin-bottom:4px;line-height:1.4;">${esc(n.body)}</div>` : ''}
+                            <div style="color:#8896AB;font-size:11px;">${new Date(n.created_at).toLocaleString('fr-FR')}</div>
+                        </div>
+                        ${!n.is_read ? '<div style="width:8px;height:8px;background:#3794C4;border-radius:50%;flex-shrink:0;margin-top:4px;"></div>' : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            // Handler délégué unique — évite les onclick inline qui interpolent des données utilisateur.
+            list.querySelectorAll('.notif-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    const id = parseInt(el.dataset.id);
+                    const link = el.dataset.link || '';
+                    Navbar.openNotification(id, link);
+                });
+            });
+        } catch (err) {
+            list.innerHTML = `<div style="padding:20px;color:#c0392b;font-size:12px;">Erreur : ${err.message || ''}</div>`;
+        }
+    },
+
+    async openNotification(id, linkUrl) {
+        try { await API.notifications.markRead(id); } catch {}
+        if (linkUrl) window.location.hash = linkUrl;
+        // Le dropdown peut avoir été retiré du DOM entre-temps (navigation / render) :
+        // on ferme avec un guard pour éviter "Cannot read properties of null".
+        const dd = document.getElementById('notif-dropdown');
+        if (dd) dd.style.display = 'none';
+        this.refreshNotificationBell();
+    },
+
+    async markAllNotificationsRead() {
+        try {
+            await API.notifications.markAllRead();
+            await this.loadNotifications();
+            this.refreshNotificationBell();
+        } catch (err) {
+            Toast.error('Erreur : ' + (err.message || ''));
+        }
+    },
+
+    async refreshNotificationBell() {
+        const badge = document.getElementById('notif-bell-badge');
+        if (!badge) return;
+        try {
+            const res = await API.notifications.unreadCount();
+            const n = res.count || 0;
+            if (n > 0) {
+                badge.textContent = n > 99 ? '99+' : String(n);
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+        } catch (e) { /* silencieux */ }
+    },
+
+    /**
+     * Badge "mes mesures" : affiche le nombre de mesures en attente (non exécutées)
+     * avec un accent rouge si certaines sont en retard.
+     */
+    async refreshMyMeasuresBadge() {
+        const badge = document.getElementById('nav-my-measures-badge');
+        if (!badge) return;
+        try {
+            const res = await API.measures.myStats();
+            const { pending = 0, overdue = 0 } = res.data || {};
+            if (pending > 0) {
+                badge.textContent = pending > 99 ? '99+' : String(pending);
+                badge.style.display = 'inline-flex';
+                badge.classList.toggle('nav-badge-yellow', overdue === 0);
+                badge.style.background = overdue > 0 ? '#c0392b' : '';
             } else {
                 badge.style.display = 'none';
             }

@@ -19,14 +19,29 @@ const ProjectStructure = {
     },
 
     /**
-     * Get all projects assigned to a structure
+     * Get all projects assigned to a structure.
+     * Retourne les mêmes colonnes que ProjectModel.findAll (structure_code,
+     * structure_name, compteurs sites/mesures/stakeholders/geometries) pour
+     * que les cards de projet s'affichent correctement côté frontend.
      */
     async getProjectsByStructure(structureId) {
         const result = await db.query(`
-            SELECT p.*, ps.assigned_at
+            SELECT p.*,
+                   s.name as structure_name,
+                   s.code as structure_code,
+                   u.username as creator_username,
+                   u.first_name as creator_first_name,
+                   u.last_name as creator_last_name,
+                   (SELECT COUNT(*) FROM sites WHERE project_id = p.id) as sites_count,
+                   (SELECT COUNT(*) FROM measures WHERE project_id = p.id) as measures_count,
+                   (SELECT COUNT(*) FROM stakeholders WHERE project_id = p.id) as stakeholders_count,
+                   ps.assigned_at
             FROM projects p
             INNER JOIN project_structures ps ON p.id = ps.project_id
+            LEFT JOIN structures s ON p.structure_id = s.id
+            LEFT JOIN users u ON p.created_by_user_id = u.id
             WHERE ps.structure_id = $1
+              AND p.deleted_at IS NULL
             ORDER BY p.created_at DESC
         `, [structureId]);
         return result.rows;

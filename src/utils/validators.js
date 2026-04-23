@@ -15,16 +15,36 @@ const isValidEmail = (email) => {
  * @param {string} password - Mot de passe à valider
  * @returns {object} - { valid: boolean, message: string }
  */
+/**
+ * Règles de robustesse du mot de passe.
+ * Contraintes :
+ *   - au moins 8 caractères
+ *   - au moins 1 majuscule
+ *   - au moins 1 minuscule
+ *   - au moins 1 chiffre
+ * Un caractère spécial est encouragé mais non obligatoire, pour ne pas bloquer
+ * les claviers locaux qui ont une disposition différente.
+ */
+const PASSWORD_RULES = [
+    { key: 'minLength',  test: (p) => p.length >= 8,     label: 'Au moins 8 caractères' },
+    { key: 'upperCase',  test: (p) => /[A-Z]/.test(p),   label: 'Au moins une majuscule (A-Z)' },
+    { key: 'lowerCase',  test: (p) => /[a-z]/.test(p),   label: 'Au moins une minuscule (a-z)' },
+    { key: 'digit',      test: (p) => /[0-9]/.test(p),   label: 'Au moins un chiffre (0-9)' }
+];
+
 const validatePassword = (password) => {
     if (!password) {
-        return { valid: false, message: 'Mot de passe requis' };
+        return { valid: false, message: 'Mot de passe requis', failed: [] };
     }
-    
-    if (password.length < 6) {
-        return { valid: false, message: 'Mot de passe doit contenir au moins 6 caractères' };
+    const failed = PASSWORD_RULES.filter(r => !r.test(password)).map(r => r.label);
+    if (failed.length > 0) {
+        return {
+            valid: false,
+            message: 'Le mot de passe ne respecte pas les règles : ' + failed.join(' · '),
+            failed
+        };
     }
-    
-    return { valid: true, message: 'Mot de passe valide' };
+    return { valid: true, message: 'Mot de passe valide', failed: [] };
 };
 
 /**
@@ -267,6 +287,7 @@ module.exports = {
     validateProjectData,
     validateProjectDataForUpdate,
     validateUserData,
+    PASSWORD_RULES,
     validateStructureData,
     sanitizeString
 };
