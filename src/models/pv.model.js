@@ -6,7 +6,13 @@ function buildVisibilityClause(user, paramOffset = 1) {
     const params = [];
     let i = paramOffset;
 
+    // Admin / superviseur : accès global systématique.
+    // Lecteur / auditeur : accès global UNIQUEMENT s'ils n'ont pas de structure rattachée.
+    //   Sinon on continue dans le filtre ci-dessous, qui les restreint aux PV liés à leur structure.
     if (user.role === 'admin' || user.role === 'superviseur') {
+        return { sql: '', params };
+    }
+    if ((user.role === 'lecteur' || user.role === 'auditeur') && !user.structure_id) {
         return { sql: '', params };
     }
 

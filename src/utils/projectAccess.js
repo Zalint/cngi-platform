@@ -17,6 +17,13 @@ async function canUserAccessProject(user, projectId) {
 
     if (user.role === 'admin' || user.role === 'superviseur') return true;
 
+    // Lecteur / auditeur global (sans structure) : accès à tout.
+    // Avec une structure : même règle que utilisateur/directeur.
+    if (user.role === 'lecteur' || user.role === 'auditeur') {
+        if (!user.structure_id) return true;
+        return ProjectStructure.userHasAccessToProject(user.id, projectId);
+    }
+
     if (user.role === 'utilisateur' || user.role === 'directeur') {
         if (!user.structure_id) return false;
         return ProjectStructure.userHasAccessToProject(user.id, projectId);
