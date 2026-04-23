@@ -336,8 +336,11 @@ const Navbar = {
                 measure_comment:        '💬',
                 measure_status_changed: '🔄'
             }[t] || '🔔');
+            // On utilise des data-attributes + un handler délégué plutôt que d'injecter
+            // directement n.link_url dans un onclick inline (évite tout risque d'XSS
+            // via une URL malformée, et protège contre les caractères non quotés).
             list.innerHTML = items.map(n => `
-                <div onclick="Navbar.openNotification(${n.id}, ${JSON.stringify(n.link_url || '').replace(/"/g, '&quot;')})"
+                <div class="notif-item" data-id="${n.id}" data-link="${esc(n.link_url || '')}"
                      style="padding:12px 14px;border-bottom:1px solid #f0f4f8;cursor:pointer;background:${n.is_read ? 'white' : '#f0f9ff'};transition:background 0.1s;"
                      onmouseover="this.style.background='#e8f4fc'" onmouseout="this.style.background='${n.is_read ? 'white' : '#f0f9ff'}'">
                     <div style="display:flex;gap:10px;align-items:flex-start;">
@@ -351,6 +354,15 @@ const Navbar = {
                     </div>
                 </div>
             `).join('');
+
+            // Handler délégué unique — évite les onclick inline qui interpolent des données utilisateur.
+            list.querySelectorAll('.notif-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    const id = parseInt(el.dataset.id);
+                    const link = el.dataset.link || '';
+                    Navbar.openNotification(id, link);
+                });
+            });
         } catch (err) {
             list.innerHTML = `<div style="padding:20px;color:#c0392b;font-size:12px;">Erreur : ${err.message || ''}</div>`;
         }

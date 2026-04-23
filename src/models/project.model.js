@@ -69,7 +69,8 @@ class ProjectModel {
             SELECT DISTINCT p.*, s.name as structure_name, s.code as structure_code
             FROM projects p
             LEFT JOIN structures s ON p.structure_id = s.id
-            WHERE p.id IN (
+            WHERE p.deleted_at IS NULL
+              AND p.id IN (
                 SELECT DISTINCT project_id FROM localities WHERE ${column} = $1
                 UNION
                 SELECT DISTINCT project_id FROM sites WHERE ${column} = $1

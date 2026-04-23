@@ -17,22 +17,31 @@ const STATUS_LABELS = {
  * sur une mesure d'un projet : le ou les admins, le directeur de la structure
  * principale du projet, le chef de projet et l'assigné de la mesure.
  * Exclut l'utilisateur qui a provoqué l'événement (excludeUserId).
+ *
+ * Robustesse : on utilise $N IS NOT NULL plutôt qu'un fallback `|| 0` côté JS,
+ * ainsi un user.id qui serait à 0 (edge-case) n'empoisonne pas la logique, et
+ * NULL reste correctement géré comme "pas d'assigné / pas d'exclusion".
  */
 async function collectMeasureWatchers(projectId, measureAssignedUserId, excludeUserId) {
     try {
+        const pid = Number.isFinite(parseInt(projectId)) ? parseInt(projectId) : null;
+        if (!pid) return [];
+        const assigned = Number.isFinite(parseInt(measureAssignedUserId)) ? parseInt(measureAssignedUserId) : null;
+        const exclude  = Number.isFinite(parseInt(excludeUserId)) ? parseInt(excludeUserId) : null;
+
         const result = await db.query(`
             SELECT DISTINCT u.id
             FROM users u
             LEFT JOIN projects p ON p.id = $1
             WHERE u.is_active = true
-              AND u.id <> $2
+              AND ($2::int IS NULL OR u.id <> $2)
               AND (
                     u.role = 'admin'
                  OR (u.role = 'directeur' AND u.structure_id = p.structure_id)
                  OR u.id = p.project_manager_id
-                 OR u.id = $3
+                 OR ($3::int IS NOT NULL AND u.id = $3)
               )
-        `, [projectId, excludeUserId || 0, measureAssignedUserId || 0]);
+        `, [pid, exclude, assigned]);
         return result.rows.map(r => r.id);
     } catch (err) {
         console.error('collectMeasureWatchers failed:', err.message);

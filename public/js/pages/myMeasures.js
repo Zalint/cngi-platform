@@ -199,12 +199,31 @@ const MyMeasuresPage = {
     },
 
     async setFilter(status) {
+        // Mémoriser quelles sections de commentaires étaient ouvertes pour les
+        // rouvrir après re-rendu. On conserve aussi la position de scroll pour
+        // limiter la friction quand l'utilisateur change de filtre.
+        const openCommentsIds = Array.from(document.querySelectorAll('[id^="comments-section-"]'))
+            .filter(el => el.style.display === 'block')
+            .map(el => parseInt(el.id.replace('comments-section-', '')))
+            .filter(n => Number.isFinite(n));
+        const scrollY = window.scrollY;
+
         this.data.currentStatus = status;
         await this.loadData();
         const content = document.querySelector('.content-area');
-        if (content) {
-            content.innerHTML = this.renderStats() + this.renderFilters() + this.renderMeasures();
+        if (!content) return;
+        content.innerHTML = this.renderStats() + this.renderFilters() + this.renderMeasures();
+
+        // Rouvrir les sections commentaires précédemment ouvertes, si la mesure est toujours dans la liste
+        for (const id of openCommentsIds) {
+            const section = document.getElementById(`comments-section-${id}`);
+            if (section) {
+                section.style.display = 'block';
+                this.loadComments(id); // recharge la liste (async, non bloquant)
+            }
         }
+        // Restaurer le scroll
+        window.scrollTo({ top: scrollY, behavior: 'instant' in window ? 'instant' : 'auto' });
     },
 
     async toggleComments(measureId) {

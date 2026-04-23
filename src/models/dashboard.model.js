@@ -5,11 +5,12 @@ class DashboardModel {
      * Récupérer les métriques principales du dashboard
      */
     static async getMetrics(structureId = null) {
-        let whereClause = '';
+        // Exclure systématiquement les projets supprimés (soft delete)
+        let whereClause = 'WHERE p.deleted_at IS NULL';
         const params = [];
-        
+
         if (structureId) {
-            whereClause = 'WHERE p.id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)';
+            whereClause += ' AND p.id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)';
             params.push(structureId);
         }
         
@@ -50,16 +51,16 @@ class DashboardModel {
      * Récupérer la répartition des projets par structure
      */
     static async getProjectsByStructure(structureId = null) {
-        let whereClause = '';
+        let whereClause = 'WHERE (p.id IS NULL OR p.deleted_at IS NULL)';
         const params = [];
-        
+
         if (structureId) {
-            whereClause = 'WHERE s.id = $1';
+            whereClause += ' AND s.id = $1';
             params.push(structureId);
         }
-        
+
         const result = await db.query(`
-            SELECT 
+            SELECT
                 s.id,
                 s.name,
                 s.code,
@@ -101,6 +102,7 @@ class DashboardModel {
             INNER JOIN projects p ON s.project_id = p.id
             INNER JOIN structures st ON p.structure_id = st.id
             WHERE s.latitude IS NOT NULL AND s.longitude IS NOT NULL
+              AND p.deleted_at IS NULL
         `;
         
         const params = [];
@@ -137,14 +139,15 @@ class DashboardModel {
                 ) as secondary_structures
             FROM projects p
             LEFT JOIN structures s ON p.structure_id = s.id
+            WHERE p.deleted_at IS NULL
         `;
-        
+
         const params = [];
         if (structureId) {
-            query += ' WHERE p.id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)';
+            query += ' AND p.id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)';
             params.push(structureId);
         }
-        
+
         query += ' ORDER BY p.created_at DESC LIMIT $' + (structureId ? 2 : 1);
         params.push(limit);
         
@@ -167,7 +170,8 @@ class DashboardModel {
                 CURRENT_DATE - p.deadline_date as days_late
             FROM projects p
             LEFT JOIN structures s ON p.structure_id = s.id
-            WHERE p.status != 'termine' 
+            WHERE p.status != 'termine'
+              AND p.deleted_at IS NULL
               AND p.deadline_date < CURRENT_DATE
         `;
         
@@ -219,14 +223,15 @@ class DashboardModel {
             FROM measures m
             INNER JOIN projects p ON m.project_id = p.id
             WHERE m.type IS NOT NULL
+              AND p.deleted_at IS NULL
         `;
-        
+
         const params = [];
         if (structureId) {
             query += ' AND p.id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)';
             params.push(structureId);
         }
-        
+
         query += ' GROUP BY m.type ORDER BY count DESC';
         
         const result = await db.query(query, params);
@@ -244,8 +249,9 @@ class DashboardModel {
                 SUM(CASE WHEN status = 'termine' THEN budget ELSE 0 END) as budget_termine
             FROM projects
             WHERE budget IS NOT NULL
+              AND deleted_at IS NULL
         `;
-        
+
         const params = [];
         if (structureId) {
             query += ' AND id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)';
@@ -278,7 +284,7 @@ class DashboardModel {
                    ) as secondary_structures
             FROM projects p
             LEFT JOIN structures s ON p.structure_id = s.id
-            WHERE p.id IN ${sub}
+            WHERE p.deleted_at IS NULL AND p.id IN ${sub}
             ORDER BY p.created_at DESC LIMIT $2
         `, [value, limit]);
         return result.rows;
@@ -294,6 +300,7 @@ class DashboardModel {
             INNER JOIN projects p ON si.project_id = p.id
             INNER JOIN structures st ON p.structure_id = st.id
             WHERE si.latitude IS NOT NULL AND si.longitude IS NOT NULL
+              AND p.deleted_at IS NULL
               AND p.id IN ${sub}
             ORDER BY si.id
         `, [value]);
@@ -310,7 +317,7 @@ class DashboardModel {
                    COUNT(CASE WHEN p.status = 'retard' THEN 1 END) as retard
             FROM projects p
             JOIN structures s ON p.structure_id = s.id
-            WHERE p.id IN ${sub}
+            WHERE p.deleted_at IS NULL AND p.id IN ${sub}
             GROUP BY s.id, s.name, s.code
             ORDER BY total_projects DESC
         `, [value]);
@@ -326,6 +333,7 @@ class DashboardModel {
             FROM projects p
             LEFT JOIN structures s ON p.structure_id = s.id
             WHERE p.status != 'termine'
+              AND p.deleted_at IS NULL
               AND p.deadline_date < CURRENT_DATE
               AND p.id IN ${sub}
             ORDER BY p.deadline_date ASC
@@ -340,6 +348,7 @@ class DashboardModel {
             FROM measures m
             INNER JOIN projects p ON m.project_id = p.id
             WHERE m.type IS NOT NULL
+              AND p.deleted_at IS NULL
               AND p.id IN ${sub}
             GROUP BY m.type ORDER BY count DESC
         `, [value]);
@@ -355,6 +364,7 @@ class DashboardModel {
                 SUM(CASE WHEN p.status = 'termine' THEN p.budget ELSE 0 END) as budget_termine
             FROM projects p
             WHERE p.budget IS NOT NULL
+              AND p.deleted_at IS NULL
               AND p.id IN ${sub}
         `, [value]);
         return result.rows[0];
@@ -369,7 +379,7 @@ class DashboardModel {
             throw new Error(`Invalid territorial level: ${level}. Must be one of: ${allowedColumns.join(', ')}`);
         }
 
-        const territoryFilter = `WHERE p.id IN (
+        const territoryFilter = `WHERE p.deleted_at IS NULL AND p.id IN (
             SELECT DISTINCT project_id FROM localities WHERE ${level} = $1
             UNION
             SELECT DISTINCT project_id FROM sites WHERE ${level} = $1
