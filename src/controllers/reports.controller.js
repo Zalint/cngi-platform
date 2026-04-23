@@ -11,6 +11,21 @@ const ProjectStructure = require('../models/projectStructure.model');
 const ObservationModel = require('../models/observation.model');
 const PvModel = require('../models/pv.model');
 
+// Parcourt items avec une limite de concurrence stricte — évite d'épuiser la pool Postgres
+async function mapWithConcurrency(items, limit, fn) {
+    const results = new Array(items.length);
+    let idx = 0;
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+        while (true) {
+            const i = idx++;
+            if (i >= items.length) return;
+            results[i] = await fn(items[i], i);
+        }
+    });
+    await Promise.all(workers);
+    return results;
+}
+
 const STATUS_LABELS = {
     demarrage: 'Démarrage', en_cours: 'En cours', termine: 'Terminé', retard: 'En retard', annule: 'Annulé'
 };
@@ -145,18 +160,37 @@ Consignes de style :
 async function callLLM(prompt) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) throw new Error('OPENAI_API_KEY manquante dans .env');
-    const client = new OpenAI({ apiKey });
+    const client = new OpenAI({
+        apiKey,
+        timeout: 120000,      // 2 min par tentative (chat completion)
+        maxRetries: 2         // 2 retries sur erreurs transitoires
+    });
     const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 
-    const completion = await client.chat.completions.create({
-        model,
-        messages: [
-            { role: 'system', content: 'Tu es un analyste senior spécialisé en gestion des risques d\'inondation et en pilotage de projets publics au Sénégal. Tu produis des rapports précis, structurés et actionnables.' },
-            { role: 'user', content: prompt }
-        ],
-        temperature: 0.3
-    });
-    return completion.choices[0].message.content;
+    console.log(`[reports] Calling OpenAI model=${model} prompt_chars=${prompt.length}`);
+    const t0 = Date.now();
+    try {
+        const completion = await client.chat.completions.create({
+            model,
+            messages: [
+                { role: 'system', content: 'Tu es un analyste senior spécialisé en gestion des risques d\'inondation et en pilotage de projets publics au Sénégal. Tu produis des rapports précis, structurés et actionnables.' },
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.3
+        });
+        console.log(`[reports] OpenAI OK in ${Date.now() - t0}ms`);
+        return completion.choices[0].message.content;
+    } catch (err) {
+        console.error(`[reports] OpenAI FAILED after ${Date.now() - t0}ms — name=${err.name} status=${err.status} message=${err.message}`);
+        if (err.cause) console.error('[reports] cause:', err.cause);
+        // Message plus parlant côté client
+        if (err.message && err.message.includes('timeout exceeded when trying to connect')) {
+            throw new Error('Impossible de contacter OpenAI (timeout réseau). Vérifiez la connexion internet du serveur, la clé API et qu\'aucun firewall ne bloque api.openai.com.');
+        }
+        if (err.status === 401) throw new Error('Clé OpenAI invalide (401). Régénérez OPENAI_API_KEY.');
+        if (err.status === 429) throw new Error('Quota OpenAI dépassé ou rate-limit atteint (429).');
+        throw err;
+    }
 }
 
 // ==================== PDF Generation ====================
@@ -570,8 +604,8 @@ exports.generateReport = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Aucun projet ne correspond aux filtres' });
         }
 
-        // Charger détails complets
-        const detailed = await Promise.all(projects.map(p => ProjectModel.findById(p.id)));
+        // Charger détails complets — avec concurrence limitée pour éviter d'épuiser la pool Postgres
+        const detailed = await mapWithConcurrency(projects, 3, p => ProjectModel.findById(p.id));
 
         // Charger observations du Ministre et tous les PV du Commandement Territorial
         // (Gouverneurs = region, Préfets = departement, Sous-préfets = arrondissement).
@@ -609,6 +643,13 @@ exports.generateReport = async (req, res, next) => {
         }
     } catch (error) {
         console.error('Report generation error:', error);
+        // Message plus parlant pour les erreurs de connexion à la base
+        if (error && error.message && error.message.includes('timeout exceeded when trying to connect')) {
+            return res.status(503).json({
+                success: false,
+                message: 'Base de données surchargée (pool épuisée). Réessayez dans quelques secondes.'
+            });
+        }
         next(error);
     }
 };
