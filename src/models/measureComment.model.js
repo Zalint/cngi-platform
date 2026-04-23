@@ -2,28 +2,25 @@ const db = require('../config/db');
 
 class MeasureCommentModel {
     /**
-     * Créer ou mettre à jour le commentaire d'un utilisateur sur une mesure
-     * (Un utilisateur = un seul commentaire par mesure)
+     * Ajouter un commentaire à une mesure.
+     * Fil de discussion classique : un utilisateur peut poster plusieurs
+     * commentaires sur la même mesure. L'ancien code utilisait ON CONFLICT
+     * (measure_id, user_id) mais la table n'a pas cette contrainte UNIQUE —
+     * ce qui levait "there is no unique or exclusion constraint".
      */
-    static async upsert(measureId, userId, comment) {
+    static async create(measureId, userId, comment) {
         const result = await db.query(`
             INSERT INTO measure_comments (measure_id, user_id, comment)
             VALUES ($1, $2, $3)
-            ON CONFLICT (measure_id, user_id) 
-            DO UPDATE SET 
-                comment = EXCLUDED.comment,
-                created_at = CURRENT_TIMESTAMP
             RETURNING *
         `, [measureId, userId, comment]);
-        
         return result.rows[0];
     }
 
-    /**
-     * Ajouter un commentaire à une mesure (ancienne méthode conservée pour compatibilité)
-     */
-    static async create(measureId, userId, comment) {
-        return this.upsert(measureId, userId, comment);
+    // Alias conservé pour les appels historiques. Délègue à create() puisque
+    // la sémantique "upsert" ne correspond pas au schéma réel.
+    static async upsert(measureId, userId, comment) {
+        return this.create(measureId, userId, comment);
     }
 
     /**
