@@ -352,9 +352,21 @@ const DashboardPage = {
 
         return `
             <div class="card mb-4" id="recent-projects-card">
-                <div class="card-header">
-                    <h2>Projets récents</h2>
-                    <p>Derniers projets créés (${this.data.recentProjects.length} affichés)</p>
+                <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div>
+                        <h2>Projets récents</h2>
+                        <p>Derniers projets créés (${this.data.recentProjects.length} affichés)</p>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-secondary" onclick="DashboardPage.exportXlsx()" title="Exporter tous les projets au format Excel">
+                            <span>&#128202;</span>
+                            <span>Exporter Excel</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="DashboardPage.openReportModal()" title="Générer un rapport analytique via IA">
+                            <span>&#129302;</span>
+                            <span>Générer rapport</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="table-container">
                     <table>
@@ -390,6 +402,156 @@ const DashboardPage = {
             const tmp = document.createElement('div');
             tmp.innerHTML = this.renderRecentProjects();
             card.replaceWith(tmp.firstElementChild);
+        }
+    },
+
+    async exportXlsx() {
+        try {
+            Toast.info('Génération du fichier Excel...');
+            const token = Auth.getToken();
+            const resp = await fetch('/api/projects/export/xlsx', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!resp.ok) {
+                const txt = await resp.text();
+                throw new Error(txt || `HTTP ${resp.status}`);
+            }
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `CNGIRI_Projets_${new Date().toISOString().slice(0,10)}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            Toast.success('Export Excel téléchargé.');
+        } catch (err) {
+            console.error(err);
+            Toast.error('Erreur lors de l\'export: ' + (err.message || 'inconnue'));
+        }
+    },
+
+    async openReportModal() {
+        let structures = [];
+        try {
+            const resp = await API.structures.getAll();
+            structures = resp.data || [];
+        } catch (e) { console.error(e); }
+
+        const structureOptions = structures.map(s =>
+            `<option value="${s.id}">${s.code} — ${s.name}</option>`).join('');
+
+        const modal = document.createElement('div');
+        modal.className = 'confirm-overlay confirm-visible';
+        modal.innerHTML = `
+            <div class="confirm-dialog" style="text-align:left;max-width:520px;">
+                <h3 style="margin-bottom:8px;color:#202B5D;">🤖 Générer un rapport IA</h3>
+                <p style="color:#62718D;font-size:13px;margin-bottom:20px;">
+                    Le rapport analyse les projets sélectionnés via GPT-4.1-mini et couvre : résumé exécutif,
+                    état global, analyse par structure, projets prioritaires, retards, mesures, recommandations.
+                </p>
+
+                <div class="form-group">
+                    <label>Filtre — Statut</label>
+                    <select id="report-status" class="form-control">
+                        <option value="">Tous les statuts</option>
+                        <option value="demarrage">Démarrage</option>
+                        <option value="en_cours">En cours</option>
+                        <option value="termine">Terminé</option>
+                        <option value="retard">En retard</option>
+                        <option value="annule">Annulé</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Filtre — Structure</label>
+                    <select id="report-structure" class="form-control">
+                        <option value="">Toutes les structures</option>
+                        ${structureOptions}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Filtre — Priorité</label>
+                    <select id="report-priority" class="form-control">
+                        <option value="">Toutes les priorités</option>
+                        <option value="normale">Normale</option>
+                        <option value="haute">Haute</option>
+                        <option value="urgente">Urgente</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Format</label>
+                    <div style="display:flex;gap:10px;">
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:1px solid #dce3ed;border-radius:6px;flex:1;">
+                            <input type="radio" name="report-format" value="pdf" checked> 📄 PDF
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:1px solid #dce3ed;border-radius:6px;flex:1;">
+                            <input type="radio" name="report-format" value="docx"> 📝 Word
+                        </label>
+                    </div>
+                </div>
+
+                <div style="background:#fff8e1;padding:10px;border-radius:6px;border-left:3px solid #f39c12;margin:12px 0;font-size:12px;color:#8a6d3b;">
+                    ⏱️ La génération prend 15-30 secondes selon le volume de projets.
+                </div>
+
+                <div class="confirm-actions" style="margin-top:20px;">
+                    <button class="confirm-btn confirm-btn-cancel" onclick="this.closest('.confirm-overlay').remove()">Annuler</button>
+                    <button class="confirm-btn confirm-btn-ok" style="background:#202B5D;" id="report-generate-btn" onclick="DashboardPage.generateReport()">Générer</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    },
+
+    async generateReport() {
+        const btn = document.getElementById('report-generate-btn');
+        try {
+            const status = document.getElementById('report-status').value;
+            const structure_id = document.getElementById('report-structure').value;
+            const priority = document.getElementById('report-priority').value;
+            const format = document.querySelector('input[name="report-format"]:checked').value;
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Génération en cours...';
+            Toast.info('Le LLM analyse les projets, merci de patienter...');
+
+            const resp = await fetch('/api/reports/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${Auth.getToken()}`
+                },
+                body: JSON.stringify({ format, status, structure_id, priority })
+            });
+
+            if (!resp.ok) {
+                const txt = await resp.text();
+                let msg = txt;
+                try { msg = JSON.parse(txt).message || txt; } catch {}
+                throw new Error(msg || `HTTP ${resp.status}`);
+            }
+
+            const blob = await resp.blob();
+            const ext = format === 'pdf' ? 'pdf' : 'docx';
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `CNGIRI_Rapport_${new Date().toISOString().slice(0,10)}.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+
+            document.querySelector('.confirm-overlay')?.remove();
+            Toast.success('Rapport généré et téléchargé.');
+        } catch (err) {
+            console.error(err);
+            Toast.error('Erreur: ' + (err.message || 'inconnue'));
+            if (btn) { btn.disabled = false; btn.textContent = 'Générer'; }
         }
     },
 
