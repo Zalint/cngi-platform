@@ -24,7 +24,6 @@ exports.listMine = async (req, res, next) => {
                 m.status,
                 m.constraints,
                 m.created_at,
-                m.updated_at,
                 p.title as project_title,
                 p.status as project_status,
                 p.priority as project_priority,
