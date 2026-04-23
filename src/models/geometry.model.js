@@ -4,6 +4,11 @@ const ALLOWED_KINDS = ['linestring', 'polygon'];
 const ALLOWED_USAGE = ['drainage', 'intervention', 'zone_inondable', 'autre'];
 const ALLOWED_VULN = ['normal', 'elevee', 'tres_elevee'];
 
+// Cap dur sur le nombre de features importées en une seule requête.
+// Empêche un payload pathologique (10 MB de features) de saturer la DB dans une
+// transaction unique. Au-delà, l'utilisateur doit splitter son fichier.
+const MAX_FEATURES_PER_IMPORT = 500;
+
 /**
  * Modèle des géométries projet (polylignes et polygones).
  *
@@ -135,30 +140,54 @@ class GeometryModel {
     }
 
     static async update(id, data) {
-        // Mise à jour des métadonnées uniquement (nom, description, structure, usage, color, vulnérabilité).
-        // Pour changer la géométrie elle-même, supprimer et recréer.
-        const usage = data.usage_type !== undefined ? this._validateUsage(data.usage_type) : null;
-        const vuln = data.vulnerability_level !== undefined ? this._validateVulnerability(data.vulnerability_level) : null;
-        const result = await db.query(`
-            UPDATE geometries
-            SET name = COALESCE($1, name),
-                description = COALESCE($2, description),
-                structure_id = COALESCE($3, structure_id),
-                usage_type = COALESCE($4, usage_type),
-                color = COALESCE($5, color),
-                vulnerability_level = COALESCE($6, vulnerability_level),
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = $7
-            RETURNING *
-        `, [
-            data.name || null,
-            data.description || null,
-            data.structure_id || null,
-            usage,
-            data.color || null,
-            vuln,
-            id
-        ]);
+        // Mise à jour PATCH-safe : on ne modifie QUE les champs explicitement présents dans `data`.
+        // - clé absente (undefined) → champ inchangé en base
+        // - clé présente avec null    → valeur écrite comme NULL (permet de "clear")
+        // - clé présente avec valeur  → valeur écrite après validation si applicable
+        //
+        // Cette sémantique évite que `data.x || null` confonde empty-string / null / undefined.
+        const sets = [];
+        const params = [];
+        let i = 1;
+        const has = (k) => Object.prototype.hasOwnProperty.call(data, k);
+
+        if (has('name')) {
+            sets.push(`name = $${i++}`);
+            params.push(data.name);
+        }
+        if (has('description')) {
+            sets.push(`description = $${i++}`);
+            params.push(data.description);
+        }
+        if (has('structure_id')) {
+            sets.push(`structure_id = $${i++}`);
+            params.push(data.structure_id);
+        }
+        if (has('usage_type')) {
+            sets.push(`usage_type = $${i++}`);
+            params.push(this._validateUsage(data.usage_type));
+        }
+        if (has('color')) {
+            sets.push(`color = $${i++}`);
+            params.push(data.color);
+        }
+        if (has('vulnerability_level')) {
+            sets.push(`vulnerability_level = $${i++}`);
+            params.push(this._validateVulnerability(data.vulnerability_level));
+        }
+
+        if (sets.length === 0) {
+            // Aucune modification demandée → on renvoie la ligne telle quelle pour rester idempotent.
+            return this.findById(id);
+        }
+
+        sets.push('updated_at = CURRENT_TIMESTAMP');
+        params.push(id);
+
+        const result = await db.query(
+            `UPDATE geometries SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`,
+            params
+        );
         return result.rows[0] || null;
     }
 
@@ -184,24 +213,49 @@ class GeometryModel {
             throw err;
         }
 
+        if (geojson.features.length > MAX_FEATURES_PER_IMPORT) {
+            const err = new Error(
+                `Trop de features à importer : ${geojson.features.length} reçues, maximum autorisé ${MAX_FEATURES_PER_IMPORT}. `
+                + `Splitte ton fichier en plusieurs imports.`
+            );
+            err.statusCode = 413; // Payload Too Large (sémantique 13/413)
+            throw err;
+        }
+
         // Précharger les structures pour résoudre structure_code → structure_id
         const structuresRes = await db.query(`SELECT id, code FROM structures`);
         const structureByCode = {};
-        for (const s of structuresRes.rows) structureByCode[s.code.toUpperCase()] = s.id;
+        for (const s of structuresRes.rows) {
+            // Défensif : la colonne structures.code est NOT NULL en schéma, mais on se protège
+            // d'une base migrée depuis une version antérieure ou d'un jeu de données exotique.
+            const code = s.code != null ? String(s.code).toUpperCase() : null;
+            if (code) structureByCode[code] = s.id;
+        }
 
         const client = await db.getClient();
         const imported = [];
+        const skipped = []; // [{ index, name, reason }]
         try {
             await client.query('BEGIN');
-            for (const feature of geojson.features) {
-                if (!feature || feature.type !== 'Feature' || !feature.geometry) continue;
+            for (let i = 0; i < geojson.features.length; i++) {
+                const feature = geojson.features[i];
+                const props = (feature && feature.properties) || {};
+                const featureName = props.name || `Feature #${i + 1}`;
+
+                if (!feature || feature.type !== 'Feature' || !feature.geometry) {
+                    skipped.push({ index: i, name: featureName, reason: 'Feature invalide (structure GeoJSON incorrecte)' });
+                    continue;
+                }
+
                 const geomType = feature.geometry.type;
                 let kind;
                 if (geomType === 'LineString') kind = 'linestring';
                 else if (geomType === 'Polygon') kind = 'polygon';
-                else continue; // Point, MultiLineString, etc. : ignorés pour Phase 1
+                else {
+                    skipped.push({ index: i, name: featureName, reason: `Type de géométrie non supporté : ${geomType} (seuls LineString et Polygon sont acceptés)` });
+                    continue;
+                }
 
-                const props = feature.properties || {};
                 const structureCode = (props.structure_code || '').toUpperCase();
                 const structureId = structureByCode[structureCode] || null;
                 const usage = ALLOWED_USAGE.includes(props.type) ? props.type : 'autre';
@@ -210,7 +264,7 @@ class GeometryModel {
                 try {
                     this._validateCoordinates(kind, feature.geometry.coordinates);
                 } catch (err) {
-                    // Ignorer cette feature plutôt que d'abandonner tout l'import
+                    skipped.push({ index: i, name: featureName, reason: err.message });
                     continue;
                 }
 
@@ -238,7 +292,7 @@ class GeometryModel {
         } finally {
             client.release();
         }
-        return imported;
+        return { imported, skipped };
     }
 }
 

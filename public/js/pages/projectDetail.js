@@ -491,46 +491,49 @@ const ProjectDetailPage = {
         `;
     },
 
+    _escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const s = String(text);
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' };
+        return s.replace(/[&<>"'`]/g, c => map[c]);
+    },
+
     renderGeometriesSection() {
         const geoms = this.data.geometries || [];
         const canManage = Auth.hasAnyRole('admin', 'utilisateur', 'directeur');
+        const esc = (t) => ProjectDetailPage._escapeHtml(t);
 
-        const usageLabel = (u) => ({
-            drainage: 'Drainage',
-            intervention: 'Intervention',
-            zone_inondable: 'Zone inondable',
-            autre: 'Autre'
-        }[u] || u);
+        // Ces lookups sont whitelistés : toute clé inconnue tombe sur une valeur sûre
+        const USAGE_LABELS = { drainage: 'Drainage', intervention: 'Intervention', zone_inondable: 'Zone inondable', autre: 'Autre' };
+        const USAGE_ICONS = { drainage: '💧', intervention: '🚒', zone_inondable: '🌊', autre: '📐' };
+        const usageLabel = (u) => USAGE_LABELS[u] || 'Autre';
+        const usageIcon  = (u) => USAGE_ICONS[u]  || '📐';
 
-        const usageIcon = (u) => ({
-            drainage: '💧',
-            intervention: '🚒',
-            zone_inondable: '🌊',
-            autre: '📐'
-        }[u] || '📐');
-
-        // Résumé par structure
+        // Résumé par structure (code source = table structures, mais on échappe par précaution)
         const byStructure = {};
         for (const g of geoms) {
             const k = g.structure_code || '—';
             byStructure[k] = (byStructure[k] || 0) + 1;
         }
-        const summary = Object.entries(byStructure).map(([code, n]) => `${n} ${code}`).join(' · ') || 'Aucun tracé';
+        const summary = Object.entries(byStructure).map(([code, n]) => `${n} ${esc(code)}`).join(' · ') || 'Aucun tracé';
 
         const cards = geoms.map(g => {
             const color = (typeof StructureColors !== 'undefined' ? StructureColors.get(g.structure_code) : null) || '#3794C4';
+            const truncatedDesc = g.description
+                ? (g.description.length > 80 ? g.description.slice(0, 80) + '…' : g.description)
+                : '';
             return `
                 <div style="background:#f8f9fa;border-left:4px solid ${color};border-radius:8px;padding:12px 14px;min-width:220px;flex:1;">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
                         <span style="font-size:16px;">${usageIcon(g.usage_type)}</span>
-                        <strong style="color:#202B5D;font-size:13px;">${g.name}</strong>
+                        <strong style="color:#202B5D;font-size:13px;">${esc(g.name)}</strong>
                     </div>
                     <div style="font-size:11px;color:#62718D;margin-bottom:8px;">
-                        <span style="display:inline-block;padding:2px 6px;background:${color};color:white;border-radius:8px;font-weight:700;margin-right:4px;">${g.structure_code || '—'}</span>
-                        <span style="display:inline-block;padding:2px 6px;background:#e8ecf1;color:#202B5D;border-radius:8px;font-weight:600;margin-right:4px;">${usageLabel(g.usage_type)}</span>
+                        <span style="display:inline-block;padding:2px 6px;background:${color};color:white;border-radius:8px;font-weight:700;margin-right:4px;">${esc(g.structure_code || '—')}</span>
+                        <span style="display:inline-block;padding:2px 6px;background:#e8ecf1;color:#202B5D;border-radius:8px;font-weight:600;margin-right:4px;">${esc(usageLabel(g.usage_type))}</span>
                         ${ProjectDetailPage.renderVulnBadge(g.vulnerability_level)}
                     </div>
-                    ${g.description ? `<div style="font-size:11px;color:#62718D;margin-bottom:8px;">${g.description.length > 80 ? g.description.slice(0, 80) + '…' : g.description}</div>` : ''}
+                    ${truncatedDesc ? `<div style="font-size:11px;color:#62718D;margin-bottom:8px;">${esc(truncatedDesc)}</div>` : ''}
                     ${canManage ? `
                         <div style="display:flex;gap:6px;">
                             <button class="btn btn-danger" style="font-size:11px;padding:4px 10px;" onclick="ProjectDetailPage.deleteGeometry(${g.id})">🗑 Supprimer</button>
@@ -550,13 +553,13 @@ const ProjectDetailPage = {
                     ${canManage ? `
                         <div style="display:flex;gap:8px;">
                             <button class="btn btn-secondary" onclick="ProjectDetailPage.openImportGeometriesModal()">
-                                ⬆ Importer GeoJSON / KML
+                                ⬆ Importer GeoJSON
                             </button>
                         </div>
                     ` : ''}
                 </div>
                 ${geoms.length === 0
-                    ? `<div style="padding:30px;background:#f8f9fa;border-radius:8px;text-align:center;color:#8896AB;font-size:13px;">Aucun tracé pour ce projet. Importe un fichier GeoJSON (depuis un SIG) ou KML (depuis Google Earth) pour ajouter le réseau de drainage, les itinéraires d'intervention ou les zones inondables.</div>`
+                    ? `<div style="padding:30px;background:#f8f9fa;border-radius:8px;text-align:center;color:#8896AB;font-size:13px;">Aucun tracé pour ce projet. Importe un fichier GeoJSON (depuis geojson.io, QGIS…) pour ajouter le réseau de drainage, les itinéraires d'intervention ou les zones inondables.</div>`
                     : `<div style="display:flex;flex-wrap:wrap;gap:12px;">${cards}</div>`
                 }
             </div>
@@ -566,10 +569,11 @@ const ProjectDetailPage = {
     openImportGeometriesModal() {
         const project = this.data.project;
         const structures = this.data.structures || [];
+        const esc = (t) => ProjectDetailPage._escapeHtml(t);
         const structureOptions = structures.map(s => {
             const selected = s.id === project.structure_id ? 'selected' : '';
             const isMain = s.id === project.structure_id ? ' (structure principale)' : '';
-            return `<option value="${s.id}" data-code="${s.code}" ${selected}>${s.code} — ${s.name}${isMain}</option>`;
+            return `<option value="${s.id}" data-code="${esc(s.code)}" ${selected}>${esc(s.code)} — ${esc(s.name)}${isMain}</option>`;
         }).join('');
 
         const modal = document.createElement('div');
@@ -747,6 +751,9 @@ const ProjectDetailPage = {
             const res = await API.projects.importGeometries(this.data.project.id, geojson);
 
             // Si la structure choisie est différente de la principale → l'ajouter en secondaire.
+            // En cas d'échec on prévient explicitement l'utilisateur : le tracé est importé
+            // mais le rattachement structure devra être fait à la main.
+            let secondarySyncFailed = null;
             const mainId = this.data.project.structure_id;
             if (structureId !== mainId) {
                 try {
@@ -760,11 +767,42 @@ const ProjectDetailPage = {
                     }
                 } catch (e) {
                     console.warn('Impossible d\'ajouter la structure en secondaire :', e);
+                    secondarySyncFailed = e?.message || 'erreur inconnue';
                 }
             }
 
-            Toast.success(res.message || `${res.count} tracé(s) importé(s).`);
             document.querySelector('.confirm-overlay')?.remove();
+
+            // Message principal : distinguer 0 feature importée (avertissement) vs succès.
+            if (res.count === 0) {
+                Toast.warning(
+                    'Aucun tracé n\'a été importé. Seuls les types LineString et Polygon sont supportés — '
+                    + 'vérifie que ton fichier contient bien ce type de géométries.'
+                );
+            } else {
+                Toast.success(res.message || `${res.count} tracé(s) importé(s).`);
+            }
+
+            // Rapport des features ignorées : 3 premières raisons en toast détaillé + console pour le reste.
+            if (Array.isArray(res.skipped) && res.skipped.length > 0) {
+                const preview = res.skipped.slice(0, 3)
+                    .map(s => `• ${s.name} — ${s.reason}`)
+                    .join('\n');
+                const suffix = res.skipped.length > 3 ? `\n… et ${res.skipped.length - 3} autre(s). Voir la console pour le détail.` : '';
+                Toast.warning(
+                    `${res.skipped.length} feature(s) ignorée(s) :\n${preview}${suffix}`
+                );
+                console.warn('Features GeoJSON ignorées à l\'import :', res.skipped);
+            }
+
+            // Message secondaire si le rattachement structure a échoué.
+            if (secondarySyncFailed) {
+                Toast.warning(
+                    `Le tracé a été importé, mais la structure n'a pas pu être ajoutée en secondaire : ${secondarySyncFailed}. `
+                    + 'Ajoute-la manuellement si nécessaire.'
+                );
+            }
+
             App.router();
         } catch (err) {
             console.error(err);

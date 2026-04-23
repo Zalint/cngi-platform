@@ -97,10 +97,14 @@ exports.getMapGeometries = async (req, res, next) => {
                 OR EXISTS (SELECT 1 FROM sites WHERE project_id = g.project_id AND ${territorialLevel} = $1)
             )`;
             params.push(territorialValue);
-        } else if ((role === 'utilisateur' || role === 'directeur') && structureId) {
+        } else if (role === 'utilisateur' || role === 'directeur') {
+            // Un utilisateur/directeur DOIT avoir une structure rattachée. Sinon compte mal
+            // configuré → on ne renvoie rien (aligné sur canUserAccessProject qui retourne false).
+            if (!structureId) return res.json({ success: true, count: 0, data: [] });
             query += ` AND g.project_id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)`;
             params.push(structureId);
         } else if ((role === 'lecteur' || role === 'auditeur') && structureId) {
+            // Lecteur/auditeur scopés : restreints à leur structure (sans structure → lecture globale, géré dans le bloc "pas de filtre" ci-dessous).
             query += ` AND g.project_id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)`;
             params.push(structureId);
         }

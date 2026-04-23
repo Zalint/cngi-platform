@@ -78,12 +78,17 @@ exports.importGeoJSON = async (req, res, next) => {
         const access = await canUserAccessProject(req.user, projectId);
         if (!access) return res.status(403).json({ success: false, message: 'Accès refusé au projet' });
 
-        const imported = await GeometryModel.importGeoJSON(projectId, req.body, req.user.id);
+        const { imported, skipped } = await GeometryModel.importGeoJSON(projectId, req.body, req.user.id);
+        const parts = [`${imported.length} tracé(s) importé(s)`];
+        if (skipped.length > 0) parts.push(`${skipped.length} ignoré(s)`);
+
         res.status(201).json({
             success: true,
             count: imported.length,
+            skipped_count: skipped.length,
             data: imported,
-            message: `${imported.length} tracé(s) importé(s)`
+            skipped, // [{ index, name, reason }]
+            message: parts.join(', ')
         });
     } catch (error) {
         next(error);
