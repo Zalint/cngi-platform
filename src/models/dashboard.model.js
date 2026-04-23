@@ -89,6 +89,7 @@ class DashboardModel {
                 s.latitude,
                 s.longitude,
                 s.is_pcs,
+                s.vulnerability_level,
                 p.id as project_id,
                 p.title as project_title,
                 p.status as project_status,
@@ -286,7 +287,7 @@ class DashboardModel {
     static async getMapDataByTerritory(level, value) {
         const sub = this._territorySubquery(level);
         const result = await db.query(`
-            SELECT si.id, si.name, si.description, si.latitude, si.longitude, si.is_pcs,
+            SELECT si.id, si.name, si.description, si.latitude, si.longitude, si.is_pcs, si.vulnerability_level,
                    p.id as project_id, p.title as project_title, p.status as project_status, p.priority as project_priority,
                    st.name as structure_name, st.code as structure_code
             FROM sites si

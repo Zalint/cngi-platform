@@ -1488,6 +1488,11 @@ tbody tr:hover {
     100% { transform: scale(1.4); opacity: 0;   }
 }
 
+@keyframes vuln-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 0 0 0 rgba(192,57,43,0.6); }
+    50%      { transform: scale(1.15); box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 0 0 6px rgba(192,57,43,0); }
+}
+
 .map-fullscreen .card-header { padding: 12px 16px; }
 .map-fullscreen .map-container { border-radius: 0; box-shadow: none; }
 

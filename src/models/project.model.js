@@ -295,7 +295,7 @@ class ProjectModel {
      * Ajouter un site à un projet
      */
     static async addSite(projectId, siteData) {
-        const { locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs } = siteData;
+        const { locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs, vulnerability_level } = siteData;
 
         // is_pcs réservé aux projets portés par DPGI
         let finalIsPcs = !!is_pcs;
@@ -306,12 +306,15 @@ class ProjectModel {
             if (check.rows[0]?.code !== 'DPGI') finalIsPcs = false;
         }
 
+        const allowed = ['normal', 'elevee', 'tres_elevee'];
+        const finalVuln = allowed.includes(vulnerability_level) ? vulnerability_level : 'normal';
+
         const result = await db.query(`
-            INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs, vulnerability_level)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING *
-        `, [projectId, locality_id || null, name, description || null, region || null, departement || null, arrondissement || null, commune || null, latitude || null, longitude || null, finalIsPcs]);
-        
+        `, [projectId, locality_id || null, name, description || null, region || null, departement || null, arrondissement || null, commune || null, latitude || null, longitude || null, finalIsPcs, finalVuln]);
+
         return result.rows[0];
     }
 
@@ -416,12 +419,14 @@ class ProjectModel {
             const isDpgi = structCheck.rows[0]?.code === 'DPGI';
 
             // Insérer les nouveaux sites
+            const allowedVuln = ['normal', 'elevee', 'tres_elevee'];
             for (const site of sites) {
                 const sitePcs = isDpgi && !!site.is_pcs;
+                const vuln = allowedVuln.includes(site.vulnerability_level) ? site.vulnerability_level : 'normal';
                 await client.query(`
-                    INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                `, [projectId, site.locality_id || null, site.name, site.description || null, site.region || null, site.departement || null, site.arrondissement || null, site.commune || null, site.latitude || null, site.longitude || null, sitePcs]);
+                    INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs, vulnerability_level)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                `, [projectId, site.locality_id || null, site.name, site.description || null, site.region || null, site.departement || null, site.arrondissement || null, site.commune || null, site.latitude || null, site.longitude || null, sitePcs, vuln]);
             }
             
             await client.query('COMMIT');
