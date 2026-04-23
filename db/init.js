@@ -219,6 +219,41 @@ async function initDatabase() {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_sites_locality ON sites(locality_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_sites_coordinates ON sites(latitude, longitude)`);
 
+        // Géométries (tracés) — polylignes et polygones liés à un projet, avec type d'usage
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS geometries (
+                id SERIAL PRIMARY KEY,
+                project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                structure_id INTEGER REFERENCES structures(id) ON DELETE SET NULL,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                kind VARCHAR(20) NOT NULL CHECK (kind IN ('linestring', 'polygon')),
+                usage_type VARCHAR(30) NOT NULL DEFAULT 'autre' CHECK (usage_type IN ('drainage', 'intervention', 'zone_inondable', 'autre')),
+                coordinates JSONB NOT NULL,
+                color VARCHAR(20),
+                vulnerability_level VARCHAR(20) NOT NULL DEFAULT 'normal',
+                created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        // Migration idempotente pour les bases existantes
+        await client.query(`
+            DO $$ BEGIN
+                ALTER TABLE geometries ADD COLUMN IF NOT EXISTS vulnerability_level VARCHAR(20) DEFAULT 'normal';
+            EXCEPTION WHEN duplicate_column THEN NULL;
+            END $$;
+            UPDATE geometries SET vulnerability_level = 'normal' WHERE vulnerability_level IS NULL;
+            ALTER TABLE geometries ALTER COLUMN vulnerability_level SET NOT NULL;
+            ALTER TABLE geometries ALTER COLUMN vulnerability_level SET DEFAULT 'normal';
+            DO $$ BEGIN
+                ALTER TABLE geometries ADD CONSTRAINT geometries_vuln_chk CHECK (vulnerability_level IN ('normal','elevee','tres_elevee'));
+            EXCEPTION WHEN duplicate_object THEN NULL;
+            END $$;
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_geometries_project ON geometries(project_id)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_geometries_structure ON geometries(structure_id)`);
+
         // Measures
         await client.query(`
             CREATE TABLE IF NOT EXISTS measures (

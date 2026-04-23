@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const projectsController = require('../controllers/projects.controller');
 const exportController = require('../controllers/export.controller');
+const geometriesController = require('../controllers/geometries.controller');
 const { protect, authorize } = require('../middlewares/auth');
 
 router.use(protect);
@@ -32,6 +33,13 @@ router.delete('/:id/structures/:structureId', authorize('admin'), projectsContro
 router.put('/:projectId/measures/:measureId/assign', authorize('admin', 'utilisateur'), projectsController.assignUserToMeasure);
 router.put('/:projectId/measures/:measureId/reassign', authorize('admin', 'utilisateur'), projectsController.reassignMeasure);
 router.put('/:projectId/measures/:measureId/status', authorize('admin', 'utilisateur'), projectsController.updateMeasureStatus);
+
+// Géométries (tracés) d'un projet — polylignes et polygones
+router.get('/:projectId/geometries', geometriesController.list);
+router.post('/:projectId/geometries', authorize('admin', 'utilisateur', 'directeur'), geometriesController.create);
+router.post('/:projectId/geometries/import', authorize('admin', 'utilisateur', 'directeur'), geometriesController.importGeoJSON);
+router.put('/:projectId/geometries/:geomId', authorize('admin', 'utilisateur', 'directeur'), geometriesController.update);
+router.delete('/:projectId/geometries/:geomId', authorize('admin', 'utilisateur', 'directeur'), geometriesController.remove);
 
 // Project Comments
 router.get('/:id/comments', projectsController.getComments);

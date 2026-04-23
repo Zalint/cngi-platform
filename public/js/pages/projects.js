@@ -305,6 +305,7 @@ const ProjectsPage = {
                 <div class="project-meta">
                     <div>📅 Échéance: ${project.deadline_date ? DateFormatter.format(project.deadline_date) : 'N/A'}</div>
                     <div>📍 Sites: ${project.sites_count || 0}</div>
+                    <div>🗺 Tracés: ${project.geometries_count || 0}</div>
                 </div>
                 
                 <div style="margin-bottom: 16px;">

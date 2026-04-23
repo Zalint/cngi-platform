@@ -1,4 +1,5 @@
 const DashboardModel = require('../models/dashboard.model');
+const db = require('../config/db');
 
 // Garde-fou : un commandement_territorial sans (level, value) ne doit pas
 // exécuter de requête non-scopée. Renvoie true si on doit refuser.
@@ -59,6 +60,56 @@ exports.getMapData = async (req, res, next) => {
             sites = await DashboardModel.getMapData(structureId);
         }
         res.json({ success: true, count: sites.length, data: sites });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getMapGeometries = async (req, res, next) => {
+    try {
+        if (isIncompleteTerritorial(req.user)) return denyIncompleteTerritorial(res);
+
+        // Filtrage selon le rôle :
+        // - admin / superviseur / auditeur global / lecteur global → toutes
+        // - utilisateur / directeur / lecteur scopé / auditeur scopé → via project_structures
+        // - commandement_territorial → via localités ou sites dans le territoire
+        let query = `
+            SELECT g.*,
+                   s.code as structure_code, s.name as structure_name,
+                   p.title as project_title, p.status as project_status
+            FROM geometries g
+            LEFT JOIN structures s ON g.structure_id = s.id
+            INNER JOIN projects p ON g.project_id = p.id
+            WHERE 1=1
+        `;
+        const params = [];
+
+        const role = req.user.role;
+        const structureId = req.user.structure_id;
+        const territorialLevel = req.user.territorial_level;
+        const territorialValue = req.user.territorial_value;
+
+        if (role === 'commandement_territorial') {
+            const allowedLevels = ['region', 'departement', 'arrondissement'];
+            if (!allowedLevels.includes(territorialLevel)) return res.json({ success: true, count: 0, data: [] });
+            query += ` AND (
+                EXISTS (SELECT 1 FROM localities WHERE project_id = g.project_id AND ${territorialLevel} = $1)
+                OR EXISTS (SELECT 1 FROM sites WHERE project_id = g.project_id AND ${territorialLevel} = $1)
+            )`;
+            params.push(territorialValue);
+        } else if ((role === 'utilisateur' || role === 'directeur') && structureId) {
+            query += ` AND g.project_id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)`;
+            params.push(structureId);
+        } else if ((role === 'lecteur' || role === 'auditeur') && structureId) {
+            query += ` AND g.project_id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)`;
+            params.push(structureId);
+        }
+        // admin / superviseur / lecteur global / auditeur global : pas de filtre
+
+        query += ' ORDER BY g.id';
+
+        const result = await db.query(query, params);
+        res.json({ success: true, count: result.rows.length, data: result.rows });
     } catch (error) {
         next(error);
     }

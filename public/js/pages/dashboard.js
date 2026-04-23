@@ -9,6 +9,7 @@ const DashboardPage = {
         recentProjectsHasMore: false,
         allProjects: [],
         mapSites: [],
+        mapGeometries: [],
         topObservations: [],
         topPvs: []
     },
@@ -93,11 +94,12 @@ const DashboardPage = {
             const metrics = await API.dashboard.getMetrics(structureId);
             this.data.metrics = metrics.data;
         } else {
-            const [metrics, projectsByStructure, recentProjects, mapData, allProjects] = await Promise.all([
+            const [metrics, projectsByStructure, recentProjects, mapData, mapGeometries, allProjects] = await Promise.all([
                 API.dashboard.getMetrics(structureId),
                 API.dashboard.getProjectsByStructure(),
                 API.dashboard.getRecentProjects(this.data.recentProjectsLimit + 1),
                 API.dashboard.getMapData(structureId),
+                API.dashboard.getMapGeometries().catch(() => ({ data: [] })),
                 API.projects.getAll()
             ]);
 
@@ -107,6 +109,7 @@ const DashboardPage = {
             this.data.recentProjectsHasMore = recentData.length > this.data.recentProjectsLimit;
             this.data.recentProjects = recentData.slice(0, this.data.recentProjectsLimit);
             this.data.mapSites = mapData.data || [];
+            this.data.mapGeometries = mapGeometries.data || [];
             this.data.allProjects = allProjects.data || [];
         }
     },
@@ -642,8 +645,13 @@ const DashboardPage = {
             { position: 'topright', collapsed: false }
         ).addTo(this.map);
 
-        // Masque : tout ce qui n'est pas le Sénégal est grisé
-        this.addSenegalMask();
+        // Masque Sénégal désactivé : le fichier geojson contient des artefacts
+        // (frontière maritime imprécise) qui causent des débordements visuels
+        // dans l'océan. Les tuiles OSM suffisent à afficher le contexte géographique.
+        // Pour réactiver avec un jeu de données propre : remplacer
+        // public/data/senegal.geojson par des frontières terrestres uniquement
+        // (Natural Earth, Geo Boundaries), puis décommenter l'appel ci-dessous.
+        // this.addSenegalMask();
 
         const sites = this.data.mapSites || [];
         if (sites.length === 0) {
@@ -660,6 +668,8 @@ const DashboardPage = {
         // État des filtres (tous cochés par défaut)
         this.activeStructures = new Set();
         this.activeVulnerabilities = new Set(['normal', 'elevee', 'tres_elevee']);
+        this.showSites = true;
+        this.showGeometries = true;
         sites.forEach(site => {
             const lat = parseFloat(site.latitude);
             const lng = parseFloat(site.longitude);
@@ -761,14 +771,150 @@ const DashboardPage = {
                 `);
         });
 
+        // Étendre les bornes aux géométries pour que la carte se centre aussi dessus
+        for (const g of (this.data.mapGeometries || [])) {
+            try {
+                const coords = typeof g.coordinates === 'string' ? JSON.parse(g.coordinates) : g.coordinates;
+                if (g.kind === 'linestring') {
+                    for (const [lng, lat] of coords) bounds.push([lat, lng]);
+                } else if (g.kind === 'polygon') {
+                    for (const ring of coords) for (const [lng, lat] of ring) bounds.push([lat, lng]);
+                }
+            } catch { /* skip */ }
+        }
+
         if (bounds.length > 1) {
             this.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
         } else if (bounds.length === 1) {
             this.map.setView(bounds[0], 13);
         }
 
+        this.renderMapGeometries();
         this.addStructureFilterControl();
         this.addVulnerabilityFilterControl();
+        this.addElementsFilterControl();
+    },
+
+    /**
+     * Affiche les polylignes et polygones liés aux projets sur la carte.
+     * Style :
+     *   - drainage        → trait continu
+     *   - intervention    → trait pointillé
+     *   - zone_inondable  → polygone translucide
+     */
+    renderMapGeometries() {
+        const geometries = this.data.mapGeometries || [];
+        if (!this.map || geometries.length === 0) return;
+
+        this.geometryLayersByStructure = this.geometryLayersByStructure || {};
+
+        const styleFor = (usage, color) => {
+            // Trait plus épais + halo blanc (via shadow CSS) pour une meilleure lisibilité sur les tuiles OSM
+            const base = { color, weight: 5, opacity: 1 };
+            if (usage === 'drainage') return { ...base, dashArray: null };
+            if (usage === 'intervention') return { ...base, dashArray: '10,8' };
+            if (usage === 'zone_inondable') return { color, weight: 3, opacity: 1, fillColor: color, fillOpacity: 0.3 };
+            return { ...base, dashArray: '3,5', opacity: 0.85 };
+        };
+
+        const usageLabel = (u) => ({
+            drainage: 'Drainage',
+            intervention: 'Intervention',
+            zone_inondable: 'Zone inondable',
+            autre: 'Autre'
+        }[u] || u);
+
+        const ALLOWED_VULN = ['normal', 'elevee', 'tres_elevee'];
+        const vulnBadgeLabel = (v) => v === 'elevee' ? '⚠ Élevée' : v === 'tres_elevee' ? '⚠ Très élevée' : '';
+        const vulnBadgeHtml = (v) => {
+            if (v === 'elevee')      return '<span style="display:inline-block;margin-left:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:#e67e22;">⚠ Élevée</span>';
+            if (v === 'tres_elevee') return '<span style="display:inline-block;margin-left:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:#c0392b;">⚠ Très élevée</span>';
+            return '';
+        };
+
+        // Rend un petit marqueur-badge au centre d'une géométrie très/élevée pour alerter visuellement.
+        const centroidOf = (kind, coords) => {
+            let pts;
+            if (kind === 'linestring') pts = coords;
+            else if (kind === 'polygon') pts = coords[0] || [];
+            else return null;
+            if (!pts.length) return null;
+            let sLat = 0, sLng = 0;
+            for (const [lng, lat] of pts) { sLat += lat; sLng += lng; }
+            return [sLat / pts.length, sLng / pts.length];
+        };
+
+        geometries.forEach(g => {
+            const code = g.structure_code || '—';
+            const color = g.color || (typeof StructureColors !== 'undefined' ? StructureColors.get(code) : '#3794C4');
+            const vuln = ALLOWED_VULN.includes(g.vulnerability_level) ? g.vulnerability_level : 'normal';
+
+            // Style renforcé selon la vulnérabilité (comme les marqueurs sites)
+            let style = styleFor(g.usage_type, color);
+            if (vuln === 'elevee')      style = { ...style, weight: (style.weight || 5) + 2 };
+            if (vuln === 'tres_elevee') style = { ...style, weight: (style.weight || 5) + 4 };
+
+            let coords;
+            try {
+                coords = typeof g.coordinates === 'string' ? JSON.parse(g.coordinates) : g.coordinates;
+            } catch { return; }
+
+            // GeoJSON stocke [lng, lat] ; Leaflet attend [lat, lng]
+            let layer;
+            if (g.kind === 'linestring') {
+                const latlngs = coords.map(([lng, lat]) => [lat, lng]);
+                layer = L.polyline(latlngs, style);
+            } else if (g.kind === 'polygon') {
+                const rings = coords.map(ring => ring.map(([lng, lat]) => [lat, lng]));
+                layer = L.polygon(rings, style);
+            } else {
+                return;
+            }
+
+            const popupHtml = `
+                <div style="min-width:200px;">
+                    <strong style="color:#202B5D;font-size:13px;">${g.name}</strong><br>
+                    <span style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:${color};">${code}</span>
+                    <span style="display:inline-block;margin-left:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:#f0f4f8;color:#202B5D;">${usageLabel(g.usage_type)}</span>
+                    ${vulnBadgeHtml(vuln)}
+                    ${g.description ? `<div style="font-size:11px;color:#62718D;margin-top:6px;">${g.description}</div>` : ''}
+                    <div style="margin-top:8px;font-size:11px;color:#8896AB;">Projet : ${g.project_title || ''}</div>
+                </div>`;
+            layer.bindPopup(popupHtml);
+            layer.addTo(this.map);
+
+            if (!this.geometryLayersByStructure[code]) this.geometryLayersByStructure[code] = [];
+            this.geometryLayersByStructure[code].push(layer);
+            layer._siteStructure = code;
+            layer._siteVuln = vuln;
+
+            // Badge-marqueur pulsant au centroïde pour élevée / très élevée (comme les sites)
+            if (vuln === 'elevee' || vuln === 'tres_elevee') {
+                const c = centroidOf(g.kind, coords);
+                if (c) {
+                    const badgeHtml = vuln === 'tres_elevee'
+                        ? '<div style="width:14px;height:14px;border-radius:50%;background:#c0392b;border:1.5px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:800;line-height:1;animation:vuln-pulse 2s ease-in-out infinite;">!</div>'
+                        : '<div style="width:12px;height:12px;border-radius:50%;background:#e67e22;border:1.5px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.35);"></div>';
+                    const icon = L.divIcon({
+                        className: 'custom-marker',
+                        html: badgeHtml,
+                        iconSize: vuln === 'tres_elevee' ? [14, 14] : [12, 12],
+                        iconAnchor: vuln === 'tres_elevee' ? [7, 7] : [6, 6]
+                    });
+                    const badgeMarker = L.marker(c, { icon, interactive: false, keyboard: false });
+                    badgeMarker.addTo(this.map);
+                    // Lie le badge au layer pour pouvoir le cacher/montrer ensemble
+                    layer._vulnBadge = badgeMarker;
+                    this.geometryLayersByStructure[code].push(badgeMarker);
+                    badgeMarker._siteStructure = code;
+                    badgeMarker._siteVuln = vuln;
+                }
+            }
+
+            // Enregistrer la structure dans l'état du filtre même si elle n'a aucun site.
+            if (!this.markersByStructure[code]) this.markersByStructure[code] = [];
+            this.activeStructures.add(code);
+        });
     },
 
     async addSenegalMask() {
@@ -819,13 +965,11 @@ const DashboardPage = {
             });
             mask.addTo(this.map);
 
-            // Fin contour du Sénégal (utilise les frontières réelles, pas le padding)
-            L.polygon(rings, {
-                color: '#202B5D',
-                weight: 2,
-                fill: false,
-                interactive: false
-            }).addTo(this.map);
+            // Contour fin désactivé : le fichier geojson contient des artefacts maritimes
+            // (frontière maritime ZEE, limites fluviales imprécises) qui débordent en mer.
+            // Le masque gris suffit déjà à délimiter visuellement le pays.
+            // Pour le réactiver avec un jeu de données propre, il faudrait remplacer
+            // public/data/senegal.geojson par un tracé terrestre uniquement (ex: natural earth).
         } catch (e) {
             console.warn('Masque Sénégal non chargé:', e.message);
         }
@@ -871,7 +1015,10 @@ const DashboardPage = {
 
                 codes.forEach(code => {
                     const color = (typeof StructureColors !== 'undefined') ? StructureColors.get(code) : '#3794C4';
-                    const count = this.markersByStructure[code].length;
+                    const sitesCount = this.markersByStructure[code].length;
+                    const geomCount = (this.geometryLayersByStructure && this.geometryLayersByStructure[code] || []).length;
+                    // Affiche "sites" OU "sites + tracés" si présents
+                    const count = geomCount > 0 ? `${sitesCount} · ${geomCount}⟶` : sitesCount;
                     const label = document.createElement('label');
                     label.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer;padding:1px 0;';
                     const cb = document.createElement('input');
@@ -949,9 +1096,112 @@ const DashboardPage = {
         if (!this.map || !this.markersByStructure) return;
         const allMarkers = [].concat(...Object.values(this.markersByStructure));
         for (const m of allMarkers) {
-            const visible = this.activeStructures.has(m._siteStructure) && this.activeVulnerabilities.has(m._siteVuln);
+            const visible = this.showSites
+                && this.activeStructures.has(m._siteStructure)
+                && this.activeVulnerabilities.has(m._siteVuln);
             if (visible && !this.map.hasLayer(m)) m.addTo(this.map);
             else if (!visible && this.map.hasLayer(m)) this.map.removeLayer(m);
+        }
+        // Les géométries suivent : showGeometries + filtre structure + filtre vulnérabilité.
+        if (this.geometryLayersByStructure) {
+            const allGeoms = [].concat(...Object.values(this.geometryLayersByStructure));
+            for (const g of allGeoms) {
+                const vuln = g._siteVuln || 'normal';
+                const visible = this.showGeometries
+                    && this.activeStructures.has(g._siteStructure)
+                    && this.activeVulnerabilities.has(vuln);
+                if (visible && !this.map.hasLayer(g)) g.addTo(this.map);
+                else if (!visible && this.map.hasLayer(g)) this.map.removeLayer(g);
+            }
+        }
+    },
+
+    /**
+     * Panneau de filtre "Afficher" : cases à cocher Sites / Tracés.
+     * Permet à l'utilisateur de masquer tous les marqueurs-points ou tous les
+     * polylignes/polygones d'un coup sans toucher aux filtres structure/vulnérabilité.
+     */
+    addElementsFilterControl() {
+        if (!this.map) return;
+        if (this._elementsFilterCtrl) this._elementsFilterCtrl.remove();
+
+        const sitesCount = Object.values(this.markersByStructure || {}).reduce((n, arr) => n + arr.length, 0);
+        const geomsCount = Object.values(this.geometryLayersByStructure || {}).reduce((n, arr) => n + arr.length, 0);
+        if (sitesCount === 0 && geomsCount === 0) return;
+
+        const rows = [
+            { key: 'sites',      label: 'Sites (points)',    icon: '●', count: sitesCount },
+            { key: 'geometries', label: 'Tracés (lignes/zones)', icon: '⟶', count: geomsCount }
+        ];
+
+        const ElementsFilter = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: () => {
+                const div = L.DomUtil.create('div', 'leaflet-bar elements-filter');
+                div.style.cssText = 'background:white;padding:5px 7px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.25);font-size:10.5px;line-height:1.3;max-width:170px;';
+
+                const header = document.createElement('div');
+                header.style.cssText = 'font-weight:700;color:#202B5D;display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;user-select:none;padding-bottom:3px;';
+                const title = document.createElement('span');
+                title.textContent = 'Afficher';
+                const caret = document.createElement('span');
+                caret.style.cssText = 'font-size:10px;color:#62718D;transition:transform 0.2s;';
+                caret.textContent = '▾';
+                header.append(title, caret);
+                div.appendChild(header);
+
+                const body = document.createElement('div');
+                body.style.cssText = 'margin-top:4px;border-top:1px solid #eef;padding-top:4px;';
+
+                rows.forEach(({ key, label, icon, count }) => {
+                    const row = document.createElement('label');
+                    row.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer;padding:1px 0;';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'elements-filter-cb';
+                    cb.setAttribute('data-key', key);
+                    cb.checked = (key === 'sites') ? this.showSites : this.showGeometries;
+                    cb.style.cssText = 'margin:0;width:12px;height:12px;';
+                    const iconSpan = document.createElement('span');
+                    iconSpan.style.cssText = 'color:#3794C4;font-weight:700;width:10px;text-align:center;';
+                    iconSpan.textContent = icon;
+                    const labelSpan = document.createElement('span');
+                    labelSpan.style.cssText = 'flex:1;color:#202B5D;font-weight:600;';
+                    labelSpan.textContent = label;
+                    const countSpan = document.createElement('span');
+                    countSpan.style.cssText = 'color:#8896AB;font-size:10px;';
+                    countSpan.textContent = count;
+                    row.append(cb, iconSpan, labelSpan, countSpan);
+                    body.appendChild(row);
+                });
+
+                div.appendChild(body);
+                header.addEventListener('click', () => {
+                    if (div._suppressClick) return;
+                    const collapsed = body.style.display === 'none';
+                    body.style.display = collapsed ? 'block' : 'none';
+                    caret.style.transform = collapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
+                });
+
+                DashboardPage._makeDraggablePanel(div, header, 'elements');
+
+                L.DomEvent.disableClickPropagation(div);
+                L.DomEvent.disableScrollPropagation(div);
+                return div;
+            }
+        });
+
+        this._elementsFilterCtrl = new ElementsFilter().addTo(this.map);
+
+        const container = document.querySelector('.elements-filter');
+        if (container) {
+            container.addEventListener('change', (e) => {
+                if (!e.target.matches('.elements-filter-cb')) return;
+                const key = e.target.dataset.key;
+                if (key === 'sites') this.showSites = e.target.checked;
+                else if (key === 'geometries') this.showGeometries = e.target.checked;
+                this._applyMarkerFilters();
+            });
         }
     },
 

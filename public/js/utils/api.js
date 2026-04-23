@@ -148,7 +148,13 @@ const API = {
         // Project Comments
         getComments: (id) => API.get(`/projects/${id}/comments`),
         addComment: (id, comment) => API.post(`/projects/${id}/comments`, { comment }),
-        deleteComment: (id, commentId) => API.delete(`/projects/${id}/comments/${commentId}`)
+        deleteComment: (id, commentId) => API.delete(`/projects/${id}/comments/${commentId}`),
+        // Geometries (tracés)
+        listGeometries: (projectId) => API.get(`/projects/${projectId}/geometries`),
+        createGeometry: (projectId, data) => API.post(`/projects/${projectId}/geometries`, data),
+        importGeometries: (projectId, geojson) => API.post(`/projects/${projectId}/geometries/import`, geojson),
+        updateGeometry: (projectId, geomId, data) => API.put(`/projects/${projectId}/geometries/${geomId}`, data),
+        deleteGeometry: (projectId, geomId) => API.delete(`/projects/${projectId}/geometries/${geomId}`)
     },
 
     // === Forms endpoints ===
@@ -179,6 +185,7 @@ const API = {
         getMetrics: (structureId) => API.get(`/dashboard/metrics${structureId ? '?structure_id=' + structureId : ''}`),
         getProjectsByStructure: () => API.get('/dashboard/projects-by-structure'),
         getMapData: (structureId) => API.get(`/dashboard/map-data${structureId ? '?structure_id=' + structureId : ''}`),
+        getMapGeometries: () => API.get('/dashboard/map-geometries'),
         getRecentProjects: (limit) => API.get(`/dashboard/recent-projects?limit=${limit || 10}`),
         getLateProjects: (structureId) => API.get(`/dashboard/late-projects${structureId ? '?structure_id=' + structureId : ''}`),
         getChartData: (structureId) => API.get(`/dashboard/chart-data${structureId ? '?structure_id=' + structureId : ''}`)
