@@ -1,4 +1,4 @@
-// Widget Chatbot flottant — Assistant CNGIRI
+// Widget Chatbot flottant — Olélé Copilot
 const Chatbot = {
     messages: [],
     isOpen: false,
@@ -136,7 +136,7 @@ const Chatbot = {
         if (this._avatarBroken) {
             return this.fallbackBotSvg(size);
         }
-        return `<img src="${this.AVATAR_IMG}" alt="Assistant CNGIRI" width="${size}" height="${size}"
+        return `<img src="${this.AVATAR_IMG}" alt="Olélé Copilot" width="${size}" height="${size}"
                      data-avatar-size="${size}"
                      onerror="Chatbot._avatarBroken=true;Chatbot.onAvatarError(this,${size})"
                      style="object-fit:contain;border-radius:50%;">`;
@@ -144,7 +144,7 @@ const Chatbot = {
 
     renderLauncher() {
         return `
-            <button id="chatbot-launcher" title="Assistant CNGIRI" aria-label="Ouvrir l'assistant">
+            <button id="chatbot-launcher" title="Olélé Copilot" aria-label="Ouvrir l'assistant">
                 ${this.renderAvatar(38)}
             </button>
         `;
@@ -152,13 +152,13 @@ const Chatbot = {
 
     renderPanel() {
         return `
-            <div id="chatbot-panel" role="dialog" aria-label="Assistant CNGIRI">
+            <div id="chatbot-panel" role="dialog" aria-label="Olélé Copilot">
                 <div id="chatbot-resize-handle" title="Redimensionner"></div>
                 <div id="chatbot-header">
                     <div style="display:flex;align-items:center;gap:10px;">
                         <div id="chatbot-avatar">${this.renderAvatar(34)}</div>
                         <div>
-                            <div style="font-weight:700;font-size:14px;">Assistant CNGIRI</div>
+                            <div style="font-weight:700;font-size:14px;">Olélé Copilot</div>
                             <div style="font-size:11px;opacity:0.8;">Suivi des projets d'inondation</div>
                         </div>
                     </div>
@@ -364,8 +364,8 @@ const Chatbot = {
             container.innerHTML = `
                 <div class="chatbot-welcome">
                     <div style="text-align:center;padding:20px 10px;">
-                        <div style="font-size:38px;margin-bottom:10px;">🤖</div>
-                        <div style="font-weight:700;color:#202B5D;margin-bottom:6px;">Bonjour ${Auth.getUser()?.first_name || ''} !</div>
+                        <div style="margin-bottom:10px;display:flex;justify-content:center;">${this.renderAvatar(56)}</div>
+                        <div style="font-weight:700;color:#202B5D;margin-bottom:6px;">Bonjour ${Auth.getUser()?.first_name || ''}, je suis Olélé</div>
                         <div style="font-size:12px;color:#62718D;margin-bottom:16px;line-height:1.5;">
                             Je peux vous aider à consulter l'état des projets, les statistiques, les retards, les priorités...
                         </div>
