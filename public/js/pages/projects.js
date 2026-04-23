@@ -192,7 +192,7 @@ const ProjectsPage = {
             btn.disabled = true;
             btn.textContent = 'Génération en cours...';
             document.querySelector('.confirm-overlay')?.remove();
-            WaterSpinner.show('Le LLM analyse les projets, merci de patienter...');
+            WaterSpinner.show('Olélé copilot analyse les projets, merci de patienter...');
 
             const resp = await fetch('/api/reports/generate', {
                 method: 'POST',
