@@ -814,48 +814,71 @@ const DashboardPage = {
             onAdd: () => {
                 const div = L.DomUtil.create('div', 'leaflet-bar structure-filter');
                 div.style.background = 'white';
-                div.style.padding = '8px 10px';
-                div.style.borderRadius = '8px';
-                div.style.boxShadow = '0 1px 5px rgba(0,0,0,0.3)';
-                div.style.fontSize = '12px';
-                div.style.lineHeight = '1.6';
-                div.style.maxWidth = '180px';
-                // Construction via DOM API pour éviter toute injection via structure_code
+                div.style.padding = '5px 7px';
+                div.style.borderRadius = '6px';
+                div.style.boxShadow = '0 1px 4px rgba(0,0,0,0.25)';
+                div.style.fontSize = '10.5px';
+                div.style.lineHeight = '1.3';
+                div.style.maxWidth = '140px';
+
+                // Header cliquable (pliable)
                 const header = document.createElement('div');
-                header.style.cssText = 'font-weight:700;color:#202B5D;margin-bottom:6px;border-bottom:1px solid #eef;padding-bottom:4px;';
-                header.textContent = 'Structures';
+                header.className = 'structure-filter-header';
+                header.style.cssText = 'font-weight:700;color:#202B5D;display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;user-select:none;padding-bottom:3px;';
+                const title = document.createElement('span');
+                title.textContent = 'Structures';
+                const caret = document.createElement('span');
+                caret.className = 'structure-filter-caret';
+                caret.style.cssText = 'font-size:10px;color:#62718D;transition:transform 0.2s;';
+                caret.textContent = '▾';
+                header.append(title, caret);
                 div.appendChild(header);
+
+                // Corps repliable
+                const body = document.createElement('div');
+                body.className = 'structure-filter-body';
+                body.style.cssText = 'margin-top:4px;border-top:1px solid #eef;padding-top:4px;';
 
                 codes.forEach(code => {
                     const color = (typeof StructureColors !== 'undefined') ? StructureColors.get(code) : '#3794C4';
                     const count = this.markersByStructure[code].length;
                     const label = document.createElement('label');
-                    label.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;';
+                    label.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer;padding:1px 0;';
                     const cb = document.createElement('input');
                     cb.type = 'checkbox';
                     cb.className = 'structure-filter-cb';
                     cb.setAttribute('data-code', code);
                     cb.checked = true;
+                    cb.style.cssText = 'margin:0;width:12px;height:12px;';
                     const swatch = document.createElement('span');
-                    swatch.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;`;
+                    swatch.style.cssText = `display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;`;
                     const codeSpan = document.createElement('span');
                     codeSpan.style.cssText = 'flex:1;color:#202B5D;font-weight:600;';
                     codeSpan.textContent = code;
                     const countSpan = document.createElement('span');
-                    countSpan.style.color = '#8896AB';
+                    countSpan.style.cssText = 'color:#8896AB;font-size:10px;';
                     countSpan.textContent = count;
                     label.append(cb, swatch, codeSpan, countSpan);
-                    div.appendChild(label);
+                    body.appendChild(label);
                 });
 
                 const footer = document.createElement('div');
-                footer.style.cssText = 'display:flex;gap:6px;margin-top:6px;border-top:1px solid #eef;padding-top:6px;';
+                footer.style.cssText = 'display:flex;gap:5px;margin-top:4px;border-top:1px solid #eef;padding-top:4px;';
                 footer.innerHTML = `
-                    <a href="#" class="structure-filter-all" style="font-size:11px;color:#3794C4;text-decoration:none;font-weight:600;">Tout</a>
-                    <span style="color:#ccc;">·</span>
-                    <a href="#" class="structure-filter-none" style="font-size:11px;color:#8896AB;text-decoration:none;font-weight:600;">Aucun</a>
+                    <a href="#" class="structure-filter-all" style="font-size:10px;color:#3794C4;text-decoration:none;font-weight:600;">Tout</a>
+                    <span style="color:#ccc;font-size:10px;">·</span>
+                    <a href="#" class="structure-filter-none" style="font-size:10px;color:#8896AB;text-decoration:none;font-weight:600;">Aucun</a>
                 `;
-                div.appendChild(footer);
+                body.appendChild(footer);
+                div.appendChild(body);
+
+                // Toggle collapse au clic sur le header
+                header.addEventListener('click', () => {
+                    const collapsed = body.style.display === 'none';
+                    body.style.display = collapsed ? 'block' : 'none';
+                    caret.style.transform = collapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
+                });
+
                 L.DomEvent.disableClickPropagation(div);
                 L.DomEvent.disableScrollPropagation(div);
                 return div;
