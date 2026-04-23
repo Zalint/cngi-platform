@@ -41,6 +41,7 @@ const DashboardPage = {
                     ${Navbar.renderTopBar('Tableau de bord')}
                     <div class="content-area">
                         ${this.renderAlertBanner()}
+                        ${this.renderMyMeasuresBanner()}
                         ${this.renderObservationsBanner()}
                         ${this.renderPvBanner()}
                         ${this.renderMetrics()}
@@ -83,6 +84,12 @@ const DashboardPage = {
             const pvRes = await API.pv.list();
             this.data.topPvs = (pvRes.data || []).slice(0, 3);
         } catch { this.data.topPvs = []; }
+
+        // Stats "mes mesures" pour le bandeau dashboard
+        try {
+            const myStats = await API.measures.myStats();
+            this.data.myMeasuresStats = myStats.data || {};
+        } catch { this.data.myMeasuresStats = {}; }
 
         // Pour le directeur, charger aussi les projets détaillés
         if (user.role === 'directeur') {
@@ -275,6 +282,48 @@ const DashboardPage = {
                     <strong>${retard} projet${retard > 1 ? 's' : ''} en retard</strong> —
                     Action requise. Consultez les projets concernés pour mettre à jour l'avancement.
                 </div>
+            </div>
+        `;
+    },
+
+    /**
+     * Bandeau "Mes mesures" : résumé compact (pending / overdue / due_soon) avec
+     * accès direct à la page /my-measures. Ne s'affiche que si l'utilisateur
+     * a effectivement des mesures assignées.
+     */
+    renderMyMeasuresBanner() {
+        const s = this.data.myMeasuresStats || {};
+        const pending = parseInt(s.pending, 10) || 0;
+        if (pending === 0) return '';
+
+        const overdue = parseInt(s.overdue, 10) || 0;
+        const dueSoon = parseInt(s.due_soon, 10) || 0;
+
+        const bg = overdue > 0
+            ? 'linear-gradient(90deg,#fee2e2 0%,#fff 70%)'
+            : dueSoon > 0
+            ? 'linear-gradient(90deg,#fef3c7 0%,#fff 70%)'
+            : 'linear-gradient(90deg,#e0f2fe 0%,#fff 70%)';
+        const border = overdue > 0 ? '#c0392b' : dueSoon > 0 ? '#e67e22' : '#3794C4';
+        const icon = overdue > 0 ? '🚨' : dueSoon > 0 ? '⏰' : '✅';
+
+        const chips = [];
+        if (overdue > 0) chips.push(`<span style="padding:2px 10px;background:#c0392b;color:white;border-radius:10px;font-size:11px;font-weight:700;">${overdue} en retard</span>`);
+        if (dueSoon > 0) chips.push(`<span style="padding:2px 10px;background:#e67e22;color:white;border-radius:10px;font-size:11px;font-weight:700;">${dueSoon} sous 7 jours</span>`);
+        chips.push(`<span style="padding:2px 10px;background:#f0f4f8;color:#202B5D;border-radius:10px;font-size:11px;font-weight:700;">${pending} à faire au total</span>`);
+
+        return `
+            <div style="background:${bg};border-left:4px solid ${border};padding:14px 18px;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                <div style="font-size:24px;">${icon}</div>
+                <div style="flex:1;min-width:220px;">
+                    <div style="font-weight:700;color:#202B5D;font-size:14px;margin-bottom:4px;">
+                        ${overdue > 0 ? 'Tu as des mesures en retard' : dueSoon > 0 ? 'Des mesures arrivent à échéance' : 'Tes mesures assignées'}
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">${chips.join('')}</div>
+                </div>
+                <a href="#/my-measures" style="padding:8px 14px;background:#202B5D;color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">
+                    Voir mes mesures →
+                </a>
             </div>
         `;
     },

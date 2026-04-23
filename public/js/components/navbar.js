@@ -33,6 +33,13 @@ const Navbar = {
                         </span>
                         <span>Projets</span>
                     </a>
+                    <a href="#/my-measures" class="menu-item" data-page="my-measures">
+                        <span class="menu-item-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                        </span>
+                        <span>Mes mesures</span>
+                        <span id="nav-my-measures-badge" class="nav-badge" style="display:none;"></span>
+                    </a>
                     <a href="#/observations" class="menu-item" data-page="observations">
                         <span class="menu-item-icon">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
@@ -126,16 +133,56 @@ const Navbar = {
                             onmouseover="this.style.background='#e1e9f0';" onmouseout="this.style.background='#f0f4f8';">
                         🔄 Actualiser
                     </button>
-                    <div class="user-profile">
+                    <div class="user-profile" id="user-profile-trigger" style="cursor:pointer;position:relative;" onclick="Navbar.toggleUserMenu(event)">
                         <div class="user-info">
                             <div class="user-name">${Auth.getFullName()}</div>
                             <div class="user-role">${roleLabels[user.role] || user.role}${user.structure_name ? ' - ' + user.structure_code : ''}</div>
                         </div>
                         <div class="user-avatar">${Auth.getInitials()}</div>
+                        <div id="user-menu-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:220px;background:white;border:1px solid #dce3ed;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:1000;overflow:hidden;">
+                            <button onclick="event.stopPropagation(); Navbar.openChangePasswordModal();"
+                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#202B5D;font-weight:600;"
+                                    onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='transparent'">
+                                <span style="font-size:16px;">🔑</span> Changer le mot de passe
+                            </button>
+                            <div style="height:1px;background:#eef;"></div>
+                            <button onclick="event.stopPropagation(); Navbar.logout();"
+                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#c0392b;font-weight:600;"
+                                    onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
+                                <span style="font-size:16px;">🚪</span> Déconnexion
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
+    },
+
+    toggleUserMenu(e) {
+        e.stopPropagation();
+        const dd = document.getElementById('user-menu-dropdown');
+        if (!dd) return;
+        const visible = dd.style.display === 'block';
+        dd.style.display = visible ? 'none' : 'block';
+        if (!visible) {
+            // Fermer au clic ailleurs
+            setTimeout(() => {
+                const closeHandler = (ev) => {
+                    if (!dd.contains(ev.target)) {
+                        dd.style.display = 'none';
+                        document.removeEventListener('click', closeHandler);
+                    }
+                };
+                document.addEventListener('click', closeHandler);
+            }, 0);
+        }
+    },
+
+    openChangePasswordModal() {
+        document.getElementById('user-menu-dropdown')?.style && (document.getElementById('user-menu-dropdown').style.display = 'none');
+        if (typeof ChangePasswordModal !== 'undefined') {
+            ChangePasswordModal.open();
+        }
     },
 
     toggleSidebar() {
@@ -228,6 +275,27 @@ const Navbar = {
             if (n > 0) {
                 badge.textContent = n > 9 ? '9+' : String(n);
                 badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        } catch (e) { /* silencieux */ }
+    },
+
+    /**
+     * Badge "mes mesures" : affiche le nombre de mesures en attente (non exécutées)
+     * avec un accent rouge si certaines sont en retard.
+     */
+    async refreshMyMeasuresBadge() {
+        const badge = document.getElementById('nav-my-measures-badge');
+        if (!badge) return;
+        try {
+            const res = await API.measures.myStats();
+            const { pending = 0, overdue = 0 } = res.data || {};
+            if (pending > 0) {
+                badge.textContent = pending > 99 ? '99+' : String(pending);
+                badge.style.display = 'inline-flex';
+                badge.classList.toggle('nav-badge-yellow', overdue === 0);
+                badge.style.background = overdue > 0 ? '#c0392b' : '';
             } else {
                 badge.style.display = 'none';
             }

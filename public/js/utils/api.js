@@ -174,6 +174,15 @@ const API = {
         delete: (commentId) => API.delete(`/comments/${commentId}`)
     },
 
+    // === Measures (mes mesures) ===
+    measures: {
+        listMine: (filters = {}) => {
+            const params = new URLSearchParams(filters).toString();
+            return API.get(`/measures/my${params ? '?' + params : ''}`);
+        },
+        myStats: () => API.get('/measures/my/stats')
+    },
+
     // === Dashboard endpoints ===
     dashboard: {
         getMetrics: (structureId) => API.get(`/dashboard/metrics${structureId ? '?structure_id=' + structureId : ''}`),

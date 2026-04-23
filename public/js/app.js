@@ -118,6 +118,10 @@ const App = {
                         content = await PvPage.render();
                         break;
 
+                    case 'my-measures':
+                        content = await MyMeasuresPage.render();
+                        break;
+
                     default:
                         // Par défaut, rediriger vers dashboard
                         window.location.hash = '#/dashboard';
@@ -135,6 +139,7 @@ const App = {
             if (Auth.isAuthenticated() && typeof Navbar !== 'undefined') {
                 if (Navbar.refreshObservationBadge) Navbar.refreshObservationBadge();
                 if (Navbar.refreshPvBadge) Navbar.refreshPvBadge();
+                if (Navbar.refreshMyMeasuresBadge) Navbar.refreshMyMeasuresBadge();
             }
 
         } catch (error) {
@@ -179,6 +184,9 @@ const App = {
                     break;
                 case 'pv':
                     if (PvPage.afterRender) PvPage.afterRender();
+                    break;
+                case 'my-measures':
+                    if (MyMeasuresPage.afterRender) MyMeasuresPage.afterRender();
                     break;
                 case 'forms':
                     if (params.length === 0 && FormsPage.afterRender) {
