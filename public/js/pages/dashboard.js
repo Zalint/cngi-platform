@@ -900,12 +900,16 @@ const DashboardPage = {
                 body.appendChild(footer);
                 div.appendChild(body);
 
-                // Toggle collapse au clic sur le header
+                // Toggle collapse au clic sur le header (sauf si on vient de drag/reset)
                 header.addEventListener('click', () => {
+                    if (div._suppressClick) return;
                     const collapsed = body.style.display === 'none';
                     body.style.display = collapsed ? 'block' : 'none';
                     caret.style.transform = collapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
                 });
+
+                // Déplaçable par drag sur le header (position mémorisée en localStorage)
+                DashboardPage._makeDraggablePanel(div, header, 'structures');
 
                 L.DomEvent.disableClickPropagation(div);
                 L.DomEvent.disableScrollPropagation(div);
@@ -947,6 +951,109 @@ const DashboardPage = {
             if (visible && !this.map.hasLayer(m)) m.addTo(this.map);
             else if (!visible && this.map.hasLayer(m)) this.map.removeLayer(m);
         }
+    },
+
+    /**
+     * Rend un panneau Leaflet déplaçable par drag sur son header.
+     * - La position est mémorisée en localStorage par clé.
+     * - Double-clic sur le header = reset à la position d'origine.
+     * - Un clic simple continue à déclencher son handler (toggle accordéon) ; un drag l'en empêche.
+     */
+    _makeDraggablePanel(div, header, storageKey) {
+        const KEY = `cngi_panel_pos_${storageKey}`;
+        let offset = { x: 0, y: 0 };
+
+        const clampOffsetToMap = () => {
+            const mapEl = div.closest('.leaflet-container');
+            if (!mapEl) return;
+            const mapRect = mapEl.getBoundingClientRect();
+            const divRect = div.getBoundingClientRect();
+            if (!divRect.width || !mapRect.width) return;
+            const naturalLeft = divRect.left - offset.x;
+            const naturalTop = divRect.top - offset.y;
+            const minX = mapRect.left - naturalLeft;
+            const maxX = mapRect.right - divRect.width - naturalLeft;
+            const minY = mapRect.top - naturalTop;
+            const maxY = mapRect.bottom - divRect.height - naturalTop;
+            offset.x = Math.max(minX, Math.min(maxX, offset.x));
+            offset.y = Math.max(minY, Math.min(maxY, offset.y));
+            div.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
+        };
+
+        try {
+            const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+            if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+                offset = { x: saved.x, y: saved.y };
+                div.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
+                // Recadrer après layout au cas où la position sauvée dépasse le cadre courant
+                setTimeout(clampOffsetToMap, 120);
+            }
+        } catch { /* ignore */ }
+
+        header.style.cursor = 'grab';
+        header.title = 'Clic : plier/déplier — Glisser : déplacer — Double-clic : réinitialiser';
+
+        let startX = 0, startY = 0, startOffset = { x: 0, y: 0 };
+        let dragging = false, moved = false;
+
+        const onMouseMove = (e) => {
+            if (!dragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            if (!moved && Math.hypot(dx, dy) > 3) moved = true;
+            let nx = startOffset.x + dx;
+            let ny = startOffset.y + dy;
+
+            // Empêcher de sortir du cadre de la carte
+            const mapEl = div.closest('.leaflet-container');
+            if (mapEl) {
+                const mapRect = mapEl.getBoundingClientRect();
+                const divRect = div.getBoundingClientRect();
+                const naturalLeft = divRect.left - offset.x;
+                const naturalTop = divRect.top - offset.y;
+                const minX = mapRect.left - naturalLeft;
+                const maxX = mapRect.right - divRect.width - naturalLeft;
+                const minY = mapRect.top - naturalTop;
+                const maxY = mapRect.bottom - divRect.height - naturalTop;
+                nx = Math.max(minX, Math.min(maxX, nx));
+                ny = Math.max(minY, Math.min(maxY, ny));
+            }
+
+            offset = { x: nx, y: ny };
+            div.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
+        };
+        const onMouseUp = () => {
+            if (!dragging) return;
+            dragging = false;
+            header.style.cursor = 'grab';
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            if (moved) {
+                try { localStorage.setItem(KEY, JSON.stringify(offset)); } catch { /* ignore */ }
+                div._suppressClick = true;
+                setTimeout(() => { div._suppressClick = false; }, 50);
+            }
+        };
+        header.addEventListener('mousedown', (e) => {
+            // Ne pas bloquer les éléments interactifs (checkboxes, liens Tout/Aucun)
+            if (e.target.closest('input, a, button, select')) return;
+            startX = e.clientX; startY = e.clientY;
+            startOffset = { ...offset };
+            dragging = true;
+            moved = false;
+            header.style.cursor = 'grabbing';
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+            e.preventDefault();
+        });
+        header.addEventListener('dblclick', (e) => {
+            if (e.target.closest('input, a, button, select')) return;
+            offset = { x: 0, y: 0 };
+            div.style.transform = '';
+            try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+            div._suppressClick = true;
+            setTimeout(() => { div._suppressClick = false; }, 50);
+        });
     },
 
     addVulnerabilityFilterControl() {
@@ -1004,10 +1111,14 @@ const DashboardPage = {
 
                 div.appendChild(body);
                 header.addEventListener('click', () => {
+                    if (div._suppressClick) return;
                     const collapsed = body.style.display === 'none';
                     body.style.display = collapsed ? 'block' : 'none';
                     caret.style.transform = collapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
                 });
+
+                // Déplaçable par drag sur le header (position mémorisée en localStorage)
+                DashboardPage._makeDraggablePanel(div, header, 'vulnerability');
 
                 L.DomEvent.disableClickPropagation(div);
                 L.DomEvent.disableScrollPropagation(div);
