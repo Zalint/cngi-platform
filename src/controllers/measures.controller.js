@@ -39,6 +39,7 @@ exports.listMine = async (req, res, next) => {
             LEFT JOIN sites s ON m.site_id = s.id
             LEFT JOIN structures ms ON m.structure_id = ms.id
             WHERE m.assigned_user_id = $1
+              AND p.deleted_at IS NULL
         `;
         const params = [userId];
         let i = 2;
@@ -96,6 +97,7 @@ exports.myStats = async (req, res, next) => {
             FROM measures m
             INNER JOIN projects p ON m.project_id = p.id
             WHERE m.assigned_user_id = $1
+              AND p.deleted_at IS NULL
         `, [userId]);
 
         const row = result.rows[0] || {};

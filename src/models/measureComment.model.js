@@ -17,12 +17,6 @@ class MeasureCommentModel {
         return result.rows[0];
     }
 
-    // Alias conservé pour les appels historiques. Délègue à create() puisque
-    // la sémantique "upsert" ne correspond pas au schéma réel.
-    static async upsert(measureId, userId, comment) {
-        return this.create(measureId, userId, comment);
-    }
-
     /**
      * Récupérer tous les commentaires d'une mesure
      */

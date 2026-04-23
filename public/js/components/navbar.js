@@ -371,7 +371,10 @@ const Navbar = {
     async openNotification(id, linkUrl) {
         try { await API.notifications.markRead(id); } catch {}
         if (linkUrl) window.location.hash = linkUrl;
-        document.getElementById('notif-dropdown').style.display = 'none';
+        // Le dropdown peut avoir été retiré du DOM entre-temps (navigation / render) :
+        // on ferme avec un guard pour éviter "Cannot read properties of null".
+        const dd = document.getElementById('notif-dropdown');
+        if (dd) dd.style.display = 'none';
         this.refreshNotificationBell();
     },
 
