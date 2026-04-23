@@ -226,6 +226,81 @@ const App = {
     }
 };
 
+// Spinner thématique "eau" — séquence narrative : Sunu Nawét → goutte → pluie → caniveau → motopompe
+const WaterSpinner = {
+    show(label = 'Traitement en cours...') {
+        this.hide();
+        const overlay = document.createElement('div');
+        overlay.id = 'water-spinner-overlay';
+        overlay.className = 'loading-overlay loading-overlay-water';
+        overlay.innerHTML = `
+            <div class="water-spinner">
+                <div class="ws-stage ws-stage-intro">
+                    <div class="sunu-title">Sunu <span class="accent">Nawét</span></div>
+                </div>
+                <div class="ws-stage ws-stage-1">
+                    <div class="drop-wrap">
+                        <div class="drop"></div>
+                        <div class="ripple"></div>
+                        <div class="ripple r2"></div>
+                        <div class="ripple r3"></div>
+                    </div>
+                </div>
+                <div class="ws-stage ws-stage-2">
+                    <div class="rain-wrap">
+                        <div class="rain-drop"></div>
+                        <div class="rain-drop"></div>
+                        <div class="rain-drop"></div>
+                        <div class="rain-drop"></div>
+                        <div class="rain-drop"></div>
+                        <div class="puddle"></div>
+                    </div>
+                </div>
+                <div class="ws-stage ws-stage-3">
+                    <div class="gut-stage">
+                        <div class="gut-street"></div>
+                        <div class="gut-channel">
+                            <div class="gut-water"></div>
+                        </div>
+                        <div class="gut-drain"></div>
+                        <div class="gut-suck"></div>
+                        <div class="gut-suck s2"></div>
+                        <div class="gut-suck s3"></div>
+                    </div>
+                </div>
+                <div class="ws-stage ws-stage-4">
+                    <div class="mp-stage">
+                        <div class="mp-flood"></div>
+                        <div class="mp-intake-hose"></div>
+                        <div class="mp-wheel w1"></div>
+                        <div class="mp-wheel w2"></div>
+                        <div class="mp-body"></div>
+                        <div class="mp-engine"></div>
+                        <div class="mp-exhaust"></div>
+                        <div class="mp-smoke"></div>
+                        <div class="mp-smoke s2"></div>
+                        <div class="mp-smoke s3"></div>
+                        <div class="mp-discharge-hose"></div>
+                        <div class="mp-jet"></div>
+                        <div class="mp-jet j2"></div>
+                        <div class="mp-jet j3"></div>
+                        <div class="mp-jet j4"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="water-spinner-label">${label}</div>
+        `;
+        document.body.appendChild(overlay);
+    },
+    setLabel(label) {
+        const el = document.querySelector('#water-spinner-overlay .water-spinner-label');
+        if (el) el.textContent = label;
+    },
+    hide() {
+        document.getElementById('water-spinner-overlay')?.remove();
+    }
+};
+
 // Initialiser l'application au chargement
 document.addEventListener('DOMContentLoaded', () => {
     App.init();

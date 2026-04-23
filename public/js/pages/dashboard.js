@@ -406,8 +406,8 @@ const DashboardPage = {
     },
 
     async exportXlsx() {
+        WaterSpinner.show('Génération du fichier Excel...');
         try {
-            Toast.info('Génération du fichier Excel...');
             const token = Auth.getToken();
             const resp = await fetch('/api/projects/export/xlsx', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -429,6 +429,8 @@ const DashboardPage = {
         } catch (err) {
             console.error(err);
             Toast.error('Erreur lors de l\'export: ' + (err.message || 'inconnue'));
+        } finally {
+            WaterSpinner.hide();
         }
     },
 
@@ -516,8 +518,9 @@ const DashboardPage = {
             const format = document.querySelector('input[name="report-format"]:checked').value;
 
             btn.disabled = true;
-            btn.textContent = '⏳ Génération en cours...';
-            Toast.info('Le LLM analyse les projets, merci de patienter...');
+            btn.textContent = 'Génération en cours...';
+            document.querySelector('.confirm-overlay')?.remove();
+            WaterSpinner.show('Le LLM analyse les projets, merci de patienter...');
 
             const resp = await fetch('/api/reports/generate', {
                 method: 'POST',
@@ -546,12 +549,13 @@ const DashboardPage = {
             a.remove();
             URL.revokeObjectURL(url);
 
-            document.querySelector('.confirm-overlay')?.remove();
             Toast.success('Rapport généré et téléchargé.');
         } catch (err) {
             console.error(err);
             Toast.error('Erreur: ' + (err.message || 'inconnue'));
             if (btn) { btn.disabled = false; btn.textContent = 'Générer'; }
+        } finally {
+            WaterSpinner.hide();
         }
     },
 
