@@ -8,6 +8,8 @@ const {
 
 const ProjectModel = require('../models/project.model');
 const ProjectStructure = require('../models/projectStructure.model');
+const ObservationModel = require('../models/observation.model');
+const PvModel = require('../models/pv.model');
 
 const STATUS_LABELS = {
     demarrage: 'Démarrage', en_cours: 'En cours', termine: 'Terminé', retard: 'En retard', annule: 'Annulé'
@@ -44,17 +46,54 @@ function summarizeProjects(projects) {
     }));
 }
 
-function buildPrompt(projects, userContext) {
+function summarizeMinisterObservations(observations) {
+    return observations.map(o => ({
+        date: o.created_at,
+        titre: o.title,
+        auteur: `${o.author_title || ''} ${o.author_first_name || ''} ${o.author_last_name || ''}`.trim() || o.author_username,
+        priorite: o.priority,
+        echeance: o.deadline,
+        projet: o.project_title || 'Global (toutes structures)',
+        contenu: (o.content || '').slice(0, 500)
+    }));
+}
+
+function summarizeGovernorPvs(pvs) {
+    return pvs.map(pv => ({
+        date: pv.visit_date || pv.created_at,
+        titre: pv.title,
+        auteur: `${pv.author_title || ''} ${pv.author_first_name || ''} ${pv.author_last_name || ''}`.trim() || pv.author_username,
+        zone: `${pv.territorial_level || ''} : ${pv.territorial_value || ''}`.trim(),
+        priorite: pv.priority,
+        avancement: (pv.avancement || '').slice(0, 300),
+        observations: (pv.observations || '').slice(0, 400),
+        recommandations: (pv.recommendations || '').slice(0, 400)
+    }));
+}
+
+function buildPrompt(projects, ministerObs, territorialPvs, userContext) {
     const today = new Date().toLocaleDateString('fr-FR');
     return `Tu es analyste senior pour le CNGIRI (Comité National de Gestion Intégrée du Risque d'Inondation) au Sénégal.
 
 Date du rapport : ${today}
 Utilisateur : ${userContext}
 Nombre de projets à analyser : ${projects.length}
+Nombre d'observations du Ministre : ${ministerObs.length}
+Nombre de PV du Commandement Territorial : ${territorialPvs.length}
 
 Voici les données JSON des projets :
 \`\`\`json
 ${JSON.stringify(projects, null, 2)}
+\`\`\`
+
+Voici les observations du Ministre (les plus récentes d'abord) :
+\`\`\`json
+${JSON.stringify(ministerObs, null, 2)}
+\`\`\`
+
+Voici les PV du Commandement Territorial — Gouverneurs, Préfets et Sous-préfets (les plus récents d'abord) :
+\`\`\`json
+${JSON.stringify(territorialPvs, null, 2)}
 \`\`\`
 
 Produis un **rapport exécutif détaillé** en Markdown, en français, structuré ainsi :
@@ -62,7 +101,7 @@ Produis un **rapport exécutif détaillé** en Markdown, en français, structur�
 # Rapport d'activité CNGIRI — ${today}
 
 ## 1. Résumé exécutif
-Synthèse en 5-7 phrases : volume de projets, grandes tendances, état général, points d'attention majeurs.
+Synthèse en 5-7 phrases : volume de projets, grandes tendances, état général, points d'attention majeurs, en mentionnant si des directives du Ministre ou des remontées du Commandement Territorial sont en cours.
 
 ## 2. État global
 - Répartition par statut (démarrage / en cours / terminé / en retard / annulé)
@@ -82,8 +121,18 @@ Liste détaillée avec analyse des causes probables à partir des contraintes d�
 ## 6. Mesures et actions
 Synthèse des mesures préconisées vs exécutées par structure. Signaler les blocages récurrents.
 
-## 7. Recommandations
-3 à 5 recommandations actionnables, classées par impact/urgence, avec justification courte.
+## 7. Observations du Ministre — résumé
+${ministerObs.length === 0
+    ? 'Indique clairement : "Aucune observation du Ministre enregistrée sur la période."'
+    : 'Pour chaque observation : une ligne à puce — date, titre, priorité, projet concerné (ou "global"), puis 1-2 phrases de synthèse du contenu. Termine la section par un paragraphe regroupant les thèmes récurrents.'}
+
+## 8. PV du Commandement Territorial — résumé
+${territorialPvs.length === 0
+    ? 'Indique clairement : "Aucun PV du Commandement Territorial enregistré sur la période."'
+    : 'Regroupe les PV par niveau territorial (Gouverneur=région, Préfet=département, Sous-préfet=arrondissement). Pour chaque PV : une ligne à puce — date, zone, auteur, puis 1-2 phrases reprenant les points clés (avancement constaté, observations, recommandations). Termine par une synthèse transversale des zones les plus exposées.'}
+
+## 9. Recommandations
+3 à 5 recommandations actionnables, classées par impact/urgence, avec justification courte. Prends explicitement en compte les directives du Ministre et les remontées du Commandement Territorial.
 
 Consignes de style :
 - Ton professionnel, factuel, direct.
@@ -524,10 +573,22 @@ exports.generateReport = async (req, res, next) => {
         // Charger détails complets
         const detailed = await Promise.all(projects.map(p => ProjectModel.findById(p.id)));
 
+        // Charger observations du Ministre et tous les PV du Commandement Territorial
+        // (Gouverneurs = region, Préfets = departement, Sous-préfets = arrondissement).
+        const [allObs, allPvs] = await Promise.all([
+            ObservationModel.findAll({}).catch(err => { console.error('Obs load failed:', err); return []; }),
+            PvModel.findAllVisible(req.user).catch(err => { console.error('PV load failed:', err); return []; })
+        ]);
+        const ministerObs = allObs.slice(0, 15);
+        const territorialPvs = allPvs.slice(0, 15);
+        console.log(`[reports] Loaded ${ministerObs.length} observations, ${territorialPvs.length} territorial PVs`);
+
         // Construire le prompt
         const compact = summarizeProjects(detailed);
+        const compactObs = summarizeMinisterObservations(ministerObs);
+        const compactPvs = summarizeGovernorPvs(territorialPvs);
         const userContext = `${req.user.first_name || req.user.username} (${req.user.role})`;
-        const prompt = buildPrompt(compact, userContext);
+        const prompt = buildPrompt(compact, compactObs, compactPvs, userContext);
 
         // Appeler le LLM
         const markdown = await callLLM(prompt);
