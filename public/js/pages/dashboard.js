@@ -652,8 +652,12 @@ const DashboardPage = {
         }
 
         const bounds = [];
-        // Regroupe les marqueurs par code de structure pour pouvoir les filtrer
+        // Regroupe les marqueurs par code de structure + par niveau de vulnérabilité pour pouvoir les filtrer
         this.markersByStructure = {};
+        this.markersByVulnerability = { normal: [], elevee: [], tres_elevee: [] };
+        // État des filtres (tous cochés par défaut)
+        this.activeStructures = new Set();
+        this.activeVulnerabilities = new Set(['normal', 'elevee', 'tres_elevee']);
         sites.forEach(site => {
             const lat = parseFloat(site.latitude);
             const lng = parseFloat(site.longitude);
@@ -677,6 +681,18 @@ const DashboardPage = {
             // PCS utilise la même taille que le rond pour rester cohérent visuellement
             const pcsSize = size + 2; // légèrement plus grand pour compenser la place du SVG
             const svgPx = Math.round(pcsSize * 0.7);
+            // Pastille vulnérabilité (coin supérieur droit du marqueur)
+            // Sanitize : toute valeur inattendue retombe sur 'normal' pour éviter un index undefined
+            const ALLOWED_VULN = ['normal', 'elevee', 'tres_elevee'];
+            const rawVuln = typeof site.vulnerability_level === 'string' ? site.vulnerability_level : null;
+            const vuln = ALLOWED_VULN.includes(rawVuln) ? rawVuln : 'normal';
+            let vulnDotHtml = '';
+            if (vuln === 'elevee') {
+                vulnDotHtml = `<div style="position:absolute;top:-6px;right:-6px;width:12px;height:12px;border-radius:50%;background:#e67e22;border:1.5px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.35);z-index:3;"></div>`;
+            } else if (vuln === 'tres_elevee') {
+                vulnDotHtml = `<div style="position:absolute;top:-7px;right:-7px;width:14px;height:14px;border-radius:50%;background:#c0392b;border:1.5px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.35);z-index:3;display:flex;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:800;line-height:1;animation:vuln-pulse 2s ease-in-out infinite;">!</div>`;
+            }
+
             const pcsHtml = `
                 <div style="position:relative;width:${pcsSize}px;height:${pcsSize}px;display:flex;align-items:center;justify-content:center;">
                     ${ring}
@@ -685,11 +701,13 @@ const DashboardPage = {
                             <path d="M3 10l9-6 9 6M4 10v9M8 10v9M12 10v9M16 10v9M20 10v9M2 21h20"/>
                         </svg>
                     </div>
+                    ${vulnDotHtml}
                 </div>`;
 
             const circleHtml = `<div style="position:relative;width:${size}px;height:${size}px;">
                         ${ring}
                         <div style="width:${size}px;height:${size}px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
+                        ${vulnDotHtml}
                        </div>`;
 
             const icon = L.divIcon({
@@ -707,15 +725,24 @@ const DashboardPage = {
             const pcsBadge = isPcs
                 ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:${color};margin-left:4px;">📎 PCS</span>`
                 : '';
+            const vulnBadge = vuln === 'elevee'
+                ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:#e67e22;margin-left:4px;">⚠ Élevée</span>'
+                : vuln === 'tres_elevee'
+                ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:white;background:#c0392b;margin-left:4px;">⚠ Très élevée</span>'
+                : '';
 
             const marker = L.marker([lat, lng], { icon });
             const code = site.structure_code || '—';
+            marker._siteStructure = code;
+            marker._siteVuln = vuln;
             if (!this.markersByStructure[code]) this.markersByStructure[code] = [];
             this.markersByStructure[code].push(marker);
+            this.markersByVulnerability[vuln].push(marker);
+            this.activeStructures.add(code);
             marker.addTo(this.map)
                 .bindPopup(`
                     <div style="min-width:200px;">
-                        <strong style="color:#202B5D;font-size:13px;">${site.name}</strong>${priorityBadge}${pcsBadge}<br>
+                        <strong style="color:#202B5D;font-size:13px;">${site.name}</strong>${priorityBadge}${pcsBadge}${vulnBadge}<br>
                         <span style="font-size:12px;color:#62718D;">${site.description || ''}</span>
                         <hr style="margin:6px 0;border:none;border-top:1px solid #eee;">
                         <span style="font-size:11px;color:#62718D;">Projet:</span><br>
@@ -739,6 +766,7 @@ const DashboardPage = {
         }
 
         this.addStructureFilterControl();
+        this.addVulnerabilityFilterControl();
     },
 
     async addSenegalMask() {
@@ -892,11 +920,9 @@ const DashboardPage = {
             container.addEventListener('change', (e) => {
                 if (!e.target.matches('.structure-filter-cb')) return;
                 const code = e.target.dataset.code;
-                const visible = e.target.checked;
-                (this.markersByStructure[code] || []).forEach(m => {
-                    if (visible) m.addTo(this.map);
-                    else this.map.removeLayer(m);
-                });
+                if (e.target.checked) this.activeStructures.add(code);
+                else this.activeStructures.delete(code);
+                this._applyMarkerFilters();
             });
             container.querySelector('.structure-filter-all')?.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -909,6 +935,96 @@ const DashboardPage = {
                 container.querySelectorAll('.structure-filter-cb').forEach(cb => {
                     if (cb.checked) { cb.checked = false; cb.dispatchEvent(new Event('change', { bubbles: true })); }
                 });
+            });
+        }
+    },
+
+    _applyMarkerFilters() {
+        if (!this.map || !this.markersByStructure) return;
+        const allMarkers = [].concat(...Object.values(this.markersByStructure));
+        for (const m of allMarkers) {
+            const visible = this.activeStructures.has(m._siteStructure) && this.activeVulnerabilities.has(m._siteVuln);
+            if (visible && !this.map.hasLayer(m)) m.addTo(this.map);
+            else if (!visible && this.map.hasLayer(m)) this.map.removeLayer(m);
+        }
+    },
+
+    addVulnerabilityFilterControl() {
+        if (!this.map || !this.markersByVulnerability) return;
+        if (this._vulnFilterCtrl) this._vulnFilterCtrl.remove();
+
+        const levels = [
+            { key: 'normal',       label: 'Normale',       color: '#94a3b8' },
+            { key: 'elevee',       label: 'Élevée',        color: '#e67e22' },
+            { key: 'tres_elevee',  label: 'Très élevée',   color: '#c0392b' }
+        ];
+        const total = levels.reduce((acc, l) => acc + (this.markersByVulnerability[l.key] || []).length, 0);
+        if (total === 0) return;
+
+        const VulnFilter = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: () => {
+                const div = L.DomUtil.create('div', 'leaflet-bar vuln-filter');
+                div.style.cssText = 'background:white;padding:5px 7px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.25);font-size:10.5px;line-height:1.3;max-width:150px;';
+
+                const header = document.createElement('div');
+                header.style.cssText = 'font-weight:700;color:#202B5D;display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;user-select:none;padding-bottom:3px;';
+                const title = document.createElement('span');
+                title.textContent = 'Vulnérabilité';
+                const caret = document.createElement('span');
+                caret.style.cssText = 'font-size:10px;color:#62718D;transition:transform 0.2s;';
+                caret.textContent = '▾';
+                header.append(title, caret);
+                div.appendChild(header);
+
+                const body = document.createElement('div');
+                body.style.cssText = 'margin-top:4px;border-top:1px solid #eef;padding-top:4px;';
+
+                levels.forEach(({ key, label, color }) => {
+                    const count = (this.markersByVulnerability[key] || []).length;
+                    const row = document.createElement('label');
+                    row.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer;padding:1px 0;';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'vuln-filter-cb';
+                    cb.setAttribute('data-level', key);
+                    cb.checked = true;
+                    cb.style.cssText = 'margin:0;width:12px;height:12px;';
+                    const swatch = document.createElement('span');
+                    swatch.style.cssText = `display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;`;
+                    const labelSpan = document.createElement('span');
+                    labelSpan.style.cssText = 'flex:1;color:#202B5D;font-weight:600;';
+                    labelSpan.textContent = label;
+                    const countSpan = document.createElement('span');
+                    countSpan.style.cssText = 'color:#8896AB;font-size:10px;';
+                    countSpan.textContent = count;
+                    row.append(cb, swatch, labelSpan, countSpan);
+                    body.appendChild(row);
+                });
+
+                div.appendChild(body);
+                header.addEventListener('click', () => {
+                    const collapsed = body.style.display === 'none';
+                    body.style.display = collapsed ? 'block' : 'none';
+                    caret.style.transform = collapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
+                });
+
+                L.DomEvent.disableClickPropagation(div);
+                L.DomEvent.disableScrollPropagation(div);
+                return div;
+            }
+        });
+
+        this._vulnFilterCtrl = new VulnFilter().addTo(this.map);
+
+        const container = document.querySelector('.vuln-filter');
+        if (container) {
+            container.addEventListener('change', (e) => {
+                if (!e.target.matches('.vuln-filter-cb')) return;
+                const level = e.target.dataset.level;
+                if (e.target.checked) this.activeVulnerabilities.add(level);
+                else this.activeVulnerabilities.delete(level);
+                this._applyMarkerFilters();
             });
         }
     },

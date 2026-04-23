@@ -309,6 +309,15 @@ const ProjectDetailPage = {
                                         🏛️ PCS (Plan Communal de Sauvegarde)
                                     </label>
                                 ` : ''}
+                                <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#62718D;margin:0 0 8px 12px;">
+                                    ⚠ Vulnérabilité :
+                                    <select class="form-control" style="width:auto;font-size:12px;padding:4px 8px;height:auto;"
+                                            onchange="ProjectDetailPage.updateSiteField(${index}, 'vulnerability_level', this.value)">
+                                        <option value="normal" ${(site.vulnerability_level || 'normal') === 'normal' ? 'selected' : ''}>Normale</option>
+                                        <option value="elevee" ${site.vulnerability_level === 'elevee' ? 'selected' : ''}>Élevée</option>
+                                        <option value="tres_elevee" ${site.vulnerability_level === 'tres_elevee' ? 'selected' : ''}>Très élevée</option>
+                                    </select>
+                                </label>
                                 <div style="position:relative; margin-bottom:8px;">
                                     <input type="text" class="form-control site-search" data-site-index="${index}"
                                            placeholder="Rechercher localisation (commune, arrondissement...)"
@@ -339,6 +348,7 @@ const ProjectDetailPage = {
                                 <div>
                                     <strong>${site.name}</strong> — ${site.description || ''}
                                     ${site.is_pcs ? '<span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:#1d4ed8;background:#dbeafe;">📎 PCS</span>' : ''}
+                                    ${ProjectDetailPage.renderVulnBadge(site.vulnerability_level)}
                                 </div>
                                 <div style="font-size:12px;color:#62718D;margin-top:4px;">
                                     ${[site.region, site.departement, site.arrondissement, site.commune].filter(Boolean).join(' > ') || ''}
@@ -596,7 +606,7 @@ const ProjectDetailPage = {
 
     // ==================== Méthodes de gestion des sites ====================
     addSite() {
-        this.data.editMode.sites.push({ name: '', description: '', region: '', departement: '', arrondissement: '', commune: '', latitude: null, longitude: null, is_pcs: false });
+        this.data.editMode.sites.push({ name: '', description: '', region: '', departement: '', arrondissement: '', commune: '', latitude: null, longitude: null, is_pcs: false, vulnerability_level: 'normal' });
         this.refreshSection('sites');
     },
 
@@ -1097,6 +1107,15 @@ const ProjectDetailPage = {
                                 🏛️ PCS (Plan Communal de Sauvegarde)
                             </label>
                         ` : ''}
+                        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#62718D;margin:0 0 8px 12px;">
+                            ⚠ Vulnérabilité :
+                            <select class="form-control" style="width:auto;font-size:12px;padding:4px 8px;height:auto;"
+                                    onchange="ProjectDetailPage.updateSiteField(${index}, 'vulnerability_level', this.value)">
+                                <option value="normal" ${(site.vulnerability_level || 'normal') === 'normal' ? 'selected' : ''}>Normale</option>
+                                <option value="elevee" ${site.vulnerability_level === 'elevee' ? 'selected' : ''}>Élevée</option>
+                                <option value="tres_elevee" ${site.vulnerability_level === 'tres_elevee' ? 'selected' : ''}>Très élevée</option>
+                            </select>
+                        </label>
                         <div style="position:relative; margin-bottom:8px;">
                             <input type="text" class="form-control site-search" data-site-index="${index}"
                                    placeholder="Rechercher localisation (commune, arrondissement...)"
@@ -1198,6 +1217,17 @@ const ProjectDetailPage = {
             'annule': 'Annulé'
         };
         return labels[status] || status;
+    },
+
+    renderVulnBadge(level) {
+        if (!level || level === 'normal') return '';
+        if (level === 'elevee') {
+            return '<span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:white;background:#e67e22;">⚠ Élevée</span>';
+        }
+        if (level === 'tres_elevee') {
+            return '<span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:white;background:#c0392b;">⚠ Très élevée</span>';
+        }
+        return '';
     },
 
     async updateMyMeasureStatus(measureId, newStatus) {

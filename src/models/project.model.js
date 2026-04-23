@@ -292,10 +292,26 @@ class ProjectModel {
     }
 
     /**
+     * Valide et renvoie un niveau de vulnérabilité accepté.
+     * - null/undefined → 'normal' (défaut explicite)
+     * - valeur valide ('normal'|'elevee'|'tres_elevee') → acceptée telle quelle
+     * - toute autre valeur → erreur de validation (ne pas downgrader silencieusement)
+     */
+    static _validateVulnerabilityLevel(value) {
+        if (value === null || value === undefined || value === '') return 'normal';
+        const allowed = ['normal', 'elevee', 'tres_elevee'];
+        if (allowed.includes(value)) return value;
+        const err = new Error(`vulnerability_level invalide : "${value}" (attendu : ${allowed.join(' | ')})`);
+        err.field = 'vulnerability_level';
+        err.statusCode = 400;
+        throw err;
+    }
+
+    /**
      * Ajouter un site à un projet
      */
     static async addSite(projectId, siteData) {
-        const { locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs } = siteData;
+        const { locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs, vulnerability_level } = siteData;
 
         // is_pcs réservé aux projets portés par DPGI
         let finalIsPcs = !!is_pcs;
@@ -306,12 +322,14 @@ class ProjectModel {
             if (check.rows[0]?.code !== 'DPGI') finalIsPcs = false;
         }
 
+        const finalVuln = this._validateVulnerabilityLevel(vulnerability_level);
+
         const result = await db.query(`
-            INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs, vulnerability_level)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING *
-        `, [projectId, locality_id || null, name, description || null, region || null, departement || null, arrondissement || null, commune || null, latitude || null, longitude || null, finalIsPcs]);
-        
+        `, [projectId, locality_id || null, name, description || null, region || null, departement || null, arrondissement || null, commune || null, latitude || null, longitude || null, finalIsPcs, finalVuln]);
+
         return result.rows[0];
     }
 
@@ -418,10 +436,11 @@ class ProjectModel {
             // Insérer les nouveaux sites
             for (const site of sites) {
                 const sitePcs = isDpgi && !!site.is_pcs;
+                const vuln = ProjectModel._validateVulnerabilityLevel(site.vulnerability_level);
                 await client.query(`
-                    INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                `, [projectId, site.locality_id || null, site.name, site.description || null, site.region || null, site.departement || null, site.arrondissement || null, site.commune || null, site.latitude || null, site.longitude || null, sitePcs]);
+                    INSERT INTO sites (project_id, locality_id, name, description, region, departement, arrondissement, commune, latitude, longitude, is_pcs, vulnerability_level)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                `, [projectId, site.locality_id || null, site.name, site.description || null, site.region || null, site.departement || null, site.arrondissement || null, site.commune || null, site.latitude || null, site.longitude || null, sitePcs, vuln]);
             }
             
             await client.query('COMMIT');

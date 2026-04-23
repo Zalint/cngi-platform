@@ -57,7 +57,7 @@ function summarizeProjects(projects) {
             statut: m.status,
             structure_assignee: m.structure_code
         })),
-        sites: (p.sites || []).map(s => ({ nom: s.name, commune: s.commune, region: s.region }))
+        sites: (p.sites || []).map(s => ({ nom: s.name, commune: s.commune, region: s.region, vulnerabilite: s.vulnerability_level || 'normal' }))
     }));
 }
 
