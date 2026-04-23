@@ -3,14 +3,29 @@ const ProjectStructure = require('../models/projectStructure.model');
 const { validateProjectData, validateProjectDataForUpdate } = require('../utils/validators');
 const { canUserAccessProject } = require('../utils/projectAccess');
 
-// Masque les montants financiers pour les rôles qui n'ont pas le droit de les voir.
-// Seul `lecteur` voit un budget masqué ; `auditeur` a accès complet.
+// Masque les données financières pour les rôles qui n'ont pas le droit de les voir.
+// Seul `lecteur` est redacté ; `auditeur` a accès complet.
+// Champs concernés (observés dans le modèle) :
+//   - projects.budget (champ top-level)
+//   - project.funding[] — tableau issu de la table `financing`, chaque entrée
+//     contient { amount, currency, source, availability }. On retire le tableau
+//     entier pour ne pas fuiter le nombre de sources de financement non plus.
+// NB : la table `stakeholders` ne contient aucune donnée monétaire (uniquement
+// nom, type et contacts), donc rien à redacter côté parties prenantes.
 function redactFinancialsFor(user, project) {
     if (!project || !user || user.role !== 'lecteur') return project;
-    const cloned = Array.isArray(project) ? project.map(p => ({ ...p })) : { ...project };
-    const redact = (p) => { if (p) p.budget = null; };
-    if (Array.isArray(cloned)) cloned.forEach(redact); else redact(cloned);
-    return cloned;
+
+    const redactOne = (p) => {
+        if (!p) return p;
+        // Shallow-clone l'objet projet puis réaffecter explicitement les champs
+        // sensibles. On ne mute jamais l'objet reçu en argument.
+        const cloned = { ...p };
+        cloned.budget = null;
+        if (Array.isArray(cloned.funding)) cloned.funding = [];
+        return cloned;
+    };
+
+    return Array.isArray(project) ? project.map(redactOne) : redactOne(project);
 }
 
 exports.getAllProjects = async (req, res, next) => {
