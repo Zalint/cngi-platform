@@ -9,7 +9,7 @@ router.use(protect);
 router.get('/', projectsController.getAllProjects);
 router.post('/', authorize('admin', 'utilisateur'), projectsController.createProject);
 router.get('/stats', projectsController.getStats);
-router.get('/export/xlsx', exportController.exportProjectsXlsx);
+router.get('/export/xlsx', authorize('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial', 'auditeur'), exportController.exportProjectsXlsx);
 router.get('/:id', projectsController.getProjectById);
 router.put('/:id', authorize('admin', 'utilisateur'), projectsController.updateProject);
 router.patch('/:id/progress', authorize('admin', 'utilisateur'), projectsController.updateProgress);
@@ -33,10 +33,10 @@ router.put('/:projectId/measures/:measureId/assign', authorize('admin', 'utilisa
 router.put('/:projectId/measures/:measureId/reassign', authorize('admin', 'utilisateur'), projectsController.reassignMeasure);
 router.put('/:projectId/measures/:measureId/status', authorize('admin', 'utilisateur'), projectsController.updateMeasureStatus);
 
-// Project Comments (any authenticated user)
+// Project Comments
 router.get('/:id/comments', projectsController.getComments);
-router.post('/:id/comments', projectsController.addComment);
-router.delete('/:id/comments/:commentId', projectsController.deleteComment);
+router.post('/:id/comments', authorize('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial'), projectsController.addComment);
+router.delete('/:id/comments/:commentId', authorize('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial'), projectsController.deleteComment);
 
 module.exports = router;
 

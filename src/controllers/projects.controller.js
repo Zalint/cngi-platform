@@ -3,12 +3,25 @@ const ProjectStructure = require('../models/projectStructure.model');
 const { validateProjectData, validateProjectDataForUpdate } = require('../utils/validators');
 const { canUserAccessProject } = require('../utils/projectAccess');
 
+// Masque les montants financiers pour les rôles qui n'ont pas le droit de les voir.
+// Seul `lecteur` voit un budget masqué ; `auditeur` a accès complet.
+function redactFinancialsFor(user, project) {
+    if (!project || !user || user.role !== 'lecteur') return project;
+    const cloned = Array.isArray(project) ? project.map(p => ({ ...p })) : { ...project };
+    const redact = (p) => { if (p) p.budget = null; };
+    if (Array.isArray(cloned)) cloned.forEach(redact); else redact(cloned);
+    return cloned;
+}
+
 exports.getAllProjects = async (req, res, next) => {
     try {
         let projects;
 
-        if (req.user.role === 'superviseur') {
-            // Superviseur voit tous les projets (comme admin)
+        const isGlobalReader = (req.user.role === 'lecteur' || req.user.role === 'auditeur') && !req.user.structure_id;
+        const isScopedReader = (req.user.role === 'lecteur' || req.user.role === 'auditeur') && req.user.structure_id;
+
+        if (req.user.role === 'superviseur' || isGlobalReader) {
+            // Superviseur / lecteur global / auditeur global voient tous les projets (comme admin)
             const filters = {};
             if (req.query.structure_id) filters.structure_id = req.query.structure_id;
             if (req.query.status) filters.status = req.query.status;
@@ -16,8 +29,11 @@ exports.getAllProjects = async (req, res, next) => {
         } else if (req.user.role === 'commandement_territorial') {
             // Commandement territorial voit les projets de son territoire
             projects = await ProjectModel.findByTerritory(req.user.territorial_level, req.user.territorial_value);
-        } else if ((req.user.role === 'utilisateur' || req.user.role === 'directeur') && req.user.structure_id) {
-            // Si utilisateur ou directeur, filtrer par sa structure via project_structures
+        } else if (
+            ((req.user.role === 'utilisateur' || req.user.role === 'directeur') && req.user.structure_id)
+            || isScopedReader
+        ) {
+            // Utilisateur / directeur / lecteur ou auditeur scopés → filtrer par leur structure via project_structures
             projects = await ProjectStructure.getProjectsByStructure(req.user.structure_id);
         } else {
             // Admin voit tous les projets
@@ -27,7 +43,8 @@ exports.getAllProjects = async (req, res, next) => {
             projects = await ProjectModel.findAll(filters);
         }
 
-        res.json({ success: true, count: projects.length, data: projects });
+        const safeProjects = redactFinancialsFor(req.user, projects);
+        res.json({ success: true, count: safeProjects.length, data: safeProjects });
     } catch (error) {
         next(error);
     }
@@ -36,18 +53,18 @@ exports.getAllProjects = async (req, res, next) => {
 exports.getProjectById = async (req, res, next) => {
     try {
         const project = await ProjectModel.findById(req.params.id);
-        
+
         if (!project) {
             return res.status(404).json({ success: false, message: 'Projet non trouvé' });
         }
-        
+
         // Vérifier l'accès pour tous les non-admin (inclut commandement_territorial)
         const hasAccess = await canUserAccessProject(req.user, req.params.id);
         if (!hasAccess) {
             return res.status(403).json({ success: false, message: 'Accès refusé à ce projet' });
         }
 
-        res.json({ success: true, data: project });
+        res.json({ success: true, data: redactFinancialsFor(req.user, project) });
     } catch (error) {
         next(error);
     }

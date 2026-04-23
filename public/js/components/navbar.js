@@ -95,8 +95,17 @@ const Navbar = {
             'utilisateur': 'Utilisateur',
             'directeur': 'Directeur',
             'superviseur': 'Superviseur',
-            'commandement_territorial': 'Cmdt territorial'
+            'commandement_territorial': 'Cmdt territorial',
+            'lecteur': 'Lecteur',
+            'auditeur': 'Auditeur'
         };
+
+        const scopeTag = user.structure_code ? ` · ${user.structure_code}` : '';
+        const readOnlyBadge = user.role === 'lecteur'
+            ? `<span style="display:inline-block;margin-left:10px;padding:3px 10px;background:#8896AB;color:white;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">👁 Lecture${scopeTag}</span>`
+            : user.role === 'auditeur'
+            ? `<span style="display:inline-block;margin-left:10px;padding:3px 10px;background:#3794C4;color:white;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">🔍 Audit${scopeTag}</span>`
+            : '';
 
         return `
             <div class="top-bar">
@@ -109,7 +118,7 @@ const Navbar = {
                             <line x1="3" y1="18" x2="21" y2="18"/>
                         </svg>
                     </button>
-                    <h1 style="margin:0;">${title}</h1>
+                    <h1 style="margin:0;">${title}${readOnlyBadge}</h1>
                 </div>
                 <div style="display:flex;align-items:center;gap:16px;">
                     <button onclick="Navbar.hardRefresh()" title="Vider le cache et recharger la page"

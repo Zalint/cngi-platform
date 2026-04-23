@@ -358,14 +358,16 @@ const DashboardPage = {
                         <p>Derniers projets créés (${this.data.recentProjects.length} affichés)</p>
                     </div>
                     <div style="display:flex;gap:8px;">
-                        <button class="btn btn-secondary" onclick="DashboardPage.exportXlsx()" title="Exporter tous les projets au format Excel">
-                            <span>&#128202;</span>
-                            <span>Exporter Excel</span>
-                        </button>
-                        <button class="btn btn-secondary" onclick="DashboardPage.openReportModal()" title="Générer un rapport analytique via IA">
-                            <span>&#129302;</span>
-                            <span>Générer rapport</span>
-                        </button>
+                        ${Auth.canExport() ? `
+                            <button class="btn btn-secondary" onclick="DashboardPage.exportXlsx()" title="Exporter tous les projets au format Excel">
+                                <span>&#128202;</span>
+                                <span>Exporter Excel</span>
+                            </button>
+                            <button class="btn btn-secondary" onclick="DashboardPage.openReportModal()" title="Générer un rapport analytique via IA">
+                                <span>&#129302;</span>
+                                <span>Générer rapport</span>
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
                 <div class="table-container">

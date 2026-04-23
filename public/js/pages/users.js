@@ -121,8 +121,10 @@ const UsersPage = {
                                         <option value="admin">Administrateur</option>
                                         <option value="utilisateur">Utilisateur</option>
                                         <option value="directeur">Directeur</option>
-                                        <option value="superviseur">Superviseur</option>
+                                        <option value="superviseur">Superviseur (Ministre)</option>
                                         <option value="commandement_territorial">Commandement territorial</option>
+                                        <option value="lecteur">Lecteur (lecture seule)</option>
+                                        <option value="auditeur">Auditeur (lecture + export)</option>
                                     </select>
                                 </div>
 
@@ -208,7 +210,9 @@ const UsersPage = {
             'utilisateur': 'Utilisateur',
             'directeur': 'Directeur',
             'superviseur': 'Superviseur',
-            'commandement_territorial': 'Commandement territorial'
+            'commandement_territorial': 'Commandement territorial',
+            'lecteur': 'Lecteur',
+            'auditeur': 'Auditeur'
         };
         return labels[role] || role;
     },

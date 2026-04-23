@@ -93,14 +93,16 @@ const ProjectsPage = {
                     </select>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    <button class="btn btn-secondary" onclick="ProjectsPage.exportXlsx()" title="Exporter tous les projets au format Excel">
-                        <span>📊</span>
-                        <span>Exporter Excel</span>
-                    </button>
-                    <button class="btn btn-secondary" onclick="ProjectsPage.openReportModal()" title="Générer un rapport analytique via IA">
-                        <span>🤖</span>
-                        <span>Générer rapport</span>
-                    </button>
+                    ${Auth.canExport() ? `
+                        <button class="btn btn-secondary" onclick="ProjectsPage.exportXlsx()" title="Exporter tous les projets au format Excel">
+                            <span>📊</span>
+                            <span>Exporter Excel</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="ProjectsPage.openReportModal()" title="Générer un rapport analytique via IA">
+                            <span>🤖</span>
+                            <span>Générer rapport</span>
+                        </button>
+                    ` : ''}
                     ${canCreate ? `
                         <a href="#/projects/new" class="btn btn-primary">
                             <span>➕</span>
