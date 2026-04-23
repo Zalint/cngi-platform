@@ -682,7 +682,10 @@ const DashboardPage = {
             const pcsSize = size + 2; // légèrement plus grand pour compenser la place du SVG
             const svgPx = Math.round(pcsSize * 0.7);
             // Pastille vulnérabilité (coin supérieur droit du marqueur)
-            const vuln = site.vulnerability_level || 'normal';
+            // Sanitize : toute valeur inattendue retombe sur 'normal' pour éviter un index undefined
+            const ALLOWED_VULN = ['normal', 'elevee', 'tres_elevee'];
+            const rawVuln = typeof site.vulnerability_level === 'string' ? site.vulnerability_level : null;
+            const vuln = ALLOWED_VULN.includes(rawVuln) ? rawVuln : 'normal';
             let vulnDotHtml = '';
             if (vuln === 'elevee') {
                 vulnDotHtml = `<div style="position:absolute;top:-6px;right:-6px;width:12px;height:12px;border-radius:50%;background:#e67e22;border:1.5px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.35);z-index:3;"></div>`;

@@ -207,10 +207,12 @@ async function initDatabase() {
                 ALTER TABLE sites ADD COLUMN IF NOT EXISTS vulnerability_level VARCHAR(20) DEFAULT 'normal';
             EXCEPTION WHEN duplicate_column THEN NULL;
             END $$;
+            UPDATE sites SET vulnerability_level = 'normal' WHERE vulnerability_level IS NULL;
+            ALTER TABLE sites ALTER COLUMN vulnerability_level SET NOT NULL;
+            ALTER TABLE sites ALTER COLUMN vulnerability_level SET DEFAULT 'normal';
             DO $$ BEGIN
                 ALTER TABLE sites ADD CONSTRAINT sites_vuln_chk CHECK (vulnerability_level IN ('normal','elevee','tres_elevee'));
             EXCEPTION WHEN duplicate_object THEN NULL;
-            WHEN others THEN NULL;
             END $$
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_sites_project ON sites(project_id)`);
