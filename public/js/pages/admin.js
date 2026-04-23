@@ -201,7 +201,7 @@ const AdminPage = {
                 `)}
 
                 ${section('👥 Rôles utilisateur', `
-                    <p>La plateforme définit <strong>5 rôles</strong>. Chaque utilisateur a exactement un rôle, ce qui détermine ce qu'il voit et peut faire.</p>
+                    <p>La plateforme définit <strong>7 rôles</strong>. Chaque utilisateur a exactement un rôle, ce qui détermine ce qu'il voit et peut faire.</p>
                     ${table(
                         ['Rôle', 'Persona', 'Voit', 'Peut créer / modifier'],
                         [
@@ -209,11 +209,19 @@ const AdminPage = {
                             ['<strong>Superviseur</strong>', 'Ministre / cabinet', 'Tous les projets', 'Observations (directives adressées aux structures)'],
                             ['<strong>Commandement Territorial</strong>', 'Gouverneur (région) · Préfet (département) · Sous-préfet (arrondissement)', 'Projets de son territoire uniquement', 'PV de visite liés à son territoire'],
                             ['<strong>Directeur</strong>', 'Directeur de structure (ex. DG ONAS)', 'Projets de sa structure', 'Projets de sa structure, assignations de mesures'],
-                            ['<strong>Utilisateur</strong>', 'Agent opérationnel d\'une structure', 'Projets de sa structure', 'Projets de sa structure, mise à jour statut des mesures qui lui sont assignées']
+                            ['<strong>Utilisateur</strong>', 'Agent opérationnel d\'une structure', 'Projets de sa structure', 'Projets de sa structure, mise à jour statut des mesures qui lui sont assignées'],
+                            ['<strong>Auditeur</strong> 🔍', 'Cour des Comptes · IGE · Bailleur (BM, BAD, AFD) · Conseiller', 'Tout (y compris données financières) — scopable sur une structure', '<em>Rien</em> — lecture seule. Peut exporter Excel et générer rapport IA.'],
+                            ['<strong>Lecteur</strong> 👁', 'Communicant · journaliste accrédité · personnel interne · visiteur', 'Tout SAUF les montants financiers — scopable sur une structure', '<em>Rien</em> — lecture seule, pas d\'export, pas de rapport IA.']
                         ]
                     )}
                     <p style="background:#fff8e1;border-left:3px solid #f39c12;padding:10px;font-size:12px;">
                         <strong>Note :</strong> le Superviseur et le Commandement Territorial n'appartiennent à <em>aucune</em> structure technique — ils observent et pilotent.
+                        Les rôles <strong>Auditeur</strong> et <strong>Lecteur</strong> sont des profils de lecture seule : aucune écriture possible, quel que soit le contexte.
+                    </p>
+                    <p style="background:#e0f2fe;border-left:3px solid #3794C4;padding:10px;font-size:12px;">
+                        <strong>Scope global vs. scope structure :</strong> pour <code>lecteur</code> et <code>auditeur</code>, le champ <em>Structure</em> au moment de la création de l'utilisateur détermine la portée.
+                        <br>• <strong>Sans structure</strong> → lecteur/auditeur <em>global</em> : voit tous les projets, toutes les structures.
+                        <br>• <strong>Avec une structure</strong> → lecteur/auditeur <em>scopé</em> : ne voit que les projets et PV rattachés à cette structure. Exemple : un bailleur AFD qui finance uniquement des projets ONAS → rôle <em>auditeur</em> scopé sur ONAS.
                     </p>
                 `)}
 
@@ -330,13 +338,16 @@ const AdminPage = {
 
                 ${section('🔐 Qui voit quoi — résumé', `
                     ${table(
-                        ['Entité', 'Admin / Superviseur', 'Commandement Territorial', 'Directeur / Utilisateur'],
+                        ['Entité', 'Admin / Superviseur', 'Auditeur', 'Lecteur', 'Commandement Territorial', 'Directeur / Utilisateur'],
                         [
-                            ['Projets', 'Tous', 'Ceux de son territoire', 'Ceux de sa structure'],
-                            ['Mesures', 'Toutes', 'Via les projets visibles', 'Via les projets visibles'],
-                            ['Observations Ministre', 'Toutes', 'Celles globales ou de ses projets', 'Celles globales ou de ses projets'],
-                            ['PV Commandement', 'Tous', 'Les siens + ceux de son niveau', 'Ceux liés à ses projets'],
-                            ['Utilisateurs / Structures', 'Gestion complète', 'Lecture seule', 'Lecture seule']
+                            ['Projets', 'Tous', 'Tous', 'Tous', 'Ceux de son territoire', 'Ceux de sa structure'],
+                            ['Montants / Budgets', '✅', '✅', '🔒 masqué', '✅', '✅'],
+                            ['Mesures', 'Toutes', 'Toutes', 'Toutes', 'Via projets visibles', 'Via projets visibles'],
+                            ['Observations Ministre', 'Toutes', 'Toutes', 'Toutes', 'Globales ou de ses projets', 'Globales ou de ses projets'],
+                            ['PV Commandement', 'Tous', 'Tous', 'Tous', 'Les siens + ceux de son niveau', 'Ceux liés à ses projets'],
+                            ['Export Excel + Rapport IA', '✅', '✅', '❌', '✅', '✅'],
+                            ['Créer / modifier / supprimer', '✅ (selon scope)', '❌', '❌', '✅ (PV)', '✅ (ses projets)'],
+                            ['Section Administration', 'Admin uniquement', '❌', '❌', '❌', '❌']
                         ]
                     )}
                 `)}
@@ -352,7 +363,11 @@ const AdminPage = {
         const labels = {
             'admin': 'Administrateur',
             'utilisateur': 'Utilisateur',
-            'directeur': 'Directeur'
+            'directeur': 'Directeur',
+            'superviseur': 'Superviseur (Ministre)',
+            'commandement_territorial': 'Commandement Territorial',
+            'lecteur': 'Lecteur',
+            'auditeur': 'Auditeur'
         };
         return labels[role] || role;
     },

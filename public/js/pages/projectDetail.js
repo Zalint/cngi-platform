@@ -175,10 +175,14 @@ const ProjectDetailPage = {
                         <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #333;">
                             Budget (FCFA)
                         </label>
-                        ${isProjectManager ? `
-                            <input type="number" id="edit-budget" class="form-control" 
-                                   value="${p.budget || ''}" 
+                        ${isProjectManager && Auth.canWrite() ? `
+                            <input type="number" id="edit-budget" class="form-control"
+                                   value="${p.budget || ''}"
                                    placeholder="Ex: 50000000" step="1000">
+                        ` : !Auth.canSeeBudget() ? `
+                            <div style="padding: 12px; background: #f5f7fa; border-radius: 6px; font-size: 14px; font-weight: 600; color: #8896AB; font-style: italic;">
+                                🔒 Donnée financière — accès restreint
+                            </div>
                         ` : `
                             <div style="padding: 12px; background: #f5f7fa; border-radius: 6px; font-size: 18px; font-weight: 600; color: #1e3c72;">
                                 ${p.budget ? p.budget.toLocaleString() + ' FCFA' : 'Non défini'}

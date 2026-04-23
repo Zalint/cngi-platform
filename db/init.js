@@ -41,7 +41,7 @@ async function initDatabase() {
                 email VARCHAR(255) UNIQUE,
                 first_name VARCHAR(100),
                 last_name VARCHAR(100),
-                role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial')),
+                role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial', 'lecteur', 'auditeur')),
                 structure_id INTEGER REFERENCES structures(id) ON DELETE SET NULL,
                 territorial_level VARCHAR(20),
                 territorial_value VARCHAR(100),
@@ -57,7 +57,7 @@ async function initDatabase() {
             DO $$ BEGIN
                 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
                 ALTER TABLE users ADD CONSTRAINT users_role_check
-                    CHECK (role IN ('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial'));
+                    CHECK (role IN ('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial', 'lecteur', 'auditeur'));
                 ALTER TABLE users ADD COLUMN IF NOT EXISTS territorial_level VARCHAR(20);
                 ALTER TABLE users ADD COLUMN IF NOT EXISTS territorial_value VARCHAR(100);
                 ALTER TABLE users ADD COLUMN IF NOT EXISTS title VARCHAR(150);

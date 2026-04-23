@@ -59,6 +59,34 @@ const Auth = {
     },
 
     /**
+     * Rôles de lecture seule (aucune écriture possible)
+     */
+    isReadOnly() {
+        return this.hasAnyRole('lecteur', 'auditeur');
+    },
+
+    /**
+     * Peut modifier quoi que ce soit (créer / éditer / supprimer)
+     */
+    canWrite() {
+        return !this.isReadOnly();
+    },
+
+    /**
+     * Peut voir les montants financiers (budget, coûts)
+     */
+    canSeeBudget() {
+        return !this.hasRole('lecteur');
+    },
+
+    /**
+     * Peut exporter / générer un rapport IA (extraction de données)
+     */
+    canExport() {
+        return !this.hasRole('lecteur');
+    },
+
+    /**
      * Obtenir les initiales pour l'avatar
      */
     getInitials() {
