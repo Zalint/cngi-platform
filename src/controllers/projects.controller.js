@@ -1,8 +1,44 @@
 const ProjectModel = require('../models/project.model');
 const ProjectStructure = require('../models/projectStructure.model');
 const NotificationModel = require('../models/notification.model');
+const db = require('../config/db');
 const { validateProjectData, validateProjectDataForUpdate } = require('../utils/validators');
 const { canUserAccessProject } = require('../utils/projectAccess');
+
+const STATUS_LABELS = {
+    preconisee:   'Préconisée',
+    executee:     'Exécutée',
+    non_executee: 'Non exécutée',
+    observations: 'Observations'
+};
+
+/**
+ * Renvoie la liste des IDs utilisateurs qui doivent être informés d'un événement
+ * sur une mesure d'un projet : le ou les admins, le directeur de la structure
+ * principale du projet, le chef de projet et l'assigné de la mesure.
+ * Exclut l'utilisateur qui a provoqué l'événement (excludeUserId).
+ */
+async function collectMeasureWatchers(projectId, measureAssignedUserId, excludeUserId) {
+    try {
+        const result = await db.query(`
+            SELECT DISTINCT u.id
+            FROM users u
+            LEFT JOIN projects p ON p.id = $1
+            WHERE u.is_active = true
+              AND u.id <> $2
+              AND (
+                    u.role = 'admin'
+                 OR (u.role = 'directeur' AND u.structure_id = p.structure_id)
+                 OR u.id = p.project_manager_id
+                 OR u.id = $3
+              )
+        `, [projectId, excludeUserId || 0, measureAssignedUserId || 0]);
+        return result.rows.map(r => r.id);
+    } catch (err) {
+        console.error('collectMeasureWatchers failed:', err.message);
+        return [];
+    }
+}
 
 // Masque les données financières pour les rôles qui n'ont pas le droit de les voir.
 // Seul `lecteur` est redacté ; `auditeur` a accès complet.
@@ -512,17 +548,26 @@ exports.updateMeasureStatus = async (req, res, next) => {
 
         const updated = await ProjectModel.updateMeasureStatus(measureId, status, constraints);
 
-        // Si le changement de statut est fait par quelqu'un d'autre que l'assigné,
-        // notifier l'assigné pour qu'il soit au courant.
-        if (measure.assigned_user_id && measure.assigned_user_id !== req.user.id) {
-            NotificationModel.create({
-                userId: measure.assigned_user_id,
+        // Notifier tous les "watchers" du projet/mesure : admins, directeur de
+        // la structure, chef de projet, utilisateur assigné. On exclut celui
+        // qui vient d'effectuer le changement pour ne pas se notifier soi-même.
+        collectMeasureWatchers(
+            req.params.projectId,
+            measure.assigned_user_id,
+            req.user.id
+        ).then(userIds => {
+            const statusLabel = STATUS_LABELS[status] || status;
+            const projTitle = project.title || `Projet #${req.params.projectId}`;
+            const body = (measure.description || '').slice(0, 140) || null;
+            const link = `#/projects/${req.params.projectId}`;
+            return Promise.all(userIds.map(uid => NotificationModel.create({
+                userId: uid,
                 type: 'measure_status_changed',
-                title: `Statut mesure modifié : ${status}`,
-                body: (measure.description || '').slice(0, 120) || null,
-                linkUrl: `#/projects/${req.params.projectId}`
-            }).catch(err => console.error('Notification create failed:', err));
-        }
+                title: `Statut changé → ${statusLabel} · ${projTitle}`,
+                body,
+                linkUrl: link
+            })));
+        }).catch(err => console.error('Notify watchers failed:', err));
 
         res.json({ success: true, message: 'Statut de la mesure mis à jour', data: updated });
     } catch (error) {
