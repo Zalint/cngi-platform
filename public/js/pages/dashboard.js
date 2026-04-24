@@ -672,23 +672,36 @@ const DashboardPage = {
             minZoom: 7
         }).fitBounds(senegalBounds);
 
+        // Attribution ODbL : tous les fonds dérivés d'OSM doivent créditer
+        // "© OpenStreetMap contributors" avec lien vers la page copyright.
+        // Cf. https://www.openstreetmap.org/copyright.
+        const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
         // Plan OSM standard (densité de labels conservatrice — bon pour la vue d'ensemble)
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap',
+            attribution: OSM_ATTR,
             maxZoom: 19
         });
         // Plan détaillé CARTO Voyager — labels plus denses (rues, POI, commerces).
         // Gratuit sans clé API pour un usage raisonnable. Le {r} sert l'image @2x sur
-        // écrans haute densité.
+        // écrans haute densité. Basemaps publics CARTO : OK jusqu'à quelques dizaines
+        // de milliers de tuiles/mois ; passer à un compte CARTO payant en cas de fort
+        // trafic. Cf. https://carto.com/attributions.
         const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            attribution: `${OSM_ATTR} &copy; <a href="https://carto.com/attributions">CARTO</a>`,
             subdomains: 'abcd',
             maxZoom: 20
         });
         // Plan OSM France — labels français, densité supérieure à OSM par défaut.
         // Adapté au contexte sénégalais (Marché, Résidence, Imprimerie…).
         const osmFrLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap France',
+            attribution: `${OSM_ATTR} &copy; <a href="https://www.openstreetmap.fr/mentions-legales/">OSM France</a>`,
+            maxZoom: 20
+        });
+        // Plan humanitaire (HOT OSM) — rendu utilisé par MSF / Croix-Rouge, densité
+        // remarquable sur le bâti africain (écoles, hôpitaux, points d'eau).
+        const hotLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+            attribution: `${OSM_ATTR} Tiles &copy; <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>`,
             maxZoom: 20
         });
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -708,6 +721,7 @@ const DashboardPage = {
                 'Plan': osmLayer,
                 'Plan détaillé': cartoLayer,
                 'Plan français': osmFrLayer,
+                'Plan HOT': hotLayer,
                 'Satellite': satelliteGroup
             },
             null,
