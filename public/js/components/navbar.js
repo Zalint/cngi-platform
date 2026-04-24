@@ -109,9 +109,9 @@ const Navbar = {
 
         const scopeTag = user.structure_code ? ` · ${user.structure_code}` : '';
         const readOnlyBadge = user.role === 'lecteur'
-            ? `<span style="display:inline-block;margin-left:10px;padding:3px 10px;background:#8896AB;color:white;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">👁 Lecture${scopeTag}</span>`
+            ? `<span style="display:inline-flex;align-items:center;gap:4px;margin-left:10px;padding:3px 10px;background:#8896AB;color:white;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">${Icon.render('eye', 12, 'white')}Lecture${scopeTag}</span>`
             : user.role === 'auditeur'
-            ? `<span style="display:inline-block;margin-left:10px;padding:3px 10px;background:#3794C4;color:white;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">🔍 Audit${scopeTag}</span>`
+            ? `<span style="display:inline-flex;align-items:center;gap:4px;margin-left:10px;padding:3px 10px;background:#3794C4;color:white;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">${Icon.render('search', 12, 'white')}Audit${scopeTag}</span>`
             : '';
 
         return `
@@ -161,13 +161,13 @@ const Navbar = {
                             <button onclick="event.stopPropagation(); Navbar.openChangePasswordModal();"
                                     style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#202B5D;font-weight:600;"
                                     onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='transparent'">
-                                <span style="font-size:16px;">🔑</span> Changer le mot de passe
+                                ${Icon.render('key', 16, '#202B5D')} Changer le mot de passe
                             </button>
                             <div style="height:1px;background:#eef;"></div>
                             <button onclick="event.stopPropagation(); Navbar.logout();"
                                     style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#c0392b;font-weight:600;"
                                     onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
-                                <span style="font-size:16px;">🚪</span> Déconnexion
+                                ${Icon.render('log-out', 16, '#c0392b')} Déconnexion
                             </button>
                         </div>
                     </div>

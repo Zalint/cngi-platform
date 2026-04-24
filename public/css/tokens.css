@@ -1,0 +1,129 @@
+/*
+ * CNGI Design Tokens
+ * ------------------
+ * Variables centrales du design system. Importées en tête du fichier CSS
+ * principal pour être disponibles partout.
+ *
+ * Priorités (issues du skill ui-ux-pro-max) :
+ *   1. Accessibilité — contrastes ≥ 4.5:1, focus states visibles
+ *   2. Interaction  — targets tactiles ≥ 44×44 px, feedback clair
+ *   3. Cohérence    — 1 seule palette, 1 seule échelle de spacing / typo
+ *
+ * Note : les valeurs actuelles sont alignées sur ce qui est observé dans
+ * les fichiers existants. La migration consiste à remplacer progressivement
+ * les valeurs inline (#202B5D, 12px, 8px, etc.) par ces tokens.
+ */
+
+:root {
+    /* ---------- Couleurs de marque ---------- */
+    --color-primary:       #202B5D;   /* CNGI navy — titres, actions principales */
+    --color-primary-dark:  #141a3b;
+    --color-primary-light: #3a4a8a;
+
+    --color-accent:        #3794C4;   /* cyan — liens, focus, infos */
+    --color-accent-dark:   #216a91;
+
+    /* ---------- Couleurs sémantiques ---------- */
+    --color-success:       #27ae60;
+    --color-warning:       #e67e22;
+    --color-danger:        #c0392b;
+    --color-info:          #3794C4;
+
+    /* ---------- Couleurs des structures (matching StructureColors.js) ---------- */
+    --color-structure-onas:     #27ae60;
+    --color-structure-bnsp:     #e74c3c;
+    --color-structure-dpgi:     #3794C4;
+    --color-structure-cetud:    #9b59b6;
+    --color-structure-ageroute: #f39c12;
+    --color-structure-dpc:      #8b5cf6;
+
+    /* ---------- Couleurs de surface / texte ---------- */
+    --color-bg:            #f5f7fa;   /* fond global */
+    --color-surface:       #ffffff;   /* cards, panels */
+    --color-surface-muted: #f0f4f8;   /* zones secondaires */
+    --color-border:        #dce3ed;
+    --color-border-light:  #e8ecf1;
+
+    --color-text:          #202B5D;   /* corps de texte */
+    --color-text-muted:    #62718D;   /* texte secondaire */
+    --color-text-disabled: #8896AB;
+
+    /* ---------- Spacing (échelle 4 px) ---------- */
+    --space-0:   0;
+    --space-1:   4px;
+    --space-2:   8px;
+    --space-3:   12px;
+    --space-4:   16px;
+    --space-5:   20px;
+    --space-6:   24px;
+    --space-8:   32px;
+    --space-10:  40px;
+    --space-12:  48px;
+    --space-16:  64px;
+
+    /* ---------- Typography ---------- */
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+
+    --font-xs:   11px;
+    --font-sm:   12px;
+    --font-base: 14px;
+    --font-md:   15px;
+    --font-lg:   16px;
+    --font-xl:   20px;
+    --font-2xl:  24px;
+    --font-3xl:  32px;
+
+    --font-weight-regular: 400;
+    --font-weight-medium:  500;
+    --font-weight-semi:    600;
+    --font-weight-bold:    700;
+
+    --line-height-tight:   1.25;
+    --line-height-normal:  1.5;
+    --line-height-relaxed: 1.7;
+
+    /* ---------- Radius ---------- */
+    --radius-sm:   4px;
+    --radius-md:   6px;
+    --radius-lg:   8px;
+    --radius-xl:   12px;
+    --radius-full: 999px;
+
+    /* ---------- Shadows (couches discrètes) ---------- */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.16);
+
+    /* ---------- Targets tactiles (accessibilité critique) ---------- */
+    --touch-target-min: 44px;   /* pas en dessous sur interface tactile */
+
+    /* ---------- Durées d'animation (respect du prefers-reduced-motion) ---------- */
+    --duration-fast:   120ms;
+    --duration-normal: 220ms;
+    --duration-slow:   400ms;
+    --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* ---------- Z-index (empilement contrôlé) ---------- */
+    --z-dropdown:    100;
+    --z-sticky:      200;
+    --z-overlay:     800;
+    --z-modal:       900;
+    --z-popover:     1000;
+    --z-toast:       1100;
+}
+
+/*
+ * Respect de l'accessibilité : désactive les animations non essentielles
+ * pour les utilisateurs qui ont activé "prefers-reduced-motion".
+ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}

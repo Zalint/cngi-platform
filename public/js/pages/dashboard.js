@@ -412,11 +412,11 @@ const DashboardPage = {
                     <div style="display:flex;gap:8px;">
                         ${Auth.canExport() ? `
                             <button class="btn btn-secondary" onclick="DashboardPage.exportXlsx()" title="Exporter tous les projets au format Excel">
-                                <span>&#128202;</span>
+                                ${Icon.render('file-spreadsheet', 14, '#1D6F42')}
                                 <span>Exporter Excel</span>
                             </button>
                             <button class="btn btn-secondary" onclick="DashboardPage.openReportModal()" title="Générer un rapport analytique via IA">
-                                <span>&#129302;</span>
+                                ${Icon.render('bot', 14, '#3794C4')}
                                 <span>Générer rapport</span>
                             </button>
                         ` : ''}
