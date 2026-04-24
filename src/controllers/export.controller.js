@@ -66,6 +66,36 @@ function autoFitColumns(sheet, min = 10, max = 60) {
     });
 }
 
+/**
+ * Charge les détails des projets par petits lots pour ne pas saturer le pool pg.
+ * Chaque findById fait ~8 SELECTs séquentiels en interne ; en parallèle total
+ * sur N projets on atteint vite la limite de connexions du pool (10 par défaut,
+ * plus bas sur Render starter) → "timeout exceeded when trying to connect".
+ *
+ * Concurrence 3 : compromis entre vitesse et pression pool. Pour 50 projets
+ * × ~50 ms/query on reste sous la seconde pour le batch.
+ */
+async function loadDetailsWithConcurrency(projects, concurrency = 3) {
+    const results = new Array(projects.length);
+    let cursor = 0;
+    async function worker() {
+        while (true) {
+            const i = cursor++;
+            if (i >= projects.length) return;
+            try {
+                results[i] = await ProjectModel.findById(projects[i].id);
+            } catch (err) {
+                // Un projet qui échoue ne doit pas faire tomber l'export entier.
+                // On laisse results[i] = undefined ; il sera filtré plus bas.
+                console.error(`Export: findById(${projects[i].id}) a échoué:`, err.message);
+                results[i] = null;
+            }
+        }
+    }
+    await Promise.all(Array.from({ length: Math.min(concurrency, projects.length) }, worker));
+    return results.filter(Boolean);
+}
+
 exports.exportProjectsXlsx = async (req, res, next) => {
     try {
         // Récupérer tous les projets visibles selon le rôle
@@ -78,8 +108,9 @@ exports.exportProjectsXlsx = async (req, res, next) => {
             projects = await ProjectModel.findAll({});
         }
 
-        // Charger les détails complets de chaque projet (measures, sites, funding, etc.)
-        const detailed = await Promise.all(projects.map(p => ProjectModel.findById(p.id)));
+        // Charger les détails complets (measures, sites, funding…) par lots de 3
+        // pour ne pas saturer le pool pg. Voir loadDetailsWithConcurrency.
+        const detailed = await loadDetailsWithConcurrency(projects, 3);
 
         const wb = new ExcelJS.Workbook();
         wb.creator = 'CNGIRI Platform';
@@ -274,6 +305,14 @@ exports.exportProjectsXlsx = async (req, res, next) => {
         await wb.xlsx.write(res);
         res.end();
     } catch (error) {
+        // Pool pg saturé : message plus parlant (503) plutôt qu'un 500 générique.
+        if (error && error.message && error.message.includes('timeout exceeded when trying to connect')) {
+            return res.status(503).json({
+                success: false,
+                message: 'La base de données est temporairement surchargée. Réessayez dans quelques secondes.',
+                statusCode: 503
+            });
+        }
         next(error);
     }
 };
