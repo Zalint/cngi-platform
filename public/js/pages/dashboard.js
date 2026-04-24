@@ -719,6 +719,9 @@ const DashboardPage = {
         this.activeVulnerabilities = new Set(['normal', 'elevee', 'tres_elevee']);
         this.showSites = true;
         this.showGeometries = true;
+        // Les étiquettes sont désactivées par défaut : sur une carte dense, elles
+        // surchargent la vue. L'utilisateur peut les activer via le panneau "Afficher".
+        this.showLabels = false;
         sites.forEach(site => {
             const lat = parseFloat(site.latitude);
             const lng = parseFloat(site.longitude);
@@ -800,6 +803,7 @@ const DashboardPage = {
             this.markersByStructure[code].push(marker);
             this.markersByVulnerability[vuln].push(marker);
             this.activeStructures.add(code);
+            const siteUpdated = DashboardPage._formatDateFr(site.project_updated_at);
             marker.addTo(this.map)
                 .bindPopup(`
                     <div style="min-width:200px;">
@@ -811,6 +815,7 @@ const DashboardPage = {
                         <span style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;color:white;background:${color};">
                             ${site.structure_code}
                         </span>
+                        ${siteUpdated ? `<div style="margin-top:6px;font-size:10px;color:#8896AB;">Mis à jour le ${siteUpdated}</div>` : ''}
                         <div style="margin-top:10px;">
                             <a href="#/projects/${site.project_id}" style="display:inline-block;padding:6px 12px;background:#202B5D;color:white;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;">
                                 Voir détails →
@@ -818,6 +823,12 @@ const DashboardPage = {
                         </div>
                     </div>
                 `);
+            // Étiquette permanente (désactivée par défaut, toggle via "Afficher les étiquettes")
+            marker.bindTooltip(DashboardPage._buildLabelHtml(site.project_title, code, color), {
+                permanent: true, direction: 'top', offset: [0, -6], className: 'cngi-label',
+                opacity: 1, interactive: true
+            });
+            if (!this.showLabels) marker.closeTooltip();
         });
 
         // Étendre les bornes aux géométries pour que la carte se centre aussi dessus
@@ -927,6 +938,7 @@ const DashboardPage = {
             const projectLink = g.project_id
                 ? `<div style="margin-top:10px;"><a href="#/projects/${g.project_id}" style="display:inline-block;padding:6px 12px;background:#202B5D;color:white;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;">Voir détails →</a></div>`
                 : '';
+            const geomUpdated = DashboardPage._formatDateFr(g.project_updated_at);
             const popupHtml = `
                 <div style="min-width:200px;">
                     <strong style="color:#202B5D;font-size:13px;">${g.name}</strong><br>
@@ -935,10 +947,29 @@ const DashboardPage = {
                     ${vulnBadgeHtml(vuln)}
                     ${g.description ? `<div style="font-size:11px;color:#62718D;margin-top:6px;">${g.description}</div>` : ''}
                     <div style="margin-top:8px;font-size:11px;color:#8896AB;">Projet : ${g.project_title || ''}</div>
+                    ${geomUpdated ? `<div style="margin-top:4px;font-size:10px;color:#8896AB;">Mis à jour le ${geomUpdated}</div>` : ''}
                     ${projectLink}
                 </div>`;
             layer.bindPopup(popupHtml);
+            // Étiquette permanente ancrée au centroïde pour les polylines et polygones.
+            // Leaflet choisit tout seul la direction pour les polygones ; on force 'top' pour
+            // les polylines afin que l'étiquette reste au-dessus du tracé.
+            const labelCenter = centroidOf(g.kind, coords);
+            if (labelCenter) {
+                layer.bindTooltip(
+                    DashboardPage._buildLabelHtml(g.project_title, code, color),
+                    {
+                        permanent: true,
+                        direction: g.kind === 'polygon' ? 'center' : 'top',
+                        className: 'cngi-label',
+                        sticky: false,
+                        opacity: 1,
+                        interactive: true
+                    }
+                );
+            }
             layer.addTo(this.map);
+            if (labelCenter && !this.showLabels) layer.closeTooltip();
 
             if (!this.geometryLayersByStructure[code]) this.geometryLayersByStructure[code] = [];
             this.geometryLayersByStructure[code].push(layer);
@@ -1164,6 +1195,55 @@ const DashboardPage = {
         }
     },
 
+    /**
+     * Construit le HTML d'une étiquette permanente (tooltip) montrée au-dessus
+     * d'un marqueur / d'une géométrie quand l'utilisateur coche "Afficher les
+     * étiquettes". Volontairement compact : 1 ligne, 10-11px.
+     * Cliquable (via interactive:true côté bindTooltip) : le clic déclenche
+     * l'ouverture du popup attaché à la géométrie / au marqueur (même UX
+     * qu'un clic direct sur le tracé).
+     */
+    _buildLabelHtml(projectTitle, structureCode, color) {
+        const title = (projectTitle || '').length > 40
+            ? (projectTitle || '').slice(0, 38) + '…'
+            : (projectTitle || '');
+        const safeTitle = String(title).replace(/</g, '&lt;');
+        return `<span style="font-weight:600;color:#202B5D;">${safeTitle}</span>`
+             + ` <span style="display:inline-block;margin-left:3px;padding:1px 5px;border-radius:8px;font-size:9px;font-weight:700;color:white;background:${color || '#3794C4'};">${structureCode || '—'}</span>`;
+    },
+
+    /**
+     * Formate une date SQL en JJ/MM/AAAA. Retourne '' si invalide.
+     */
+    _formatDateFr(d) {
+        if (!d) return '';
+        const date = new Date(d);
+        if (isNaN(date.getTime())) return '';
+        return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    },
+
+    /**
+     * Ouvre ou ferme les étiquettes permanentes sur TOUS les layers visibles
+     * (marqueurs sites + géométries), en sautant les hitboxes et les badges.
+     * À appeler après un toggle de checkbox ou un changement de filtre.
+     */
+    _applyLabelsVisibility() {
+        if (!this.map) return;
+        const applyTo = (layer) => {
+            if (!layer || layer._isHitbox || !layer.getTooltip) return;
+            if (!layer.getTooltip()) return;
+            if (!this.map.hasLayer(layer)) { layer.closeTooltip(); return; }
+            if (this.showLabels) layer.openTooltip();
+            else layer.closeTooltip();
+        };
+        if (this.markersByStructure) {
+            for (const arr of Object.values(this.markersByStructure)) arr.forEach(applyTo);
+        }
+        if (this.geometryLayersByStructure) {
+            for (const arr of Object.values(this.geometryLayersByStructure)) arr.forEach(applyTo);
+        }
+    },
+
     _applyMarkerFilters() {
         if (!this.map || !this.markersByStructure) return;
         const allMarkers = [].concat(...Object.values(this.markersByStructure));
@@ -1186,10 +1266,12 @@ const DashboardPage = {
                 else if (!visible && this.map.hasLayer(g)) this.map.removeLayer(g);
             }
         }
+        // Les étiquettes doivent suivre la visibilité des layers après chaque filtre.
+        this._applyLabelsVisibility();
     },
 
     /**
-     * Panneau de filtre "Afficher" : cases à cocher Sites / Tracés.
+     * Panneau de filtre "Afficher" : cases à cocher Sites / Tracés / Étiquettes.
      * Permet à l'utilisateur de masquer tous les marqueurs-points ou tous les
      * polylignes/polygones d'un coup sans toucher aux filtres structure/vulnérabilité.
      */
@@ -1204,7 +1286,8 @@ const DashboardPage = {
 
         const rows = [
             { key: 'sites',      label: 'Sites (points)',    icon: '●', count: sitesCount },
-            { key: 'geometries', label: 'Tracés (lignes/zones)', icon: '⟶', count: geomsCount }
+            { key: 'geometries', label: 'Tracés (lignes/zones)', icon: '⟶', count: geomsCount },
+            { key: 'labels',     label: 'Étiquettes projets',   icon: 'A', count: null }
         ];
 
         const ElementsFilter = L.Control.extend({
@@ -1233,7 +1316,9 @@ const DashboardPage = {
                     cb.type = 'checkbox';
                     cb.className = 'elements-filter-cb';
                     cb.setAttribute('data-key', key);
-                    cb.checked = (key === 'sites') ? this.showSites : this.showGeometries;
+                    cb.checked = key === 'sites' ? this.showSites
+                               : key === 'geometries' ? this.showGeometries
+                               : this.showLabels;
                     cb.style.cssText = 'margin:0;width:12px;height:12px;';
                     const iconSpan = document.createElement('span');
                     iconSpan.style.cssText = 'color:#3794C4;font-weight:700;width:10px;text-align:center;';
@@ -1243,7 +1328,7 @@ const DashboardPage = {
                     labelSpan.textContent = label;
                     const countSpan = document.createElement('span');
                     countSpan.style.cssText = 'color:#8896AB;font-size:10px;';
-                    countSpan.textContent = count;
+                    countSpan.textContent = count == null ? '' : count;
                     row.append(cb, iconSpan, labelSpan, countSpan);
                     body.appendChild(row);
                 });
@@ -1273,6 +1358,7 @@ const DashboardPage = {
                 const key = e.target.dataset.key;
                 if (key === 'sites') this.showSites = e.target.checked;
                 else if (key === 'geometries') this.showGeometries = e.target.checked;
+                else if (key === 'labels') this.showLabels = e.target.checked;
                 this._applyMarkerFilters();
             });
         }

@@ -1909,3 +1909,32 @@ tbody tr:hover {
         justify-content: center;
     }
 }
+
+/* Étiquettes permanentes (checkbox "Afficher les étiquettes" sur la carte).
+   Compact : 1 ligne, 10px, fond blanc translucide, sans flèche noire (on ne veut
+   pas de callout visuel fort — c'est un simple label cartographique).
+   Cliquable : l'étiquette est un <a href="#/projects/:id"> qui ouvre directement
+   le détail du projet, d'où cursor:pointer et effet hover. */
+.cngi-label {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #dce3ed;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 10px;
+    line-height: 1.25;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+.cngi-label:hover {
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 2px 6px rgba(32, 43, 93, 0.25);
+}
+.cngi-label::before {
+    display: none;                  /* masque la petite flèche Leaflet par défaut */
+}
+.leaflet-tooltip.cngi-label {
+    color: #202B5D;
+}
