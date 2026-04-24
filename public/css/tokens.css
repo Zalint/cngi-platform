@@ -206,3 +206,87 @@
 [data-theme="dark"] table th { background: var(--color-surface-muted); color: var(--color-text); }
 [data-theme="dark"] table tbody tr:hover { background: var(--color-surface-muted); }
 [data-theme="dark"] .search-box { background: var(--color-surface-muted); color: var(--color-text); }
+
+/* ------------------------------------------------------------------
+   Override des styles inline hardcodés (navy #202B5D, gris #62718D,
+   #8896AB). Beaucoup de composants utilisent `style="color:#202B5D"`
+   directement dans le HTML, ce que le CSS ne peut normalement pas
+   override. Les sélecteurs d'attribut ciblent précisément ces cas.
+
+   ⚠ Usage d'!important intentionnel : seul moyen de battre un style
+   inline. Scopé au `data-theme="dark"` donc zéro impact sur le mode
+   clair.
+------------------------------------------------------------------ */
+[data-theme="dark"] [style*="color:#202B5D"],
+[data-theme="dark"] [style*="color: #202B5D"],
+[data-theme="dark"] [style*="color:#1e3c72"],
+[data-theme="dark"] [style*="color: #1e3c72"] {
+    color: var(--color-text) !important;
+}
+
+[data-theme="dark"] [style*="color:#62718D"],
+[data-theme="dark"] [style*="color: #62718D"] {
+    color: var(--color-text-muted) !important;
+}
+
+[data-theme="dark"] [style*="color:#8896AB"],
+[data-theme="dark"] [style*="color: #8896AB"] {
+    color: var(--color-text-disabled) !important;
+}
+
+/* Fonds clairs hardcodés dans des boutons / badges secondaires */
+[data-theme="dark"] [style*="background:#f0f4f8"],
+[data-theme="dark"] [style*="background: #f0f4f8"],
+[data-theme="dark"] [style*="background:#f5f7fa"],
+[data-theme="dark"] [style*="background: #f5f7fa"],
+[data-theme="dark"] [style*="background:#f8f9fa"],
+[data-theme="dark"] [style*="background: #f8f9fa"] {
+    background: var(--color-surface-muted) !important;
+    color: var(--color-text) !important;
+}
+
+[data-theme="dark"] [style*="background:#e8ecf1"],
+[data-theme="dark"] [style*="background: #e8ecf1"] {
+    background: var(--color-border) !important;
+    color: var(--color-text) !important;
+}
+
+/* Fonds bleutés très clairs utilisés pour "info" / highlight */
+[data-theme="dark"] [style*="background:#f0f9ff"],
+[data-theme="dark"] [style*="background: #f0f9ff"],
+[data-theme="dark"] [style*="background:#e0f2fe"],
+[data-theme="dark"] [style*="background: #e0f2fe"],
+[data-theme="dark"] [style*="background:#dbeafe"],
+[data-theme="dark"] [style*="background: #dbeafe"] {
+    background: rgba(55, 148, 196, 0.15) !important;
+    color: var(--color-text) !important;
+}
+
+/* Bordures claires */
+[data-theme="dark"] [style*="border:1px solid #dce3ed"],
+[data-theme="dark"] [style*="border: 1px solid #dce3ed"],
+[data-theme="dark"] [style*="border-top:1px solid #eef"],
+[data-theme="dark"] [style*="border-bottom:1px solid #f0f4f8"],
+[data-theme="dark"] [style*="border-left: 1px solid #eef"] {
+    border-color: var(--color-border) !important;
+}
+
+/* Éléments qui n'héritent pas de la couleur du parent (form labels,
+   éléments <strong>, <em> sans classe, etc.) */
+[data-theme="dark"] label,
+[data-theme="dark"] .form-group label,
+[data-theme="dark"] strong,
+[data-theme="dark"] b {
+    color: var(--color-text);
+}
+
+/* Leaflet popup — le plugin injecte un fond blanc en dur */
+[data-theme="dark"] .leaflet-popup-content-wrapper,
+[data-theme="dark"] .leaflet-popup-tip {
+    background: var(--color-surface) !important;
+    color: var(--color-text) !important;
+}
+[data-theme="dark"] .leaflet-popup-content { color: var(--color-text); }
+
+/* Loading overlay (semi-transparent blanc par défaut) */
+[data-theme="dark"] .loading-overlay { background: rgba(15, 20, 32, 0.92) !important; }
