@@ -122,7 +122,7 @@ const ProjectsPage = {
         modal.className = 'confirm-overlay confirm-visible';
         modal.innerHTML = `
             <div class="confirm-dialog" style="text-align:left;max-width:520px;">
-                <h3 style="margin-bottom:8px;color:#202B5D;">🤖 Générer un rapport IA</h3>
+                <h3 style="margin-bottom:8px;color:#202B5D;display:inline-flex;align-items:center;gap:8px;">${Icon.render('bot', 18, '#3794C4')} Générer un rapport IA</h3>
                 <p style="color:#62718D;font-size:13px;margin-bottom:20px;">
                     Le rapport analyse les projets sélectionnés via GPT-4.1-mini et couvre : résumé exécutif,
                     état global, analyse par structure, projets prioritaires, retards, mesures, recommandations.

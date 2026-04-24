@@ -312,6 +312,12 @@ const WaterSpinner = {
 
 // Initialiser l'application au chargement
 document.addEventListener('DOMContentLoaded', () => {
+    // Appliquer le thème sauvegardé AVANT de rendre quoi que ce soit, pour
+    // éviter un flash de thème clair au chargement sur les utilisateurs
+    // qui avaient choisi le mode sombre.
+    if (typeof Navbar !== 'undefined' && Navbar.applyTheme) {
+        Navbar.applyTheme(Navbar.currentTheme());
+    }
     App.init();
 });
 

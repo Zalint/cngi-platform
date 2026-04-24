@@ -128,10 +128,14 @@ const Navbar = {
                     <h1 style="margin:0;">${title}${readOnlyBadge}</h1>
                 </div>
                 <div style="display:flex;align-items:center;gap:16px;">
+                    <button onclick="Navbar.toggleTheme()" title="Basculer thème clair / sombre"
+                            id="theme-toggle-btn"
+                            style="display:inline-flex;align-items:center;justify-content:center;padding:8px;background:var(--color-surface-muted);color:var(--color-text);border:1px solid var(--color-border);border-radius:8px;cursor:pointer;">
+                        ${Navbar.currentThemeIcon()}
+                    </button>
                     <button onclick="Navbar.hardRefresh()" title="Vider le cache et recharger la page"
-                            style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#f0f4f8;color:#202B5D;border:1px solid #dce3ed;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:background 0.15s;"
-                            onmouseover="this.style.background='#e1e9f0';" onmouseout="this.style.background='#f0f4f8';">
-                        🔄 Actualiser
+                            style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--color-surface-muted);color:var(--color-text);border:1px solid var(--color-border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">
+                        ${Icon.render('refresh', 14, 'currentColor')} Actualiser
                     </button>
 
                     <div style="position:relative;" id="notif-bell-wrap">
@@ -174,6 +178,36 @@ const Navbar = {
                 </div>
             </div>
         `;
+    },
+
+    /**
+     * Thème clair / sombre : persisté dans localStorage.
+     * On applique le thème à <html data-theme="dark|light"> pour que
+     * les overrides CSS dans tokens.css prennent effet partout.
+     */
+    THEME_KEY: 'cngi_theme',
+
+    currentTheme() {
+        try { return localStorage.getItem(this.THEME_KEY) || 'light'; }
+        catch { return 'light'; }
+    },
+
+    currentThemeIcon() {
+        return this.currentTheme() === 'dark'
+            ? Icon.render('sun', 16, 'currentColor')
+            : Icon.render('moon', 16, 'currentColor');
+    },
+
+    applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        const btn = document.getElementById('theme-toggle-btn');
+        if (btn) btn.innerHTML = this.currentThemeIcon();
+    },
+
+    toggleTheme() {
+        const next = this.currentTheme() === 'dark' ? 'light' : 'dark';
+        try { localStorage.setItem(this.THEME_KEY, next); } catch {}
+        this.applyTheme(next);
     },
 
     toggleUserMenu(e) {
