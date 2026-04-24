@@ -217,57 +217,57 @@
    inline. Scopé au `data-theme="dark"` donc zéro impact sur le mode
    clair.
 ------------------------------------------------------------------ */
-[data-theme="dark"] [style*="color:#202B5D"],
-[data-theme="dark"] [style*="color: #202B5D"],
-[data-theme="dark"] [style*="color:#1e3c72"],
-[data-theme="dark"] [style*="color: #1e3c72"] {
+[data-theme="dark"] [style*="color:#202B5D" i],
+[data-theme="dark"] [style*="color: #202B5D" i],
+[data-theme="dark"] [style*="color:#1e3c72" i],
+[data-theme="dark"] [style*="color: #1e3c72" i] {
     color: var(--color-text) !important;
 }
 
-[data-theme="dark"] [style*="color:#62718D"],
-[data-theme="dark"] [style*="color: #62718D"] {
+[data-theme="dark"] [style*="color:#62718D" i],
+[data-theme="dark"] [style*="color: #62718D" i] {
     color: var(--color-text-muted) !important;
 }
 
-[data-theme="dark"] [style*="color:#8896AB"],
-[data-theme="dark"] [style*="color: #8896AB"] {
+[data-theme="dark"] [style*="color:#8896AB" i],
+[data-theme="dark"] [style*="color: #8896AB" i] {
     color: var(--color-text-disabled) !important;
 }
 
 /* Fonds clairs hardcodés dans des boutons / badges secondaires */
-[data-theme="dark"] [style*="background:#f0f4f8"],
-[data-theme="dark"] [style*="background: #f0f4f8"],
-[data-theme="dark"] [style*="background:#f5f7fa"],
-[data-theme="dark"] [style*="background: #f5f7fa"],
-[data-theme="dark"] [style*="background:#f8f9fa"],
-[data-theme="dark"] [style*="background: #f8f9fa"] {
+[data-theme="dark"] [style*="background:#f0f4f8" i],
+[data-theme="dark"] [style*="background: #f0f4f8" i],
+[data-theme="dark"] [style*="background:#f5f7fa" i],
+[data-theme="dark"] [style*="background: #f5f7fa" i],
+[data-theme="dark"] [style*="background:#f8f9fa" i],
+[data-theme="dark"] [style*="background: #f8f9fa" i] {
     background: var(--color-surface-muted) !important;
     color: var(--color-text) !important;
 }
 
-[data-theme="dark"] [style*="background:#e8ecf1"],
-[data-theme="dark"] [style*="background: #e8ecf1"] {
+[data-theme="dark"] [style*="background:#e8ecf1" i],
+[data-theme="dark"] [style*="background: #e8ecf1" i] {
     background: var(--color-border) !important;
     color: var(--color-text) !important;
 }
 
 /* Fonds bleutés très clairs utilisés pour "info" / highlight */
-[data-theme="dark"] [style*="background:#f0f9ff"],
-[data-theme="dark"] [style*="background: #f0f9ff"],
-[data-theme="dark"] [style*="background:#e0f2fe"],
-[data-theme="dark"] [style*="background: #e0f2fe"],
-[data-theme="dark"] [style*="background:#dbeafe"],
-[data-theme="dark"] [style*="background: #dbeafe"] {
+[data-theme="dark"] [style*="background:#f0f9ff" i],
+[data-theme="dark"] [style*="background: #f0f9ff" i],
+[data-theme="dark"] [style*="background:#e0f2fe" i],
+[data-theme="dark"] [style*="background: #e0f2fe" i],
+[data-theme="dark"] [style*="background:#dbeafe" i],
+[data-theme="dark"] [style*="background: #dbeafe" i] {
     background: rgba(55, 148, 196, 0.15) !important;
     color: var(--color-text) !important;
 }
 
 /* Bordures claires */
-[data-theme="dark"] [style*="border:1px solid #dce3ed"],
-[data-theme="dark"] [style*="border: 1px solid #dce3ed"],
-[data-theme="dark"] [style*="border-top:1px solid #eef"],
-[data-theme="dark"] [style*="border-bottom:1px solid #f0f4f8"],
-[data-theme="dark"] [style*="border-left: 1px solid #eef"] {
+[data-theme="dark"] [style*="border:1px solid #dce3ed" i],
+[data-theme="dark"] [style*="border: 1px solid #dce3ed" i],
+[data-theme="dark"] [style*="border-top:1px solid #eef" i],
+[data-theme="dark"] [style*="border-bottom:1px solid #f0f4f8" i],
+[data-theme="dark"] [style*="border-left: 1px solid #eef" i] {
     border-color: var(--color-border) !important;
 }
 

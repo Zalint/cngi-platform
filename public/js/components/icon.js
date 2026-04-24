@@ -71,25 +71,56 @@ const Icon = {
         'moon':           '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>'
     },
 
+    // Whitelist des formats de couleur autorisés dans Icon.render pour prévenir
+    // toute sortie du contexte attribut SVG (défense en profondeur — aujourd'hui
+    // tous les appelants passent des constantes, mais on verrouille au cas où).
+    _SAFE_COLOR_RE: /^(currentColor|inherit|transparent|none|#[0-9a-fA-F]{3,8}|rgba?\([^()]+\)|hsla?\([^()]+\))$/,
+
+    _sanitizeColor(color) {
+        if (typeof color !== 'string') return 'currentColor';
+        return this._SAFE_COLOR_RE.test(color) ? color : 'currentColor';
+    },
+
+    _sanitizeSize(size) {
+        const n = parseInt(size, 10);
+        if (!Number.isFinite(n) || n <= 0 || n > 512) return 16;
+        return n;
+    },
+
+    /**
+     * Placeholder visible pour une icône inconnue : carré tiré à la couleur
+     * danger. Plus efficace qu'une chaîne vide pour repérer un bug en dev.
+     */
+    _missingPlaceholder(size) {
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="#c0392b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="icône manquante"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"/><line x1="8" y1="8" x2="16" y2="16"/><line x1="16" y1="8" x2="8" y2="16"/></svg>`;
+    },
+
     /**
      * Génère le markup SVG pour une icône donnée.
      * @param {string} name - Clé dans PATHS (ex: 'map-pin')
      * @param {number} size - Taille en px (défaut 16)
-     * @param {string} color - Couleur, ou 'currentColor' pour hériter (défaut)
+     * @param {string} color - Couleur autorisée (currentColor, hex, rgb/rgba, hsl/hsla)
      * @param {object} opts - { aria: true|false, className: string, stroke: number }
      */
     render(name, size = 16, color = 'currentColor', opts = {}) {
+        const safeSize = this._sanitizeSize(size);
         const path = this.PATHS[name];
         if (!path) {
             console.warn(`[Icon] unknown: ${name}`);
-            return '';
+            return this._missingPlaceholder(safeSize);
         }
         const { aria = true, className = '', stroke = 2 } = opts;
+        const safeColor = this._sanitizeColor(color);
+        const safeStroke = Number.isFinite(+stroke) ? Math.max(0.5, Math.min(8, +stroke)) : 2;
+        // Le nom vient toujours des constantes internes du code, mais on
+        // l'échappe pour l'aria-label par principe.
+        const safeLabel = String(name).replace(/[^a-zA-Z0-9 -]/g, '').replace(/-/g, ' ');
         const ariaAttrs = aria
-            ? `role="img" aria-label="${name.replace(/-/g, ' ')}"`
+            ? `role="img" aria-label="${safeLabel}"`
             : 'aria-hidden="true"';
-        const cls = className ? `class="${className}"` : '';
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round" ${cls} ${ariaAttrs}>${path}</svg>`;
+        const safeClassName = String(className).replace(/[^a-zA-Z0-9 _-]/g, '');
+        const cls = safeClassName ? `class="${safeClassName}"` : '';
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${safeSize}" height="${safeSize}" viewBox="0 0 24 24" fill="none" stroke="${safeColor}" stroke-width="${safeStroke}" stroke-linecap="round" stroke-linejoin="round" ${cls} ${ariaAttrs}>${path}</svg>`;
     },
 
     /**

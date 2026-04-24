@@ -131,7 +131,7 @@ const Navbar = {
                     <button onclick="Navbar.toggleTheme()" title="Basculer thème clair / sombre"
                             id="theme-toggle-btn"
                             style="display:inline-flex;align-items:center;justify-content:center;padding:8px;background:var(--color-surface-muted);color:var(--color-text);border:1px solid var(--color-border);border-radius:8px;cursor:pointer;">
-                        ${Navbar.currentThemeIcon()}
+                        ${this.currentThemeIcon()}
                     </button>
                     <button onclick="Navbar.hardRefresh()" title="Vider le cache et recharger la page"
                             style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--color-surface-muted);color:var(--color-text);border:1px solid var(--color-border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">
