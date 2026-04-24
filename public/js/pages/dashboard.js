@@ -74,6 +74,16 @@ const DashboardPage = {
         const structureId = (user.role === 'utilisateur' || user.role === 'directeur') ? user.structure_id : null;
         // superviseur and commandement_territorial use structureId = null (backend handles territorial filtering)
 
+        // Charger les fonds de carte activés par l'admin (non bloquant — défaut = tous activés)
+        try {
+            const mapLayersRes = await API.config.getByCategory('map_layers');
+            const rows = mapLayersRes.data || [];
+            this.data.enabledMapLayers = new Set(rows.filter(r => r.is_active).map(r => r.value));
+        } catch {
+            // En cas d'échec : on active tout par défaut pour ne pas casser la carte
+            this.data.enabledMapLayers = new Set(['osm', 'carto', 'osm_fr', 'hot', 'satellite']);
+        }
+
         // Charger les dernières observations (non bloquant)
         try {
             const obsRes = await API.observations.list();
@@ -715,15 +725,22 @@ const DashboardPage = {
         });
         const satelliteGroup = L.layerGroup([satelliteLayer, satelliteLabelsLayer]);
 
-        osmLayer.addTo(this.map);
+        // Filtre selon la config admin : seuls les fonds marqués is_active sont
+        // proposés dans le switcher. Si aucun n'est activé (config anormale),
+        // fallback sur OSM pour que la carte reste utilisable.
+        const enabled = this.data.enabledMapLayers || new Set(['osm','carto','osm_fr','hot','satellite']);
+        const layerChoices = {};
+        if (enabled.has('osm'))       layerChoices['Plan'] = osmLayer;
+        if (enabled.has('carto'))     layerChoices['Plan détaillé'] = cartoLayer;
+        if (enabled.has('osm_fr'))    layerChoices['Plan français'] = osmFrLayer;
+        if (enabled.has('hot'))       layerChoices['Plan HOT'] = hotLayer;
+        if (enabled.has('satellite')) layerChoices['Satellite'] = satelliteGroup;
+        if (Object.keys(layerChoices).length === 0) layerChoices['Plan'] = osmLayer;
+
+        // Layer par défaut = le premier activé
+        Object.values(layerChoices)[0].addTo(this.map);
         L.control.layers(
-            {
-                'Plan': osmLayer,
-                'Plan détaillé': cartoLayer,
-                'Plan français': osmFrLayer,
-                'Plan HOT': hotLayer,
-                'Satellite': satelliteGroup
-            },
+            layerChoices,
             null,
             { position: 'topright', collapsed: false }
         ).addTo(this.map);

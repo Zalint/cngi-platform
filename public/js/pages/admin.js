@@ -798,6 +798,9 @@ const AdminPage = {
     renderConfig() {
         const types = this.data.configItems.filter(c => c.category === 'measure_type');
         const statuses = this.data.configItems.filter(c => c.category === 'measure_status');
+        const mapLayers = this.data.configItems
+            .filter(c => c.category === 'map_layers')
+            .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
         const renderTable = (title, category, items) => `
             <div style="margin-bottom: 32px;">
@@ -840,14 +843,73 @@ const AdminPage = {
             </div>
         `;
 
+        // Tableau dédié aux fonds de carte : toggle case à cocher direct, pas d'ajout /
+        // suppression (les 5 entrées sont fixes, définies côté code pour rester en
+        // cohérence avec les URL de tuiles).
+        const renderMapLayers = () => `
+            <div style="margin-bottom: 32px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <h3 style="margin:0;color:#202B5D;">Fonds de carte</h3>
+                </div>
+                <p style="color:#62718D;font-size:13px;margin:0 0 16px;">
+                    Cochez les fonds de carte que les utilisateurs pourront sélectionner dans le sélecteur en haut à droite du dashboard.
+                </p>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:40px;"></th>
+                                <th>Libellé</th>
+                                <th>Identifiant</th>
+                                <th>Ordre</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${mapLayers.map(item => `
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" ${item.is_active ? 'checked' : ''}
+                                               onchange="AdminPage.toggleMapLayer(${item.id}, this.checked)"
+                                               style="width:16px;height:16px;cursor:pointer;">
+                                    </td>
+                                    <td>${item.label}</td>
+                                    <td><code style="background:#f0f4f8;padding:2px 8px;border-radius:4px;font-size:12px;">${item.value}</code></td>
+                                    <td>${item.sort_order}</td>
+                                </tr>
+                            `).join('')}
+                            ${mapLayers.length === 0 ? '<tr><td colspan="4" style="text-align:center;color:#8896AB;">Aucun fond de carte configuré (redémarrer le backend pour seeder)</td></tr>' : ''}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
         return `
             <div class="card">
                 <h2 style="margin-bottom:24px;">Configuration des listes</h2>
                 <p style="color:#62718D;margin-bottom:24px;">Gérez les types et statuts disponibles dans les formulaires.</p>
                 ${renderTable('Types de mesure', 'measure_type', types)}
                 ${renderTable('Statuts de mesure', 'measure_status', statuses)}
+                ${renderMapLayers()}
             </div>
         `;
+    },
+
+    async toggleMapLayer(id, isActive) {
+        try {
+            await API.config.update(id, { is_active: isActive });
+            const item = this.data.configItems.find(c => c.id === id);
+            if (item) item.is_active = isActive;
+            Toast.success(isActive ? 'Fond de carte activé.' : 'Fond de carte désactivé.');
+        } catch (err) {
+            Toast.error('Erreur: ' + (err.message || 'Impossible de mettre à jour'));
+            // Recharger la liste pour refléter l'état réel
+            try {
+                const res = await API.config.getAll();
+                this.data.configItems = res.data || [];
+                document.getElementById('admin-content').innerHTML = this.renderConfig();
+            } catch {}
+        }
     },
 
     addConfigItem(category) {
