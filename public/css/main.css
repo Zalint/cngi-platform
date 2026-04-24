@@ -8,22 +8,9 @@
     box-sizing: border-box;
 }
 
-:root {
-    --primary-color: #202B5D;
-    --primary-light: #3794C4;
-    --secondary-color: #3794C4;
-    --bg-color: #f0f4f8;
-    --text-dark: #202B5D;
-    --text-medium: #62718D;
-    --text-light: #8896AB;
-    --border-color: #dce3ed;
-    --success-color: #27ae60;
-    --warning-color: #f39c12;
-    --danger-color: #e74c3c;
-    --info-color: #3794C4;
-    --sidebar-bg: #202B5D;
-    --accent-water: #3794C4;
-}
+/* Les variables CSS (--primary-color, --bg-color, etc.) sont désormais
+   définies et aliasées dans public/css/tokens.css chargé avant ce fichier.
+   Single source of truth + prêt pour un toggle dark mode futur. */
 
 @import url('https://fonts.googleapis.com/css2?family=Cabin:wght@400;500;600;700&family=Roboto+Slab:wght@300;400;500&display=swap');
 

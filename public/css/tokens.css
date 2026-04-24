@@ -113,6 +113,25 @@
     --z-modal:       900;
     --z-popover:     1000;
     --z-toast:       1100;
+
+    /* ---------- Alias legacy (pour rétro-compat main.css) ---------- */
+    /* Ces variables sont celles utilisées historiquement dans main.css.
+       On les pointe vers les tokens sémantiques pour qu'un futur toggle
+       de thème (ex. dark mode) suffise à changer une seule source. */
+    --primary-color:   var(--color-primary);
+    --primary-light:   var(--color-accent);
+    --secondary-color: var(--color-accent);
+    --bg-color:        var(--color-bg);
+    --text-dark:       var(--color-text);
+    --text-medium:     var(--color-text-muted);
+    --text-light:      var(--color-text-disabled);
+    --border-color:    var(--color-border);
+    --success-color:   var(--color-success);
+    --warning-color:   var(--color-warning);
+    --danger-color:    var(--color-danger);
+    --info-color:      var(--color-info);
+    --sidebar-bg:      var(--color-primary);
+    --accent-water:    var(--color-accent);
 }
 
 /*
