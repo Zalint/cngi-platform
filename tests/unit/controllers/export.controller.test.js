@@ -83,4 +83,64 @@ describe('export.exportProjectsXlsx — dispatching par rôle', () => {
         await ctrl.exportProjectsXlsx(mockReq({ user: { role: 'admin' } }), res, next);
         expect(next).toHaveBeenCalledWith(err);
     });
+
+    test('timeout pool pg → 503 avec message convivial', async () => {
+        ProjectModel.findAll.mockRejectedValue(new Error('timeout exceeded when trying to connect'));
+        const res = streamRes();
+        // streamRes n'a pas de .status/.json — on les ajoute pour ce test
+        res.statusCode = 200;
+        res.status = function (c) { this.statusCode = c; return this; };
+        res.body = null;
+        res.json = function (p) { this.body = p; return this; };
+        const next = mockNext();
+        await ctrl.exportProjectsXlsx(mockReq({ user: { role: 'admin' } }), res, next);
+        expect(res.statusCode).toBe(503);
+        expect(res.body.success).toBe(false);
+        expect(res.body.message).toMatch(/surchargée/);
+        expect(next).not.toHaveBeenCalled();
+    });
+
+    test('concurrence limitée : max 3 findById en vol simultanément', async () => {
+        const projectIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        ProjectModel.findAll.mockResolvedValue(projectIds.map(id => ({ id })));
+
+        let inFlight = 0;
+        let maxInFlight = 0;
+        ProjectModel.findById.mockImplementation(async (id) => {
+            inFlight++;
+            if (inFlight > maxInFlight) maxInFlight = inFlight;
+            // Yield quelques ticks pour simuler une query I/O
+            await new Promise(r => setImmediate(r));
+            await new Promise(r => setImmediate(r));
+            inFlight--;
+            return {
+                id, title: 'P' + id, status: 'en_cours', priority: 'normale',
+                measures: [], sites: [], funding: [], stakeholders: [], localities: [],
+                assigned_structures: []
+            };
+        });
+
+        const res = streamRes();
+        await ctrl.exportProjectsXlsx(mockReq({ user: { role: 'admin' } }), res, mockNext());
+        expect(ProjectModel.findById).toHaveBeenCalledTimes(10);
+        expect(maxInFlight).toBeLessThanOrEqual(3);
+    });
+
+    test('un findById qui échoue n\'interrompt pas tout l\'export', async () => {
+        ProjectModel.findAll.mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }]);
+        ProjectModel.findById.mockImplementation(async (id) => {
+            if (id === 2) throw new Error('boom');
+            return {
+                id, title: 'P' + id, status: 'en_cours', priority: 'normale',
+                measures: [], sites: [], funding: [], stakeholders: [], localities: [],
+                assigned_structures: []
+            };
+        });
+        const res = streamRes();
+        const next = mockNext();
+        await ctrl.exportProjectsXlsx(mockReq({ user: { role: 'admin' } }), res, next);
+        // L'export se termine malgré l'échec sur le projet 2 (filtré)
+        expect(res.headers['content-type']).toMatch(/spreadsheetml/);
+        expect(next).not.toHaveBeenCalled();
+    });
 });
