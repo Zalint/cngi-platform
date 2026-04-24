@@ -126,7 +126,7 @@ const MyMeasuresPage = {
                 <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;
                              background:${isOverdue ? '#c0392b' : isDueSoon ? '#e67e22' : '#e8ecf1'};
                              color:${isOverdue || isDueSoon ? 'white' : '#202B5D'};">
-                    ${Icon.render('calendar', 11, isOverdue || isDueSoon ? 'white' : '#202B5D')} ${DateFormatter.format(m.project_deadline)}${isOverdue ? ' (en retard)' : isDueSoon ? ' (bientôt)' : ''}
+                    ${Icon.render('calendar', 11, 'currentColor')} ${DateFormatter.format(m.project_deadline)}${isOverdue ? ' (en retard)' : isDueSoon ? ' (bientôt)' : ''}
                 </span>
             ` : '';
 
@@ -140,7 +140,7 @@ const MyMeasuresPage = {
                 <button onclick="MyMeasuresPage.toggleComments(${m.id})"
                         id="comments-toggle-${m.id}"
                         style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:${m.comments_count > 0 ? '#dbeafe' : '#f0f4f8'};color:${m.comments_count > 0 ? '#1e40af' : '#62718D'};border-radius:10px;font-size:11px;font-weight:600;border:none;cursor:pointer;">
-                    ${Icon.render('message-square', 11, m.comments_count > 0 ? '#1e40af' : '#62718D')} ${m.comments_count || 0} ${m.comments_count > 0 ? 'commentaire(s)' : 'commenter'}
+                    ${Icon.render('message-square', 11, 'currentColor')} ${m.comments_count || 0} ${m.comments_count > 0 ? 'commentaire(s)' : 'commenter'}
                 </button>
             `;
 
@@ -169,7 +169,7 @@ const MyMeasuresPage = {
                                 ${m.structure_code ? `<span style="display:inline-flex;align-items:center;gap:4px;">${Icon.render('building-2', 12, 'currentColor')} ${esc(m.structure_code)}</span>` : ''}
                                 ${m.site_name ? `<span style="display:inline-flex;align-items:center;gap:4px;">${Icon.render('map-pin', 12, 'currentColor')} ${esc(m.site_name)}${m.site_commune ? ` — ${esc(m.site_commune)}` : ''}</span>` : ''}
                             </div>
-                            ${m.constraints ? `<div style="color:#c0392b;font-size:12px;margin-top:8px;font-style:italic;display:inline-flex;align-items:center;gap:4px;">${Icon.render('alert-triangle', 12, '#c0392b')} ${esc(m.constraints)}</div>` : ''}
+                            ${m.constraints ? `<div style="color:#c0392b;font-size:12px;margin-top:8px;font-style:italic;display:inline-flex;align-items:center;gap:4px;">${Icon.render('alert-triangle', 12, 'currentColor')} ${esc(m.constraints)}</div>` : ''}
                         </div>
                         <div style="display:flex;flex-direction:column;gap:6px;min-width:130px;">
                             ${actionButtons}
@@ -285,7 +285,7 @@ const MyMeasuresPage = {
             const toggle = document.getElementById(`comments-toggle-${measureId}`);
             if (toggle) {
                 const measure = this.data.measures.find(x => x.id === measureId);
-                if (measure) toggle.innerHTML = `${Icon.render('message-square', 11, '#1e40af')} ${measure.comments_count || 0} commentaire(s)`;
+                if (measure) toggle.innerHTML = `${Icon.render('message-square', 11, 'currentColor')} ${measure.comments_count || 0} commentaire(s)`;
             }
         } catch (err) {
             Toast.error('Erreur : ' + (err.message || 'inconnue'));

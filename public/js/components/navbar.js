@@ -142,7 +142,7 @@ const Navbar = {
                         <button id="notif-bell-btn" onclick="Navbar.toggleNotifications(event)" aria-label="Notifications"
                                 title="Notifications"
                                 style="position:relative;display:inline-flex;align-items:center;justify-content:center;padding:8px;background:#f0f4f8;border:1px solid #dce3ed;border-radius:8px;cursor:pointer;">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#202B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
                             <span id="notif-bell-badge" style="display:none;position:absolute;top:-3px;right:-3px;background:#c0392b;color:white;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;min-width:18px;text-align:center;border:2px solid white;">0</span>
                         </button>
                         <div id="notif-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;width:360px;max-height:500px;overflow:hidden;background:white;border:1px solid #dce3ed;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:1000;">
@@ -165,13 +165,13 @@ const Navbar = {
                             <button onclick="event.stopPropagation(); Navbar.openChangePasswordModal();"
                                     style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#202B5D;font-weight:600;"
                                     onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='transparent'">
-                                ${Icon.render('key', 16, '#202B5D')} Changer le mot de passe
+                                ${Icon.render('key', 16, 'currentColor')} Changer le mot de passe
                             </button>
                             <div style="height:1px;background:#eef;"></div>
                             <button onclick="event.stopPropagation(); Navbar.logout();"
                                     style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#c0392b;font-weight:600;"
                                     onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
-                                ${Icon.render('log-out', 16, '#c0392b')} Déconnexion
+                                ${Icon.render('log-out', 16, 'currentColor')} Déconnexion
                             </button>
                         </div>
                     </div>

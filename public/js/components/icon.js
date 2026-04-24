@@ -74,11 +74,20 @@ const Icon = {
     // Whitelist des formats de couleur autorisés dans Icon.render pour prévenir
     // toute sortie du contexte attribut SVG (défense en profondeur — aujourd'hui
     // tous les appelants passent des constantes, mais on verrouille au cas où).
-    _SAFE_COLOR_RE: /^(currentColor|inherit|transparent|none|#[0-9a-fA-F]{3,8}|rgba?\([^()]+\)|hsla?\([^()]+\))$/,
+    // var(--token) est accepté pour permettre aux icônes de suivre le thème
+    // (light / dark) via les tokens CSS sans hardcoder les hex.
+    _SAFE_COLOR_RE: /^(currentColor|inherit|transparent|none|white|black|#[0-9a-fA-F]{3,8}|rgba?\([^()]+\)|hsla?\([^()]+\)|var\(--[a-zA-Z0-9_-]+\))$/,
 
     _sanitizeColor(color) {
         if (typeof color !== 'string') return 'currentColor';
         return this._SAFE_COLOR_RE.test(color) ? color : 'currentColor';
+    },
+
+    _escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const s = String(text);
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' };
+        return s.replace(/[&<>"'`]/g, c => map[c]);
     },
 
     _sanitizeSize(size) {
@@ -125,9 +134,13 @@ const Icon = {
 
     /**
      * Raccourci qui place l'icône dans un span inline-flex avec du texte.
+     * Le texte est systématiquement HTML-échappé pour éviter toute injection
+     * si l'appelant passe une donnée non-constante (ex. titre de projet issu
+     * d'une API).
+     *
      * Exemple : Icon.inline('clipboard-list', 'Mes mesures')
      */
     inline(name, text, size = 14) {
-        return `<span style="display:inline-flex;align-items:center;gap:6px;">${this.render(name, size)}<span>${text}</span></span>`;
+        return `<span style="display:inline-flex;align-items:center;gap:6px;">${this.render(name, size)}<span>${this._escapeHtml(text)}</span></span>`;
     }
 };

@@ -91,8 +91,8 @@ const AdminPage = {
                 <td>${user.is_active ? '✅ Actif' : '❌ Inactif'}</td>
                 <td>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn-icon" onclick="AdminPage.editUser(${user.id})" title="Modifier">${Icon.render('pencil', 16, '#202B5D')}</button>
-                        <button class="btn-icon" onclick="AdminPage.deleteUser(${user.id})" title="Supprimer">${Icon.render('trash', 16, '#c0392b')}</button>
+                        <button class="btn-icon" onclick="AdminPage.editUser(${user.id})" title="Modifier">${Icon.render('pencil', 16, 'currentColor')}</button>
+                        <button class="btn-icon" onclick="AdminPage.deleteUser(${user.id})" title="Supprimer">${Icon.render('trash', 16, 'var(--color-danger)')}</button>
                     </div>
                 </td>
             </tr>
@@ -138,8 +138,8 @@ const AdminPage = {
                 <td>${structure.projects_count || 0}</td>
                 <td>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn-icon" onclick="AdminPage.editStructure(${structure.id})" title="Modifier">${Icon.render('pencil', 16, '#202B5D')}</button>
-                        <button class="btn-icon" onclick="AdminPage.deleteStructure(${structure.id})" title="Supprimer">${Icon.render('trash', 16, '#c0392b')}</button>
+                        <button class="btn-icon" onclick="AdminPage.editStructure(${structure.id})" title="Modifier">${Icon.render('pencil', 16, 'currentColor')}</button>
+                        <button class="btn-icon" onclick="AdminPage.deleteStructure(${structure.id})" title="Supprimer">${Icon.render('trash', 16, 'var(--color-danger)')}</button>
                     </div>
                 </td>
             </tr>
@@ -188,7 +188,7 @@ const AdminPage = {
         if (items.length === 0) {
             return `
                 <div class="card" style="padding:60px 20px;text-align:center;">
-                    <div style="margin-bottom:12px;opacity:0.4;display:flex;justify-content:center;">${Icon.render('trash', 48, '#8896AB')}</div>
+                    <div style="margin-bottom:12px;opacity:0.4;display:flex;justify-content:center;color:var(--color-text-disabled);">${Icon.render('trash', 48, 'currentColor')}</div>
                     <h3 style="margin:0 0 8px;">Corbeille vide</h3>
                     <p style="color:#62718D;font-size:13px;margin:0;">Aucun projet supprimé à restaurer.</p>
                 </div>
@@ -212,7 +212,7 @@ const AdminPage = {
         return `
             <div class="card">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-                    <h2 style="margin:0;display:inline-flex;align-items:center;gap:8px;">${Icon.render('trash', 20, '#202B5D')} Corbeille des projets</h2>
+                    <h2 style="margin:0;display:inline-flex;align-items:center;gap:8px;">${Icon.render('trash', 20, 'currentColor')} Corbeille des projets</h2>
                     <div style="color:#62718D;font-size:12px;">${items.length} projet(s) supprimé(s)</div>
                 </div>
                 <p style="color:#62718D;font-size:13px;margin-bottom:16px;">
@@ -656,7 +656,7 @@ const AdminPage = {
                     <td>
                         <div style="display:flex;gap:6px;">
                             ${k.is_active ? `<button class="btn-icon" onclick="AdminPage.revokeApiKey(${k.id})" title="Révoquer">🚫</button>` : ''}
-                            <button class="btn-icon" onclick="AdminPage.deleteApiKey(${k.id})" title="Supprimer">${Icon.render('trash', 16, '#c0392b')}</button>
+                            <button class="btn-icon" onclick="AdminPage.deleteApiKey(${k.id})" title="Supprimer">${Icon.render('trash', 16, 'var(--color-danger)')}</button>
                         </div>
                     </td>
                 </tr>
