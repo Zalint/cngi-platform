@@ -76,7 +76,11 @@ exports.getMapGeometries = async (req, res, next) => {
         let query = `
             SELECT g.*,
                    s.code as structure_code, s.name as structure_name,
-                   p.title as project_title, p.status as project_status
+                   p.title as project_title, p.status as project_status,
+                   -- Prend la plus récente entre la géométrie elle-même et son projet.
+                   -- GREATEST ignore les NULL en PostgreSQL, donc si une des deux est NULL
+                   -- l'autre est retournée (et NULL si les deux sont NULL).
+                   GREATEST(g.updated_at, p.updated_at) as project_updated_at
             FROM geometries g
             LEFT JOIN structures s ON g.structure_id = s.id
             INNER JOIN projects p ON g.project_id = p.id

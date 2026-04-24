@@ -719,8 +719,8 @@ stream.resume();
 
 ## Étendre la suite
 
-1. **Nouveau contrôleur** : copier [tests/unit/controllers/users.controller.test.js](tests/unit/controllers/users.controller.test.js) pour un CRUD, ou [notifications.controller.test.js](tests/unit/controllers/notifications.controller.test.js) pour des endpoints simples.
-2. **Nouveau modèle** : copier [tests/unit/models/user.model.test.js](tests/unit/models/user.model.test.js).
+1. **Nouveau contrôleur** : copier [unit/controllers/users.controller.test.js](unit/controllers/users.controller.test.js) pour un CRUD, ou [unit/controllers/notifications.controller.test.js](unit/controllers/notifications.controller.test.js) pour des endpoints simples.
+2. **Nouveau modèle** : copier [unit/models/user.model.test.js](unit/models/user.model.test.js).
 3. Adapter les `jest.mock(...)` des dépendances.
 4. Utiliser les helpers `mockReq/mockRes/mockNext` et `createDbMock()`.
 5. Pour chaque endpoint : tester au minimum **validation → erreur modèle → happy path**.

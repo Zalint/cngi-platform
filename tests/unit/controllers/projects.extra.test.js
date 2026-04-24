@@ -277,13 +277,27 @@ describe('updateMeasureStatus', () => {
         });
         ProjectModel.isProjectManager.mockResolvedValue(false);
         ProjectModel.updateMeasureStatus.mockResolvedValue({ id: 5 });
-        db.query.mockResolvedValue({ rows: [{ id: 99 }] });
+        // collectMeasureWatchers fait un db.query et renvoie deux user ids
+        db.query.mockResolvedValue({ rows: [{ id: 99 }, { id: 42 }] });
         const res = mockRes();
         await ctrl.updateMeasureStatus(mockReq({
             params: { projectId: '1', measureId: '5' },
             user: { id: 1, role: 'utilisateur' }, body: { status: 'executee' }
         }), res, mockNext());
         expect(res.statusCode).toBe(200);
+        // Les notifs sont fire-and-forget (chaîne .then) : attendre la microtask queue.
+        await new Promise(setImmediate);
+        await new Promise(setImmediate);
+        expect(NotificationModel.create).toHaveBeenCalledTimes(2);
+        expect(NotificationModel.create).toHaveBeenCalledWith(expect.objectContaining({
+            userId: 99,
+            type: 'measure_status_changed',
+            title: expect.stringContaining('Exécutée'),
+        }));
+        expect(NotificationModel.create).toHaveBeenCalledWith(expect.objectContaining({
+            userId: 42,
+            type: 'measure_status_changed',
+        }));
     });
 });
 

@@ -96,6 +96,7 @@ class DashboardModel {
                 p.status as project_status,
                 p.priority as project_priority,
                 p.project_type,
+                p.updated_at as project_updated_at,
                 st.name as structure_name,
                 st.code as structure_code
             FROM sites s
@@ -295,6 +296,7 @@ class DashboardModel {
         const result = await db.query(`
             SELECT si.id, si.name, si.description, si.latitude, si.longitude, si.is_pcs, si.vulnerability_level,
                    p.id as project_id, p.title as project_title, p.status as project_status, p.priority as project_priority,
+                   p.updated_at as project_updated_at,
                    st.name as structure_name, st.code as structure_code
             FROM sites si
             INNER JOIN projects p ON si.project_id = p.id

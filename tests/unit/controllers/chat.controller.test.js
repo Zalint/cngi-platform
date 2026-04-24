@@ -197,17 +197,33 @@ describe('chat.chat — tool execution (couvre executeTool)', () => {
         expect(PvModel.findByIdForUser).toHaveBeenCalled();
     });
 
-    test('tool inconnu → error', async () => {
+    test('tool inconnu → res tool contient { error: "Tool ... inconnu" }', async () => {
         setupToolThenFinal('nonexistent_tool');
-        await ctrl.chat(mockReq({ user, body: { messages: [{ role: 'user', content: 'x' }] } }), mockRes(), mockNext());
-        // Pas d'assertion dure — on couvre juste la branche "Tool inconnu"
+        const res = mockRes();
+        const next = mockNext();
+        await ctrl.chat(mockReq({ user, body: { messages: [{ role: 'user', content: 'x' }] } }), res, next);
+        // La 2e itération OpenAI reçoit un message "tool" avec le payload d'erreur
+        const secondCall = mockCompletionsCreate.mock.calls[1][0];
+        const toolMsg = secondCall.messages.find(m => m.role === 'tool');
+        expect(toolMsg).toBeDefined();
+        expect(JSON.parse(toolMsg.content)).toEqual({ error: expect.stringMatching(/nonexistent_tool inconnu/) });
+        // La réponse finale reste un succès (executeTool capture l'erreur au niveau tool)
+        expect(res.body.success).toBe(true);
+        expect(next).not.toHaveBeenCalled();
     });
 
-    test('tool qui throw → error capturé', async () => {
+    test('tool qui throw → { error: <message> } transmis au LLM', async () => {
         setupToolThenFinal('list_projects');
         ProjectModel.findAll.mockRejectedValue(new Error('db down'));
-        await ctrl.chat(mockReq({ user, body: { messages: [{ role: 'user', content: 'x' }] } }), mockRes(), mockNext());
-        // executeTool capture l'erreur et la renvoie comme { error: ... }
+        const res = mockRes();
+        const next = mockNext();
+        await ctrl.chat(mockReq({ user, body: { messages: [{ role: 'user', content: 'x' }] } }), res, next);
+        const secondCall = mockCompletionsCreate.mock.calls[1][0];
+        const toolMsg = secondCall.messages.find(m => m.role === 'tool');
+        expect(toolMsg).toBeDefined();
+        expect(JSON.parse(toolMsg.content)).toEqual({ error: 'db down' });
+        expect(res.body.success).toBe(true);
+        expect(next).not.toHaveBeenCalled();
     });
 });
 
