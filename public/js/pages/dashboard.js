@@ -1264,6 +1264,159 @@ const DashboardPage = {
     },
 
     /**
+     * Calcule la liste dédupliquée des projets dont au moins un site ou un
+     * tracé passe les filtres courants (structures, vulnérabilités, toggles
+     * sites/tracés). Utilise les données sources (this.data.mapSites,
+     * this.data.mapGeometries) plutôt que les layers Leaflet pour éviter
+     * d'avoir à attacher project_id à chaque marqueur.
+     */
+    _getVisibleProjects() {
+        const activeStructures = this.activeStructures || new Set();
+        const activeVulnerabilities = this.activeVulnerabilities || new Set(['normal', 'elevee', 'tres_elevee']);
+        const showSites = this.showSites !== false;
+        const showGeometries = this.showGeometries !== false;
+        const ALLOWED_VULN = ['normal', 'elevee', 'tres_elevee'];
+
+        const byId = new Map();
+        const addIfNew = (projectId, projectTitle, structureCode) => {
+            if (!projectId || byId.has(projectId)) return;
+            byId.set(projectId, {
+                id: projectId,
+                title: projectTitle || `Projet #${projectId}`,
+                structure_code: structureCode || '—'
+            });
+        };
+
+        if (showSites) {
+            for (const s of (this.data.mapSites || [])) {
+                const code = s.structure_code || '—';
+                const vuln = ALLOWED_VULN.includes(s.vulnerability_level) ? s.vulnerability_level : 'normal';
+                if (!activeStructures.has(code)) continue;
+                if (!activeVulnerabilities.has(vuln)) continue;
+                addIfNew(s.project_id, s.project_title, code);
+            }
+        }
+        if (showGeometries) {
+            for (const g of (this.data.mapGeometries || [])) {
+                const code = g.structure_code || '—';
+                const vuln = ALLOWED_VULN.includes(g.vulnerability_level) ? g.vulnerability_level : 'normal';
+                if (!activeStructures.has(code)) continue;
+                if (!activeVulnerabilities.has(vuln)) continue;
+                addIfNew(g.project_id, g.project_title, code);
+            }
+        }
+        return Array.from(byId.values()).sort((a, b) => a.title.localeCompare(b.title, 'fr'));
+    },
+
+    /**
+     * Ouvre une modale listant les projets actuellement visibles sur la carte
+     * (= ceux dont au moins un site ou tracé passe les filtres courants).
+     * Chaque ligne est cliquable et ouvre la page détail du projet.
+     */
+    openVisibleProjectsModal() {
+        const projects = this._getVisibleProjects();
+
+        // Supprime une ancienne instance éventuelle
+        const existing = document.getElementById('visible-projects-modal');
+        if (existing) existing.remove();
+
+        // Helper d'échappement HTML complet (&, <, >, "), cohérent avec les autres
+        // usages dans ce fichier (cf. lignes 138, 210).
+        const escape = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
+        }[c]));
+
+        const overlay = document.createElement('div');
+        overlay.id = 'visible-projects-modal';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(32,43,93,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+        const StructureColorsSafe = (code) => (typeof StructureColors !== 'undefined') ? StructureColors.get(code) : '#3794C4';
+
+        const rowsHtml = projects.length === 0
+            ? `<div style="padding:40px;text-align:center;color:#8896AB;">Aucun projet visible avec les filtres actuels.</div>`
+            : projects.map(p => {
+                const safeTitle = escape(p.title);
+                const safeCode = escape(p.structure_code);
+                // p.id vient d'un SERIAL DB (int) mais on encode par défensive pour
+                // éviter tout HTML/URL pollution si jamais la source changeait.
+                const safeId = encodeURIComponent(p.id);
+                const color = StructureColorsSafe(p.structure_code);
+                return `<a href="#/projects/${safeId}" class="visible-project-row" data-project-id="${safeId}"
+                          style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #eef;text-decoration:none;color:inherit;cursor:pointer;">
+                    <span style="flex:1;color:#202B5D;font-weight:500;">${safeTitle}</span>
+                    <span style="display:inline-block;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700;color:white;background:${color};">${safeCode}</span>
+                </a>`;
+            }).join('');
+
+        overlay.innerHTML = `
+            <div style="background:white;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,0.3);max-width:560px;width:100%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #eef;background:#f7f9fc;">
+                    <h3 style="margin:0;color:#202B5D;font-size:16px;">
+                        Projets affichés <span style="color:#8896AB;font-weight:500;">(${projects.length})</span>
+                    </h3>
+                    <button id="close-visible-projects" style="background:none;border:none;cursor:pointer;font-size:22px;color:#8896AB;line-height:1;padding:0 4px;">&times;</button>
+                </div>
+                <div style="padding:10px 14px 8px;border-bottom:1px solid #eef;">
+                    <input type="text" id="filter-visible-projects" placeholder="Filtrer par titre…"
+                           style="width:100%;padding:8px 10px;border:1px solid #dce3ed;border-radius:6px;font-size:13px;outline:none;" />
+                </div>
+                <div id="visible-projects-list" style="overflow-y:auto;flex:1;">${rowsHtml}</div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        // Style hover (inline pour éviter toute dépendance CSS)
+        overlay.querySelectorAll('.visible-project-row').forEach(row => {
+            row.addEventListener('mouseenter', () => { row.style.background = '#f5f8fc'; });
+            row.addEventListener('mouseleave', () => { row.style.background = ''; });
+        });
+
+        // === Fermeture & cleanup ===
+        // Tous les handlers sont nommés pour pouvoir être détachés proprement,
+        // quel que soit le chemin de fermeture (×, click-outside, Escape, ou clic
+        // sur une ligne projet qui navigue vers la page détail).
+        const closeBtn = overlay.querySelector('#close-visible-projects');
+        const onCloseClick = (e) => { e.stopPropagation(); close(); };
+        const onOverlayClick = (e) => { if (e.target === overlay) close(); };
+        const onEsc = (e) => { if (e.key === 'Escape') close(); };
+        const onRowClick = (e) => {
+            // La navigation SPA se fait via href (hash-based router). On ferme
+            // la modale AVANT que le routeur ne re-render #app pour éviter
+            // qu'un overlay orphelin reste au-dessus de la nouvelle page.
+            close();
+            // ne pas preventDefault : on laisse la navigation naturelle
+        };
+
+        function close() {
+            closeBtn.removeEventListener('click', onCloseClick);
+            overlay.removeEventListener('click', onOverlayClick);
+            document.removeEventListener('keydown', onEsc);
+            overlay.querySelectorAll('.visible-project-row').forEach(row => {
+                row.removeEventListener('click', onRowClick);
+            });
+            overlay.remove();
+        }
+
+        closeBtn.addEventListener('click', onCloseClick);
+        overlay.addEventListener('click', onOverlayClick);
+        document.addEventListener('keydown', onEsc);
+        overlay.querySelectorAll('.visible-project-row').forEach(row => {
+            row.addEventListener('click', onRowClick);
+        });
+
+        // Filtre live sur le titre
+        const input = overlay.querySelector('#filter-visible-projects');
+        input.addEventListener('input', () => {
+            const q = input.value.trim().toLowerCase();
+            overlay.querySelectorAll('.visible-project-row').forEach(row => {
+                const title = row.textContent.toLowerCase();
+                row.style.display = (!q || title.includes(q)) ? '' : 'none';
+            });
+        });
+        input.focus();
+    },
+
+    /**
      * Formate une date SQL en JJ/MM/AAAA. Retourne '' si invalide.
      */
     _formatDateFr(d) {
@@ -1383,6 +1536,23 @@ const DashboardPage = {
                     row.append(cb, iconSpan, labelSpan, countSpan);
                     body.appendChild(row);
                 });
+
+                // Bouton d'accès à la modale "Projets affichés"
+                const btnRow = document.createElement('div');
+                btnRow.style.cssText = 'margin-top:6px;padding-top:6px;border-top:1px solid #eef;';
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.id = 'btn-visible-projects';
+                btn.textContent = '📋 Voir les projets';
+                btn.style.cssText = 'width:100%;padding:5px 8px;border:1px solid #dce3ed;border-radius:4px;background:#f7f9fc;color:#202B5D;font-weight:600;font-size:10.5px;cursor:pointer;';
+                btn.addEventListener('mouseenter', () => { btn.style.background = '#eef3f9'; });
+                btn.addEventListener('mouseleave', () => { btn.style.background = '#f7f9fc'; });
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    DashboardPage.openVisibleProjectsModal();
+                });
+                btnRow.appendChild(btn);
+                body.appendChild(btnRow);
 
                 div.appendChild(body);
                 header.addEventListener('click', () => {
