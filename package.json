@@ -7,7 +7,22 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "db:schema": "psql -U postgres -d cngi_db -f db/schema.sql",
-    "db:seed": "node db/seed.js"
+    "db:seed": "node db/seed.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/tests/**/*.test.js"],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/server.js",
+      "!src/app.js",
+      "!src/config/**",
+      "!src/routes/**"
+    ],
+    "setupFiles": ["<rootDir>/tests/setup.js"]
   },
   "keywords": [
     "cngi",
@@ -32,6 +47,7 @@
     "pg": "^8.11.3"
   },
   "devDependencies": {
+    "jest": "^30.3.0",
     "nodemon": "^3.0.1"
   }
 }
