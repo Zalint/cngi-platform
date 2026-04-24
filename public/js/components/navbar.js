@@ -109,9 +109,9 @@ const Navbar = {
 
         const scopeTag = user.structure_code ? ` · ${user.structure_code}` : '';
         const readOnlyBadge = user.role === 'lecteur'
-            ? `<span style="display:inline-block;margin-left:10px;padding:3px 10px;background:#8896AB;color:white;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">👁 Lecture${scopeTag}</span>`
+            ? `<span style="display:inline-flex;align-items:center;gap:4px;margin-left:10px;padding:3px 10px;background:#8896AB;color:white;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">${Icon.render('eye', 12, 'white')}Lecture${scopeTag}</span>`
             : user.role === 'auditeur'
-            ? `<span style="display:inline-block;margin-left:10px;padding:3px 10px;background:#3794C4;color:white;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">🔍 Audit${scopeTag}</span>`
+            ? `<span style="display:inline-flex;align-items:center;gap:4px;margin-left:10px;padding:3px 10px;background:#3794C4;color:white;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:0.3px;">${Icon.render('search', 12, 'white')}Audit${scopeTag}</span>`
             : '';
 
         return `
@@ -128,10 +128,14 @@ const Navbar = {
                     <h1 style="margin:0;">${title}${readOnlyBadge}</h1>
                 </div>
                 <div style="display:flex;align-items:center;gap:16px;">
+                    <button onclick="Navbar.toggleTheme()" title="Basculer thème clair / sombre"
+                            id="theme-toggle-btn"
+                            style="display:inline-flex;align-items:center;justify-content:center;padding:8px;background:var(--color-surface-muted);color:var(--color-text);border:1px solid var(--color-border);border-radius:8px;cursor:pointer;">
+                        ${this.currentThemeIcon()}
+                    </button>
                     <button onclick="Navbar.hardRefresh()" title="Vider le cache et recharger la page"
-                            style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#f0f4f8;color:#202B5D;border:1px solid #dce3ed;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:background 0.15s;"
-                            onmouseover="this.style.background='#e1e9f0';" onmouseout="this.style.background='#f0f4f8';">
-                        🔄 Actualiser
+                            style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--color-surface-muted);color:var(--color-text);border:1px solid var(--color-border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">
+                        ${Icon.render('refresh', 14, 'currentColor')} Actualiser
                     </button>
 
                     <div style="position:relative;" id="notif-bell-wrap">
@@ -161,19 +165,49 @@ const Navbar = {
                             <button onclick="event.stopPropagation(); Navbar.openChangePasswordModal();"
                                     style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#202B5D;font-weight:600;"
                                     onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='transparent'">
-                                <span style="font-size:16px;">🔑</span> Changer le mot de passe
+                                ${Icon.render('key', 16, '#202B5D')} Changer le mot de passe
                             </button>
                             <div style="height:1px;background:#eef;"></div>
                             <button onclick="event.stopPropagation(); Navbar.logout();"
                                     style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#c0392b;font-weight:600;"
                                     onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
-                                <span style="font-size:16px;">🚪</span> Déconnexion
+                                ${Icon.render('log-out', 16, '#c0392b')} Déconnexion
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
         `;
+    },
+
+    /**
+     * Thème clair / sombre : persisté dans localStorage.
+     * On applique le thème à <html data-theme="dark|light"> pour que
+     * les overrides CSS dans tokens.css prennent effet partout.
+     */
+    THEME_KEY: 'cngi_theme',
+
+    currentTheme() {
+        try { return localStorage.getItem(this.THEME_KEY) || 'light'; }
+        catch { return 'light'; }
+    },
+
+    currentThemeIcon() {
+        return this.currentTheme() === 'dark'
+            ? Icon.render('sun', 16, 'currentColor')
+            : Icon.render('moon', 16, 'currentColor');
+    },
+
+    applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        const btn = document.getElementById('theme-toggle-btn');
+        if (btn) btn.innerHTML = this.currentThemeIcon();
+    },
+
+    toggleTheme() {
+        const next = this.currentTheme() === 'dark' ? 'light' : 'dark';
+        try { localStorage.setItem(this.THEME_KEY, next); } catch {}
+        this.applyTheme(next);
     },
 
     toggleUserMenu(e) {

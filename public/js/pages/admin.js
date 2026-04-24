@@ -65,11 +65,11 @@ const AdminPage = {
                         <button class="admin-tab" data-tab="api-keys" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
                             Clés API
                         </button>
-                        <button class="admin-tab" data-tab="trash" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
-                            🗑 Corbeille
+                        <button class="admin-tab" data-tab="trash" style="display:inline-flex;align-items:center;gap:6px;padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
+                            ${Icon.render('trash', 15, 'currentColor')} Corbeille
                         </button>
-                        <button class="admin-tab" data-tab="docs" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
-                            📖 Documentation
+                        <button class="admin-tab" data-tab="docs" style="display:inline-flex;align-items:center;gap:6px;padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
+                            ${Icon.render('clipboard-list', 15, 'currentColor')} Documentation
                         </button>
                     </div>
                     <div style="display: none;">
@@ -91,8 +91,8 @@ const AdminPage = {
                 <td>${user.is_active ? '✅ Actif' : '❌ Inactif'}</td>
                 <td>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn-icon" onclick="AdminPage.editUser(${user.id})" title="Modifier">✏️</button>
-                        <button class="btn-icon" onclick="AdminPage.deleteUser(${user.id})" title="Supprimer">🗑️</button>
+                        <button class="btn-icon" onclick="AdminPage.editUser(${user.id})" title="Modifier">${Icon.render('pencil', 16, '#202B5D')}</button>
+                        <button class="btn-icon" onclick="AdminPage.deleteUser(${user.id})" title="Supprimer">${Icon.render('trash', 16, '#c0392b')}</button>
                     </div>
                 </td>
             </tr>
@@ -103,7 +103,7 @@ const AdminPage = {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                     <h2>Gestion des utilisateurs</h2>
                     <button class="btn btn-primary" onclick="AdminPage.createUser()">
-                        ➕ Nouvel utilisateur
+                        ${Icon.render('plus', 14, 'white')} Nouvel utilisateur
                     </button>
                 </div>
                 <div class="table-container">
@@ -138,8 +138,8 @@ const AdminPage = {
                 <td>${structure.projects_count || 0}</td>
                 <td>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn-icon" onclick="AdminPage.editStructure(${structure.id})" title="Modifier">✏️</button>
-                        <button class="btn-icon" onclick="AdminPage.deleteStructure(${structure.id})" title="Supprimer">🗑️</button>
+                        <button class="btn-icon" onclick="AdminPage.editStructure(${structure.id})" title="Modifier">${Icon.render('pencil', 16, '#202B5D')}</button>
+                        <button class="btn-icon" onclick="AdminPage.deleteStructure(${structure.id})" title="Supprimer">${Icon.render('trash', 16, '#c0392b')}</button>
                     </div>
                 </td>
             </tr>
@@ -150,7 +150,7 @@ const AdminPage = {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                     <h2>Gestion des structures</h2>
                     <button class="btn btn-primary" onclick="AdminPage.createStructure()">
-                        ➕ Nouvelle structure
+                        ${Icon.render('plus', 14, 'white')} Nouvelle structure
                     </button>
                 </div>
                 <div class="table-container">
@@ -188,7 +188,7 @@ const AdminPage = {
         if (items.length === 0) {
             return `
                 <div class="card" style="padding:60px 20px;text-align:center;">
-                    <div style="font-size:48px;margin-bottom:12px;opacity:0.4;">🗑</div>
+                    <div style="margin-bottom:12px;opacity:0.4;display:flex;justify-content:center;">${Icon.render('trash', 48, '#8896AB')}</div>
                     <h3 style="margin:0 0 8px;">Corbeille vide</h3>
                     <p style="color:#62718D;font-size:13px;margin:0;">Aucun projet supprimé à restaurer.</p>
                 </div>
@@ -202,8 +202,8 @@ const AdminPage = {
                 <td>${p.deleted_at ? new Date(p.deleted_at).toLocaleString('fr-FR') : ''}</td>
                 <td>
                     <div style="display:flex;gap:8px;">
-                        <button class="btn btn-primary" style="font-size:12px;padding:6px 12px;" onclick="AdminPage.restoreProject(${p.id})">♻ Restaurer</button>
-                        <button class="btn btn-danger" style="font-size:12px;padding:6px 12px;" onclick="AdminPage.hardDeleteProject(${p.id}, ${JSON.stringify(p.title).replace(/"/g, '&quot;')})">🗑 Purger</button>
+                        <button class="btn btn-primary" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:6px 12px;" onclick="AdminPage.restoreProject(${p.id})">${Icon.render('restore', 12, 'white')} Restaurer</button>
+                        <button class="btn btn-danger" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:6px 12px;" onclick="AdminPage.hardDeleteProject(${p.id}, ${JSON.stringify(p.title).replace(/"/g, '&quot;')})">${Icon.render('trash', 12, 'white')} Purger</button>
                     </div>
                 </td>
             </tr>
@@ -212,7 +212,7 @@ const AdminPage = {
         return `
             <div class="card">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-                    <h2 style="margin:0;">🗑 Corbeille des projets</h2>
+                    <h2 style="margin:0;display:inline-flex;align-items:center;gap:8px;">${Icon.render('trash', 20, '#202B5D')} Corbeille des projets</h2>
                     <div style="color:#62718D;font-size:12px;">${items.length} projet(s) supprimé(s)</div>
                 </div>
                 <p style="color:#62718D;font-size:13px;margin-bottom:16px;">
@@ -656,7 +656,7 @@ const AdminPage = {
                     <td>
                         <div style="display:flex;gap:6px;">
                             ${k.is_active ? `<button class="btn-icon" onclick="AdminPage.revokeApiKey(${k.id})" title="Révoquer">🚫</button>` : ''}
-                            <button class="btn-icon" onclick="AdminPage.deleteApiKey(${k.id})" title="Supprimer">🗑️</button>
+                            <button class="btn-icon" onclick="AdminPage.deleteApiKey(${k.id})" title="Supprimer">${Icon.render('trash', 16, '#c0392b')}</button>
                         </div>
                     </td>
                 </tr>
@@ -670,7 +670,7 @@ const AdminPage = {
                         <h2 style="margin:0;">Clés API</h2>
                         <p style="color:#62718D;font-size:13px;margin:4px 0 0;">Authentifient l'accès à l'API externe <code>/api/v1</code>. Chaque clé hérite des droits de son propriétaire.</p>
                     </div>
-                    <button class="btn btn-primary" onclick="AdminPage.createApiKey()">➕ Nouvelle clé</button>
+                    <button class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;" onclick="AdminPage.createApiKey()">${Icon.render('plus', 14, 'white')} Nouvelle clé</button>
                 </div>
                 <div style="background:#f0f8ff;padding:12px;border-radius:6px;border-left:3px solid #3794C4;margin-bottom:16px;font-size:13px;">
                     <strong>Documentation :</strong> <a href="/api/v1/docs" target="_blank" style="color:#3794C4;">OpenAPI JSON</a>

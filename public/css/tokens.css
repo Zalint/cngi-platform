@@ -1,0 +1,292 @@
+/*
+ * CNGI Design Tokens
+ * ------------------
+ * Variables centrales du design system. Importées en tête du fichier CSS
+ * principal pour être disponibles partout.
+ *
+ * Priorités (issues du skill ui-ux-pro-max) :
+ *   1. Accessibilité — contrastes ≥ 4.5:1, focus states visibles
+ *   2. Interaction  — targets tactiles ≥ 44×44 px, feedback clair
+ *   3. Cohérence    — 1 seule palette, 1 seule échelle de spacing / typo
+ *
+ * Note : les valeurs actuelles sont alignées sur ce qui est observé dans
+ * les fichiers existants. La migration consiste à remplacer progressivement
+ * les valeurs inline (#202B5D, 12px, 8px, etc.) par ces tokens.
+ */
+
+:root {
+    /* ---------- Couleurs de marque ---------- */
+    --color-primary:       #202B5D;   /* CNGI navy — titres, actions principales */
+    --color-primary-dark:  #141a3b;
+    --color-primary-light: #3a4a8a;
+
+    --color-accent:        #3794C4;   /* cyan — liens, focus, infos */
+    --color-accent-dark:   #216a91;
+
+    /* ---------- Couleurs sémantiques ---------- */
+    --color-success:       #27ae60;
+    --color-warning:       #e67e22;
+    --color-danger:        #c0392b;
+    --color-info:          #3794C4;
+
+    /* ---------- Couleurs des structures (matching StructureColors.js) ---------- */
+    --color-structure-onas:     #27ae60;
+    --color-structure-bnsp:     #e74c3c;
+    --color-structure-dpgi:     #3794C4;
+    --color-structure-cetud:    #9b59b6;
+    --color-structure-ageroute: #f39c12;
+    --color-structure-dpc:      #8b5cf6;
+
+    /* ---------- Couleurs de surface / texte ---------- */
+    --color-bg:            #f5f7fa;   /* fond global */
+    --color-surface:       #ffffff;   /* cards, panels */
+    --color-surface-muted: #f0f4f8;   /* zones secondaires */
+    --color-border:        #dce3ed;
+    --color-border-light:  #e8ecf1;
+
+    --color-text:          #202B5D;   /* corps de texte */
+    --color-text-muted:    #62718D;   /* texte secondaire */
+    --color-text-disabled: #8896AB;
+
+    /* ---------- Spacing (échelle 4 px) ---------- */
+    --space-0:   0;
+    --space-1:   4px;
+    --space-2:   8px;
+    --space-3:   12px;
+    --space-4:   16px;
+    --space-5:   20px;
+    --space-6:   24px;
+    --space-8:   32px;
+    --space-10:  40px;
+    --space-12:  48px;
+    --space-16:  64px;
+
+    /* ---------- Typography ---------- */
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+
+    --font-xs:   11px;
+    --font-sm:   12px;
+    --font-base: 14px;
+    --font-md:   15px;
+    --font-lg:   16px;
+    --font-xl:   20px;
+    --font-2xl:  24px;
+    --font-3xl:  32px;
+
+    --font-weight-regular: 400;
+    --font-weight-medium:  500;
+    --font-weight-semi:    600;
+    --font-weight-bold:    700;
+
+    --line-height-tight:   1.25;
+    --line-height-normal:  1.5;
+    --line-height-relaxed: 1.7;
+
+    /* ---------- Radius ---------- */
+    --radius-sm:   4px;
+    --radius-md:   6px;
+    --radius-lg:   8px;
+    --radius-xl:   12px;
+    --radius-full: 999px;
+
+    /* ---------- Shadows (couches discrètes) ---------- */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.16);
+
+    /* ---------- Targets tactiles (accessibilité critique) ---------- */
+    --touch-target-min: 44px;   /* pas en dessous sur interface tactile */
+
+    /* ---------- Durées d'animation (respect du prefers-reduced-motion) ---------- */
+    --duration-fast:   120ms;
+    --duration-normal: 220ms;
+    --duration-slow:   400ms;
+    --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* ---------- Z-index (empilement contrôlé) ---------- */
+    --z-dropdown:    100;
+    --z-sticky:      200;
+    --z-overlay:     800;
+    --z-modal:       900;
+    --z-popover:     1000;
+    --z-toast:       1100;
+
+    /* ---------- Alias legacy (pour rétro-compat main.css) ---------- */
+    /* Ces variables sont celles utilisées historiquement dans main.css.
+       On les pointe vers les tokens sémantiques pour qu'un futur toggle
+       de thème (ex. dark mode) suffise à changer une seule source. */
+    --primary-color:   var(--color-primary);
+    --primary-light:   var(--color-accent);
+    --secondary-color: var(--color-accent);
+    --bg-color:        var(--color-bg);
+    --text-dark:       var(--color-text);
+    --text-medium:     var(--color-text-muted);
+    --text-light:      var(--color-text-disabled);
+    --border-color:    var(--color-border);
+    --success-color:   var(--color-success);
+    --warning-color:   var(--color-warning);
+    --danger-color:    var(--color-danger);
+    --info-color:      var(--color-info);
+    --sidebar-bg:      var(--color-primary);
+    --accent-water:    var(--color-accent);
+}
+
+/*
+ * Respect de l'accessibilité : désactive les animations non essentielles
+ * pour les utilisateurs qui ont activé "prefers-reduced-motion".
+ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/*
+ * Dark mode — activé en ajoutant data-theme="dark" sur <html> ou <body>.
+ * Navbar.toggleTheme() gère le switch + persist dans localStorage.
+ *
+ * Les tokens redéfinis ici suffisent à colorer toute l'app car les fichiers
+ * CSS et composants utilisent var(--color-*). Quelques surcharges
+ * ciblées sont ajoutées pour les éléments qui ont des couleurs en dur.
+ */
+:root[data-theme="dark"],
+[data-theme="dark"] {
+    --color-primary:       #5B73D4;
+    --color-primary-dark:  #3A4B9E;
+    --color-primary-light: #8A9FE0;
+
+    --color-accent:        #4FB4E0;
+    --color-accent-dark:   #2A7AA0;
+
+    --color-success:       #3ed37a;
+    --color-warning:       #ffb84d;
+    --color-danger:        #ff6f63;
+    --color-info:          #4FB4E0;
+
+    --color-bg:            #0f1420;
+    --color-surface:       #1a2033;
+    --color-surface-muted: #242b42;
+    --color-border:        #2f3957;
+    --color-border-light:  #3a4570;
+
+    --color-text:          #e8ecf5;
+    --color-text-muted:    #9ca5bf;
+    --color-text-disabled: #6b7590;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.65);
+    --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.7);
+}
+
+/* Quelques surcharges pour les classes qui utilisent des couleurs en dur
+   dans main.css et qu'on ne peut pas tokeniser en une passe sans casser. */
+[data-theme="dark"] body { background: var(--color-bg); color: var(--color-text); }
+[data-theme="dark"] .card,
+[data-theme="dark"] .metric-card,
+[data-theme="dark"] .project-card { background: var(--color-surface); color: var(--color-text); border-color: var(--color-border); }
+[data-theme="dark"] .top-bar { background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+[data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3 { color: var(--color-text); }
+[data-theme="dark"] .user-info .user-name,
+[data-theme="dark"] .user-info .user-role { color: var(--color-text-muted); }
+[data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea {
+    background: var(--color-surface-muted);
+    color: var(--color-text);
+    border-color: var(--color-border);
+}
+[data-theme="dark"] .btn-secondary { background: var(--color-surface-muted); color: var(--color-text); border-color: var(--color-border); }
+[data-theme="dark"] table { background: var(--color-surface); color: var(--color-text); }
+[data-theme="dark"] table th { background: var(--color-surface-muted); color: var(--color-text); }
+[data-theme="dark"] table tbody tr:hover { background: var(--color-surface-muted); }
+[data-theme="dark"] .search-box { background: var(--color-surface-muted); color: var(--color-text); }
+
+/* ------------------------------------------------------------------
+   Override des styles inline hardcodés (navy #202B5D, gris #62718D,
+   #8896AB). Beaucoup de composants utilisent `style="color:#202B5D"`
+   directement dans le HTML, ce que le CSS ne peut normalement pas
+   override. Les sélecteurs d'attribut ciblent précisément ces cas.
+
+   ⚠ Usage d'!important intentionnel : seul moyen de battre un style
+   inline. Scopé au `data-theme="dark"` donc zéro impact sur le mode
+   clair.
+------------------------------------------------------------------ */
+[data-theme="dark"] [style*="color:#202B5D" i],
+[data-theme="dark"] [style*="color: #202B5D" i],
+[data-theme="dark"] [style*="color:#1e3c72" i],
+[data-theme="dark"] [style*="color: #1e3c72" i] {
+    color: var(--color-text) !important;
+}
+
+[data-theme="dark"] [style*="color:#62718D" i],
+[data-theme="dark"] [style*="color: #62718D" i] {
+    color: var(--color-text-muted) !important;
+}
+
+[data-theme="dark"] [style*="color:#8896AB" i],
+[data-theme="dark"] [style*="color: #8896AB" i] {
+    color: var(--color-text-disabled) !important;
+}
+
+/* Fonds clairs hardcodés dans des boutons / badges secondaires */
+[data-theme="dark"] [style*="background:#f0f4f8" i],
+[data-theme="dark"] [style*="background: #f0f4f8" i],
+[data-theme="dark"] [style*="background:#f5f7fa" i],
+[data-theme="dark"] [style*="background: #f5f7fa" i],
+[data-theme="dark"] [style*="background:#f8f9fa" i],
+[data-theme="dark"] [style*="background: #f8f9fa" i] {
+    background: var(--color-surface-muted) !important;
+    color: var(--color-text) !important;
+}
+
+[data-theme="dark"] [style*="background:#e8ecf1" i],
+[data-theme="dark"] [style*="background: #e8ecf1" i] {
+    background: var(--color-border) !important;
+    color: var(--color-text) !important;
+}
+
+/* Fonds bleutés très clairs utilisés pour "info" / highlight */
+[data-theme="dark"] [style*="background:#f0f9ff" i],
+[data-theme="dark"] [style*="background: #f0f9ff" i],
+[data-theme="dark"] [style*="background:#e0f2fe" i],
+[data-theme="dark"] [style*="background: #e0f2fe" i],
+[data-theme="dark"] [style*="background:#dbeafe" i],
+[data-theme="dark"] [style*="background: #dbeafe" i] {
+    background: rgba(55, 148, 196, 0.15) !important;
+    color: var(--color-text) !important;
+}
+
+/* Bordures claires */
+[data-theme="dark"] [style*="border:1px solid #dce3ed" i],
+[data-theme="dark"] [style*="border: 1px solid #dce3ed" i],
+[data-theme="dark"] [style*="border-top:1px solid #eef" i],
+[data-theme="dark"] [style*="border-bottom:1px solid #f0f4f8" i],
+[data-theme="dark"] [style*="border-left: 1px solid #eef" i] {
+    border-color: var(--color-border) !important;
+}
+
+/* Éléments qui n'héritent pas de la couleur du parent (form labels,
+   éléments <strong>, <em> sans classe, etc.) */
+[data-theme="dark"] label,
+[data-theme="dark"] .form-group label,
+[data-theme="dark"] strong,
+[data-theme="dark"] b {
+    color: var(--color-text);
+}
+
+/* Leaflet popup — le plugin injecte un fond blanc en dur */
+[data-theme="dark"] .leaflet-popup-content-wrapper,
+[data-theme="dark"] .leaflet-popup-tip {
+    background: var(--color-surface) !important;
+    color: var(--color-text) !important;
+}
+[data-theme="dark"] .leaflet-popup-content { color: var(--color-text); }
+
+/* Loading overlay (semi-transparent blanc par défaut) */
+[data-theme="dark"] .loading-overlay { background: rgba(15, 20, 32, 0.92) !important; }

@@ -92,10 +92,10 @@ const MyMeasuresPage = {
                 <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
                     <span style="color:#62718D;font-size:12px;margin-right:8px;">Filtrer par statut :</span>
                     ${mk('',              'Tous')}
-                    ${mk('preconisee',    '⏳ Préconisées')}
-                    ${mk('executee',      '✓ Exécutées')}
-                    ${mk('non_executee',  '✗ Non exécutées')}
-                    ${mk('observations',  '💬 Observations')}
+                    ${mk('preconisee',    'Préconisées')}
+                    ${mk('executee',      'Exécutées')}
+                    ${mk('non_executee',  'Non exécutées')}
+                    ${mk('observations',  'Observations')}
                 </div>
             </div>
         `;
@@ -126,29 +126,29 @@ const MyMeasuresPage = {
                 <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;
                              background:${isOverdue ? '#c0392b' : isDueSoon ? '#e67e22' : '#e8ecf1'};
                              color:${isOverdue || isDueSoon ? 'white' : '#202B5D'};">
-                    📅 ${DateFormatter.format(m.project_deadline)}${isOverdue ? ' (en retard)' : isDueSoon ? ' (bientôt)' : ''}
+                    ${Icon.render('calendar', 11, isOverdue || isDueSoon ? 'white' : '#202B5D')} ${DateFormatter.format(m.project_deadline)}${isOverdue ? ' (en retard)' : isDueSoon ? ' (bientôt)' : ''}
                 </span>
             ` : '';
 
             const priorityBadge = m.project_priority === 'urgente'
-                ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:white;background:#e74c3c;">🔴 URGENT</span>'
+                ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:white;background:#e74c3c;">${Icon.render('alert-circle', 11, 'white')}URGENT</span>`
                 : m.project_priority === 'haute'
-                ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:white;background:#e67e22;">🟠 HAUTE</span>'
+                ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:white;background:#e67e22;">${Icon.render('alert-triangle', 11, 'white')}HAUTE</span>`
                 : '';
 
             const commentsBadge = `
                 <button onclick="MyMeasuresPage.toggleComments(${m.id})"
                         id="comments-toggle-${m.id}"
-                        style="padding:2px 8px;background:${m.comments_count > 0 ? '#dbeafe' : '#f0f4f8'};color:${m.comments_count > 0 ? '#1e40af' : '#62718D'};border-radius:10px;font-size:11px;font-weight:600;border:none;cursor:pointer;">
-                    💬 ${m.comments_count || 0} ${m.comments_count > 0 ? 'commentaire(s)' : 'commenter'}
+                        style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:${m.comments_count > 0 ? '#dbeafe' : '#f0f4f8'};color:${m.comments_count > 0 ? '#1e40af' : '#62718D'};border-radius:10px;font-size:11px;font-weight:600;border:none;cursor:pointer;">
+                    ${Icon.render('message-square', 11, m.comments_count > 0 ? '#1e40af' : '#62718D')} ${m.comments_count || 0} ${m.comments_count > 0 ? 'commentaire(s)' : 'commenter'}
                 </button>
             `;
 
             const canMarkDone = m.status !== 'executee' && Auth.canWrite();
             const actionButtons = canMarkDone ? `
                 <button onclick="MyMeasuresPage.markAsDone(${m.id}, ${m.project_id})"
-                        style="padding:6px 12px;background:#27ae60;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
-                    ✓ Marquer exécutée
+                        style="display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:6px 12px;background:#27ae60;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+                    ${Icon.render('check', 14, 'white')} Marquer exécutée
                 </button>
             ` : '';
 
@@ -165,11 +165,11 @@ const MyMeasuresPage = {
                             </div>
                             <div style="color:#202B5D;font-size:14px;font-weight:600;line-height:1.5;margin-bottom:8px;">${esc(m.description)}</div>
                             <div style="color:#62718D;font-size:12px;display:flex;gap:10px;flex-wrap:wrap;">
-                                <span>📦 ${esc(m.project_title)}</span>
-                                ${m.structure_code ? `<span>🏢 ${esc(m.structure_code)}</span>` : ''}
-                                ${m.site_name ? `<span>📍 ${esc(m.site_name)}${m.site_commune ? ` — ${esc(m.site_commune)}` : ''}</span>` : ''}
+                                <span style="display:inline-flex;align-items:center;gap:4px;">${Icon.render('package', 12, 'currentColor')} ${esc(m.project_title)}</span>
+                                ${m.structure_code ? `<span style="display:inline-flex;align-items:center;gap:4px;">${Icon.render('building-2', 12, 'currentColor')} ${esc(m.structure_code)}</span>` : ''}
+                                ${m.site_name ? `<span style="display:inline-flex;align-items:center;gap:4px;">${Icon.render('map-pin', 12, 'currentColor')} ${esc(m.site_name)}${m.site_commune ? ` — ${esc(m.site_commune)}` : ''}</span>` : ''}
                             </div>
-                            ${m.constraints ? `<div style="color:#c0392b;font-size:12px;margin-top:8px;font-style:italic;">⚠ ${esc(m.constraints)}</div>` : ''}
+                            ${m.constraints ? `<div style="color:#c0392b;font-size:12px;margin-top:8px;font-style:italic;display:inline-flex;align-items:center;gap:4px;">${Icon.render('alert-triangle', 12, '#c0392b')} ${esc(m.constraints)}</div>` : ''}
                         </div>
                         <div style="display:flex;flex-direction:column;gap:6px;min-width:130px;">
                             ${actionButtons}
@@ -285,7 +285,7 @@ const MyMeasuresPage = {
             const toggle = document.getElementById(`comments-toggle-${measureId}`);
             if (toggle) {
                 const measure = this.data.measures.find(x => x.id === measureId);
-                if (measure) toggle.innerHTML = `💬 ${measure.comments_count || 0} commentaire(s)`;
+                if (measure) toggle.innerHTML = `${Icon.render('message-square', 11, '#1e40af')} ${measure.comments_count || 0} commentaire(s)`;
             }
         } catch (err) {
             Toast.error('Erreur : ' + (err.message || 'inconnue'));

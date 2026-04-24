@@ -17,7 +17,7 @@ const ChangePasswordModal = {
         overlay.className = 'confirm-overlay confirm-visible';
         overlay.innerHTML = `
             <div class="confirm-dialog" style="text-align:left;max-width:500px;">
-                <h3 style="margin-bottom:8px;color:#202B5D;">🔑 Changer le mot de passe</h3>
+                <h3 style="margin-bottom:8px;color:#202B5D;display:inline-flex;align-items:center;gap:8px;">${Icon.render('key', 18, '#202B5D')} Changer le mot de passe</h3>
                 <p style="color:#62718D;font-size:13px;margin-bottom:16px;">
                     Choisis un mot de passe qui respecte toutes les règles ci-dessous.
                 </p>

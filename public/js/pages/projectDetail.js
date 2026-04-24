@@ -230,7 +230,7 @@ const ProjectDetailPage = {
         
         return `
             <div class="card mb-4">
-                <h2 style="margin-bottom: 24px;">📍 Localités et Sites</h2>
+                <h2 style="margin-bottom: 24px;display:inline-flex;align-items:center;gap:8px;">${Icon.render('map-pin', 20, '#202B5D')} Localités et Sites</h2>
                 
                 <!-- Localités -->
                 <h3 style="font-size: 16px; margin-bottom: 16px; color: #333;">Localités</h3>
@@ -505,9 +505,17 @@ const ProjectDetailPage = {
 
         // Ces lookups sont whitelistés : toute clé inconnue tombe sur une valeur sûre
         const USAGE_LABELS = { drainage: 'Drainage', intervention: 'Intervention', zone_inondable: 'Zone inondable', autre: 'Autre' };
-        const USAGE_ICONS = { drainage: '💧', intervention: '🚒', zone_inondable: '🌊', autre: '📐' };
+        const USAGE_ICONS = {
+            drainage:       { name: 'droplet',         color: '#3794C4' },
+            intervention:   { name: 'siren',           color: '#c0392b' },
+            zone_inondable: { name: 'waves',           color: '#3794C4' },
+            autre:          { name: 'square',          color: '#8896AB' }
+        };
         const usageLabel = (u) => USAGE_LABELS[u] || 'Autre';
-        const usageIcon  = (u) => USAGE_ICONS[u]  || '📐';
+        const usageIcon  = (u) => {
+            const spec = USAGE_ICONS[u] || USAGE_ICONS.autre;
+            return Icon.render(spec.name, 16, spec.color);
+        };
 
         // Résumé par structure (code source = table structures, mais on échappe par précaution)
         const byStructure = {};
@@ -525,7 +533,7 @@ const ProjectDetailPage = {
             return `
                 <div style="background:#f8f9fa;border-left:4px solid ${color};border-radius:8px;padding:12px 14px;min-width:220px;flex:1;">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                        <span style="font-size:16px;">${usageIcon(g.usage_type)}</span>
+                        <span style="display:inline-flex;align-items:center;">${usageIcon(g.usage_type)}</span>
                         <strong style="color:#202B5D;font-size:13px;">${esc(g.name)}</strong>
                     </div>
                     <div style="font-size:11px;color:#62718D;margin-bottom:8px;">
@@ -536,7 +544,7 @@ const ProjectDetailPage = {
                     ${truncatedDesc ? `<div style="font-size:11px;color:#62718D;margin-bottom:8px;">${esc(truncatedDesc)}</div>` : ''}
                     ${canManage ? `
                         <div style="display:flex;gap:6px;">
-                            <button class="btn btn-danger" style="font-size:11px;padding:4px 10px;" onclick="ProjectDetailPage.deleteGeometry(${g.id})">🗑 Supprimer</button>
+                            <button class="btn btn-danger" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:4px 10px;" onclick="ProjectDetailPage.deleteGeometry(${g.id})">${Icon.render('trash', 12, 'white')} Supprimer</button>
                         </div>
                     ` : ''}
                 </div>
@@ -547,13 +555,13 @@ const ProjectDetailPage = {
             <div class="card mb-4">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
                     <div>
-                        <h2 style="margin:0;">🗺 Tracés / Géométries</h2>
+                        <h2 style="margin:0;display:inline-flex;align-items:center;gap:8px;">${Icon.render('route', 20, '#202B5D')} Tracés / Géométries</h2>
                         <div style="font-size:12px;color:#62718D;margin-top:4px;">${summary}</div>
                     </div>
                     ${canManage ? `
                         <div style="display:flex;gap:8px;">
-                            <button class="btn btn-secondary" onclick="ProjectDetailPage.openImportGeometriesModal()">
-                                ⬆ Importer GeoJSON
+                            <button class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:6px;" onclick="ProjectDetailPage.openImportGeometriesModal()">
+                                ${Icon.render('upload', 14, '#202B5D')} Importer GeoJSON
                             </button>
                         </div>
                     ` : ''}
@@ -580,7 +588,7 @@ const ProjectDetailPage = {
         modal.className = 'confirm-overlay confirm-visible';
         modal.innerHTML = `
             <div class="confirm-dialog" style="text-align:left;max-width:560px;">
-                <h3 style="margin-bottom:8px;color:#202B5D;">⬆ Importer un tracé</h3>
+                <h3 style="margin-bottom:8px;color:#202B5D;display:inline-flex;align-items:center;gap:8px;">${Icon.render('upload', 18, '#202B5D')} Importer un tracé</h3>
                 <p style="color:#62718D;font-size:13px;margin-bottom:16px;">
                     Charge un fichier GeoJSON (depuis geojson.io, QGIS…) et renseigne la structure et le type ici.
                     Le fichier n'a besoin de contenir que la géométrie — pas les propriétés.

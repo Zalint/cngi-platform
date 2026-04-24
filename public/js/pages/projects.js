@@ -79,7 +79,7 @@ const ProjectsPage = {
         return `
             <div class="toolbar">
                 <div class="search-filter">
-                    <input type="text" class="search-box" id="search-projects" placeholder="🔍 Rechercher un projet...">
+                    <input type="text" class="search-box" id="search-projects" placeholder="Rechercher un projet...">
                     <select class="filter-select" id="filter-status">
                         <option value="">Tous les statuts</option>
                         <option value="demarrage">Démarrage</option>
@@ -95,17 +95,17 @@ const ProjectsPage = {
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     ${Auth.canExport() ? `
                         <button class="btn btn-secondary" onclick="ProjectsPage.exportXlsx()" title="Exporter tous les projets au format Excel">
-                            <span>📊</span>
+                            ${Icon.render('file-spreadsheet', 14, '#1D6F42')}
                             <span>Exporter Excel</span>
                         </button>
                         <button class="btn btn-secondary" onclick="ProjectsPage.openReportModal()" title="Générer un rapport analytique via IA">
-                            <span>🤖</span>
+                            ${Icon.render('bot', 14, '#3794C4')}
                             <span>Générer rapport</span>
                         </button>
                     ` : ''}
                     ${canCreate ? `
                         <a href="#/projects/new" class="btn btn-primary">
-                            <span>➕</span>
+                            ${Icon.render('plus', 14, 'white')}
                             <span>Nouveau projet</span>
                         </a>
                     ` : ''}
@@ -122,7 +122,7 @@ const ProjectsPage = {
         modal.className = 'confirm-overlay confirm-visible';
         modal.innerHTML = `
             <div class="confirm-dialog" style="text-align:left;max-width:520px;">
-                <h3 style="margin-bottom:8px;color:#202B5D;">🤖 Générer un rapport IA</h3>
+                <h3 style="margin-bottom:8px;color:#202B5D;display:inline-flex;align-items:center;gap:8px;">${Icon.render('bot', 18, '#3794C4')} Générer un rapport IA</h3>
                 <p style="color:#62718D;font-size:13px;margin-bottom:20px;">
                     Le rapport analyse les projets sélectionnés via GPT-4.1-mini et couvre : résumé exécutif,
                     état global, analyse par structure, projets prioritaires, retards, mesures, recommandations.
@@ -303,9 +303,9 @@ const ProjectsPage = {
                 </div>
                 
                 <div class="project-meta">
-                    <div>📅 Échéance: ${project.deadline_date ? DateFormatter.format(project.deadline_date) : 'N/A'}</div>
-                    <div>📍 Sites: ${project.sites_count || 0}</div>
-                    <div>🗺 Tracés: ${project.geometries_count || 0}</div>
+                    <div style="display:inline-flex;align-items:center;gap:4px;">${Icon.render('calendar', 13, 'currentColor')}Échéance: ${project.deadline_date ? DateFormatter.format(project.deadline_date) : 'N/A'}</div>
+                    <div style="display:inline-flex;align-items:center;gap:4px;">${Icon.render('map-pin', 13, 'currentColor')}Sites: ${project.sites_count || 0}</div>
+                    <div style="display:inline-flex;align-items:center;gap:4px;">${Icon.render('route', 13, 'currentColor')}Tracés: ${project.geometries_count || 0}</div>
                 </div>
                 
                 <div style="margin-bottom: 16px;">
