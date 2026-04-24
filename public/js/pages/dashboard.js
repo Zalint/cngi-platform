@@ -910,9 +910,13 @@ const DashboardPage = {
 
             // GeoJSON stocke [lng, lat] ; Leaflet attend [lat, lng]
             let layer;
+            let hitbox = null; // Calque transparent plus large pour faciliter le clic sur les polylines fines
             if (g.kind === 'linestring') {
                 const latlngs = coords.map(([lng, lat]) => [lat, lng]);
                 layer = L.polyline(latlngs, style);
+                // Hitbox ~4× plus large, totalement transparente, qui capte les clics.
+                // Indispensable sur écrans mobiles et pour les lignes de drainage étroites.
+                hitbox = L.polyline(latlngs, { color: '#000', weight: 20, opacity: 0 });
             } else if (g.kind === 'polygon') {
                 const rings = coords.map(ring => ring.map(([lng, lat]) => [lat, lng]));
                 layer = L.polygon(rings, style);
@@ -940,6 +944,20 @@ const DashboardPage = {
             this.geometryLayersByStructure[code].push(layer);
             layer._siteStructure = code;
             layer._siteVuln = vuln;
+
+            // Hitbox transparente pour les polylines : posée par-dessus la ligne visible,
+            // bind le même popup, et liée au layer visible pour le filtrage (show/hide).
+            // _isHitbox = true → on l'exclut des comptages mais la boucle de synchro
+            // visibilité (filter structure / vulnérabilité) la gère quand même.
+            if (hitbox) {
+                hitbox.bindPopup(popupHtml);
+                hitbox.addTo(this.map);
+                hitbox._siteStructure = code;
+                hitbox._siteVuln = vuln;
+                hitbox._isHitbox = true;
+                layer._hitbox = hitbox;
+                this.geometryLayersByStructure[code].push(hitbox);
+            }
 
             // Badge-marqueur pulsant au centroïde pour élevée / très élevée (comme les sites)
             if (vuln === 'elevee' || vuln === 'tres_elevee') {
@@ -1069,7 +1087,8 @@ const DashboardPage = {
                 codes.forEach(code => {
                     const color = (typeof StructureColors !== 'undefined') ? StructureColors.get(code) : '#3794C4';
                     const sitesCount = this.markersByStructure[code].length;
-                    const geomCount = (this.geometryLayersByStructure && this.geometryLayersByStructure[code] || []).length;
+                    const geomCount = (this.geometryLayersByStructure && this.geometryLayersByStructure[code] || [])
+                        .filter(g => !g._isHitbox).length;
                     // Affiche "sites" OU "sites + tracés" si présents
                     const count = geomCount > 0 ? `${sitesCount} · ${geomCount}⟶` : sitesCount;
                     const label = document.createElement('label');
@@ -1179,7 +1198,8 @@ const DashboardPage = {
         if (this._elementsFilterCtrl) this._elementsFilterCtrl.remove();
 
         const sitesCount = Object.values(this.markersByStructure || {}).reduce((n, arr) => n + arr.length, 0);
-        const geomsCount = Object.values(this.geometryLayersByStructure || {}).reduce((n, arr) => n + arr.length, 0);
+        const geomsCount = Object.values(this.geometryLayersByStructure || {})
+            .reduce((n, arr) => n + arr.filter(g => !g._isHitbox).length, 0);
         if (sitesCount === 0 && geomsCount === 0) return;
 
         const rows = [
