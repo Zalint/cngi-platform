@@ -920,6 +920,9 @@ const DashboardPage = {
                 return;
             }
 
+            const projectLink = g.project_id
+                ? `<div style="margin-top:10px;"><a href="#/projects/${g.project_id}" style="display:inline-block;padding:6px 12px;background:#202B5D;color:white;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;">Voir détails →</a></div>`
+                : '';
             const popupHtml = `
                 <div style="min-width:200px;">
                     <strong style="color:#202B5D;font-size:13px;">${g.name}</strong><br>
@@ -928,6 +931,7 @@ const DashboardPage = {
                     ${vulnBadgeHtml(vuln)}
                     ${g.description ? `<div style="font-size:11px;color:#62718D;margin-top:6px;">${g.description}</div>` : ''}
                     <div style="margin-top:8px;font-size:11px;color:#8896AB;">Projet : ${g.project_title || ''}</div>
+                    ${projectLink}
                 </div>`;
             layer.bindPopup(popupHtml);
             layer.addTo(this.map);
