@@ -230,7 +230,7 @@ const ProjectDetailPage = {
         
         return `
             <div class="card mb-4">
-                <h2 style="margin-bottom: 24px;display:inline-flex;align-items:center;gap:8px;">${Icon.render('map-pin', 20, '#202B5D')} Localités et Sites</h2>
+                <h2 style="margin-bottom: 24px;display:inline-flex;align-items:center;gap:8px;">${Icon.render('map-pin', 20, 'currentColor')} Localités et Sites</h2>
                 
                 <!-- Localités -->
                 <h3 style="font-size: 16px; margin-bottom: 16px; color: #333;">Localités</h3>
@@ -555,13 +555,13 @@ const ProjectDetailPage = {
             <div class="card mb-4">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
                     <div>
-                        <h2 style="margin:0;display:inline-flex;align-items:center;gap:8px;">${Icon.render('route', 20, '#202B5D')} Tracés / Géométries</h2>
+                        <h2 style="margin:0;display:inline-flex;align-items:center;gap:8px;">${Icon.render('route', 20, 'currentColor')} Tracés / Géométries</h2>
                         <div style="font-size:12px;color:#62718D;margin-top:4px;">${summary}</div>
                     </div>
                     ${canManage ? `
                         <div style="display:flex;gap:8px;">
                             <button class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:6px;" onclick="ProjectDetailPage.openImportGeometriesModal()">
-                                ${Icon.render('upload', 14, '#202B5D')} Importer GeoJSON
+                                ${Icon.render('upload', 14, 'currentColor')} Importer GeoJSON
                             </button>
                         </div>
                     ` : ''}
@@ -588,7 +588,7 @@ const ProjectDetailPage = {
         modal.className = 'confirm-overlay confirm-visible';
         modal.innerHTML = `
             <div class="confirm-dialog" style="text-align:left;max-width:560px;">
-                <h3 style="margin-bottom:8px;color:#202B5D;display:inline-flex;align-items:center;gap:8px;">${Icon.render('upload', 18, '#202B5D')} Importer un tracé</h3>
+                <h3 style="margin-bottom:8px;color:var(--color-text);display:inline-flex;align-items:center;gap:8px;">${Icon.render('upload', 18, 'currentColor')} Importer un tracé</h3>
                 <p style="color:#62718D;font-size:13px;margin-bottom:16px;">
                     Charge un fichier GeoJSON (depuis geojson.io, QGIS…) et renseigne la structure et le type ici.
                     Le fichier n'a besoin de contenir que la géométrie — pas les propriétés.
