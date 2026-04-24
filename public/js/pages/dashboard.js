@@ -672,9 +672,24 @@ const DashboardPage = {
             minZoom: 7
         }).fitBounds(senegalBounds);
 
+        // Plan OSM standard (densité de labels conservatrice — bon pour la vue d'ensemble)
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap',
             maxZoom: 19
+        });
+        // Plan détaillé CARTO Voyager — labels plus denses (rues, POI, commerces).
+        // Gratuit sans clé API pour un usage raisonnable. Le {r} sert l'image @2x sur
+        // écrans haute densité.
+        const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 20
+        });
+        // Plan OSM France — labels français, densité supérieure à OSM par défaut.
+        // Adapté au contexte sénégalais (Marché, Résidence, Imprimerie…).
+        const osmFrLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap France',
+            maxZoom: 20
         });
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
@@ -689,7 +704,12 @@ const DashboardPage = {
 
         osmLayer.addTo(this.map);
         L.control.layers(
-            { 'Plan': osmLayer, 'Satellite': satelliteGroup },
+            {
+                'Plan': osmLayer,
+                'Plan détaillé': cartoLayer,
+                'Plan français': osmFrLayer,
+                'Satellite': satelliteGroup
+            },
             null,
             { position: 'topright', collapsed: false }
         ).addTo(this.map);
