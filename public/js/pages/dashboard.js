@@ -1320,6 +1320,12 @@ const DashboardPage = {
         const existing = document.getElementById('visible-projects-modal');
         if (existing) existing.remove();
 
+        // Helper d'échappement HTML complet (&, <, >, "), cohérent avec les autres
+        // usages dans ce fichier (cf. lignes 138, 210).
+        const escape = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
+        }[c]));
+
         const overlay = document.createElement('div');
         overlay.id = 'visible-projects-modal';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(32,43,93,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
@@ -1329,12 +1335,16 @@ const DashboardPage = {
         const rowsHtml = projects.length === 0
             ? `<div style="padding:40px;text-align:center;color:#8896AB;">Aucun projet visible avec les filtres actuels.</div>`
             : projects.map(p => {
-                const safeTitle = String(p.title).replace(/</g, '&lt;');
+                const safeTitle = escape(p.title);
+                const safeCode = escape(p.structure_code);
+                // p.id vient d'un SERIAL DB (int) mais on encode par défensive pour
+                // éviter tout HTML/URL pollution si jamais la source changeait.
+                const safeId = encodeURIComponent(p.id);
                 const color = StructureColorsSafe(p.structure_code);
-                return `<a href="#/projects/${p.id}" class="visible-project-row"
+                return `<a href="#/projects/${safeId}" class="visible-project-row" data-project-id="${safeId}"
                           style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #eef;text-decoration:none;color:inherit;cursor:pointer;">
                     <span style="flex:1;color:#202B5D;font-weight:500;">${safeTitle}</span>
-                    <span style="display:inline-block;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700;color:white;background:${color};">${p.structure_code}</span>
+                    <span style="display:inline-block;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700;color:white;background:${color};">${safeCode}</span>
                 </a>`;
             }).join('');
 
@@ -1361,12 +1371,37 @@ const DashboardPage = {
             row.addEventListener('mouseleave', () => { row.style.background = ''; });
         });
 
-        // Close handlers
-        const close = () => overlay.remove();
-        overlay.querySelector('#close-visible-projects').addEventListener('click', close);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-        document.addEventListener('keydown', function onEsc(e) {
-            if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
+        // === Fermeture & cleanup ===
+        // Tous les handlers sont nommés pour pouvoir être détachés proprement,
+        // quel que soit le chemin de fermeture (×, click-outside, Escape, ou clic
+        // sur une ligne projet qui navigue vers la page détail).
+        const closeBtn = overlay.querySelector('#close-visible-projects');
+        const onCloseClick = (e) => { e.stopPropagation(); close(); };
+        const onOverlayClick = (e) => { if (e.target === overlay) close(); };
+        const onEsc = (e) => { if (e.key === 'Escape') close(); };
+        const onRowClick = (e) => {
+            // La navigation SPA se fait via href (hash-based router). On ferme
+            // la modale AVANT que le routeur ne re-render #app pour éviter
+            // qu'un overlay orphelin reste au-dessus de la nouvelle page.
+            close();
+            // ne pas preventDefault : on laisse la navigation naturelle
+        };
+
+        function close() {
+            closeBtn.removeEventListener('click', onCloseClick);
+            overlay.removeEventListener('click', onOverlayClick);
+            document.removeEventListener('keydown', onEsc);
+            overlay.querySelectorAll('.visible-project-row').forEach(row => {
+                row.removeEventListener('click', onRowClick);
+            });
+            overlay.remove();
+        }
+
+        closeBtn.addEventListener('click', onCloseClick);
+        overlay.addEventListener('click', onOverlayClick);
+        document.addEventListener('keydown', onEsc);
+        overlay.querySelectorAll('.visible-project-row').forEach(row => {
+            row.addEventListener('click', onRowClick);
         });
 
         // Filtre live sur le titre
