@@ -1,10 +1,16 @@
 const OpenAI = require('openai');
+const db = require('../config/db');
 const ProjectModel = require('../models/project.model');
 const ProjectStructure = require('../models/projectStructure.model');
 const StructureModel = require('../models/structure.model');
 const ObservationModel = require('../models/observation.model');
 const PvModel = require('../models/pv.model');
 const { canUserAccessProject } = require('../utils/projectAccess');
+
+// Borne dure sur le nombre de lignes renvoyées aux tools list_sites / list_geometries
+// pour éviter de gonfler le contexte du LLM (et les coûts). Si l'utilisateur a besoin
+// de plus, il doit filtrer (project_id, structure, vulnerability, commune...).
+const LIST_CAP = 100;
 
 const STATUS_LABELS = {
     demarrage: 'Démarrage', en_cours: 'En cours', termine: 'Terminé', retard: 'En retard', annule: 'Annulé'
@@ -32,6 +38,16 @@ async function getProjectsForUser(user, filters = {}) {
         projects = projects.filter(p => (p.structure_code || '').toUpperCase() === code);
     }
     return projects;
+}
+
+/**
+ * Renvoie l'ensemble des project_id que l'utilisateur peut voir, en respectant
+ * la matrice d'accès par rôle (même logique que getProjectsForUser, sans filtres).
+ * Utilisé pour restreindre les requêtes sites / geometries ciblées par le LLM.
+ */
+async function getVisibleProjectIds(user) {
+    const projects = await getProjectsForUser(user, {});
+    return new Set(projects.map(p => p.id));
 }
 
 // ==================== Tools exposés au LLM ====================
@@ -113,6 +129,42 @@ const tools = [
                 type: 'object',
                 properties: { id: { type: 'integer' } },
                 required: ['id']
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'list_sites',
+            description: `Liste les sites d'intervention (points géolocalisés) visibles par l'utilisateur. Retourne nom, description, localisation (région/département/commune), coordonnées, vulnérabilité, marqueur PCS, et le projet associé. Capé à ${LIST_CAP} résultats — utiliser les filtres pour cibler.`,
+            parameters: {
+                type: 'object',
+                properties: {
+                    project_id:    { type: 'integer', description: 'Filtrer sur un projet précis' },
+                    structure:     { type: 'string',  description: 'Code structure du projet (ex: DPGI, ONAS)' },
+                    vulnerability: { type: 'string',  enum: ['normal', 'elevee', 'tres_elevee'] },
+                    region:        { type: 'string',  description: 'Région (ex: Dakar, Thiès)' },
+                    departement:   { type: 'string' },
+                    commune:       { type: 'string' },
+                    is_pcs:        { type: 'boolean', description: 'Sites PCS (Plan Communal de Sauvegarde) uniquement. Réservé aux projets DPGI.' }
+                }
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'list_geometries',
+            description: `Liste les tracés (polylignes et polygones) dessinés sur la carte : conduites de drainage, zones d'intervention, zones inondables. Retourne nom, kind (linestring/polygon), usage, structure, vulnérabilité et projet. Capé à ${LIST_CAP} résultats.`,
+            parameters: {
+                type: 'object',
+                properties: {
+                    project_id:    { type: 'integer', description: 'Filtrer sur un projet précis' },
+                    structure:     { type: 'string',  description: 'Code structure (ex: ONAS, DPGI)' },
+                    usage:         { type: 'string',  enum: ['drainage', 'intervention', 'zone_inondable', 'autre'] },
+                    kind:          { type: 'string',  enum: ['linestring', 'polygon'] },
+                    vulnerability: { type: 'string',  enum: ['normal', 'elevee', 'tres_elevee'] }
+                }
             }
         }
     }
@@ -272,6 +324,109 @@ async function executeTool(name, args, user) {
             };
         }
 
+        if (name === 'list_sites') {
+            const visible = await getVisibleProjectIds(user);
+            if (visible.size === 0) return [];
+
+            const conds = ['s.project_id = ANY($1::int[])'];
+            const params = [Array.from(visible)];
+            let i = 2;
+            if (Number.isInteger(args.project_id)) {
+                conds.push(`s.project_id = $${i++}`); params.push(args.project_id);
+            }
+            if (args.vulnerability && ['normal','elevee','tres_elevee'].includes(args.vulnerability)) {
+                conds.push(`s.vulnerability_level = $${i++}`); params.push(args.vulnerability);
+            }
+            if (args.region)      { conds.push(`s.region = $${i++}`);      params.push(args.region); }
+            if (args.departement) { conds.push(`s.departement = $${i++}`); params.push(args.departement); }
+            if (args.commune)     { conds.push(`s.commune = $${i++}`);     params.push(args.commune); }
+            if (args.structure) {
+                conds.push(`UPPER(st.code) = $${i++}`); params.push(String(args.structure).toUpperCase());
+            }
+            if (args.is_pcs === true || args.is_pcs === false) {
+                conds.push(`s.is_pcs = $${i++}`); params.push(args.is_pcs);
+            }
+
+            const result = await db.query(`
+                SELECT s.id, s.name, s.description, s.region, s.departement, s.commune,
+                       s.latitude, s.longitude, s.is_pcs, s.vulnerability_level,
+                       p.id as project_id, p.title as project_title, p.status as project_status,
+                       st.code as structure_code
+                FROM sites s
+                INNER JOIN projects p ON s.project_id = p.id AND p.deleted_at IS NULL
+                LEFT JOIN structures st ON p.structure_id = st.id
+                WHERE ${conds.join(' AND ')}
+                ORDER BY s.name
+                LIMIT ${LIST_CAP}
+            `, params);
+
+            return result.rows.map(r => ({
+                id: r.id,
+                nom: r.name,
+                description: r.description,
+                region: r.region,
+                departement: r.departement,
+                commune: r.commune,
+                latitude: r.latitude != null ? Number(r.latitude) : null,
+                longitude: r.longitude != null ? Number(r.longitude) : null,
+                pcs: !!r.is_pcs,
+                vulnerabilite: r.vulnerability_level,
+                projet_id: r.project_id,
+                projet_titre: r.project_title,
+                projet_statut: STATUS_LABELS[r.project_status] || r.project_status,
+                structure: r.structure_code
+            }));
+        }
+
+        if (name === 'list_geometries') {
+            const visible = await getVisibleProjectIds(user);
+            if (visible.size === 0) return [];
+
+            const conds = ['g.project_id = ANY($1::int[])'];
+            const params = [Array.from(visible)];
+            let i = 2;
+            if (Number.isInteger(args.project_id)) {
+                conds.push(`g.project_id = $${i++}`); params.push(args.project_id);
+            }
+            if (args.usage && ['drainage','intervention','zone_inondable','autre'].includes(args.usage)) {
+                conds.push(`g.usage_type = $${i++}`); params.push(args.usage);
+            }
+            if (args.kind && ['linestring','polygon'].includes(args.kind)) {
+                conds.push(`g.kind = $${i++}`); params.push(args.kind);
+            }
+            if (args.vulnerability && ['normal','elevee','tres_elevee'].includes(args.vulnerability)) {
+                conds.push(`g.vulnerability_level = $${i++}`); params.push(args.vulnerability);
+            }
+            if (args.structure) {
+                conds.push(`UPPER(st.code) = $${i++}`); params.push(String(args.structure).toUpperCase());
+            }
+
+            const result = await db.query(`
+                SELECT g.id, g.name, g.description, g.kind, g.usage_type, g.vulnerability_level,
+                       g.project_id, p.title as project_title, p.status as project_status,
+                       st.code as structure_code
+                FROM geometries g
+                INNER JOIN projects p ON g.project_id = p.id AND p.deleted_at IS NULL
+                LEFT JOIN structures st ON g.structure_id = st.id
+                WHERE ${conds.join(' AND ')}
+                ORDER BY g.name
+                LIMIT ${LIST_CAP}
+            `, params);
+
+            return result.rows.map(r => ({
+                id: r.id,
+                nom: r.name,
+                description: r.description,
+                type_geometrie: r.kind, // linestring | polygon
+                usage: r.usage_type,
+                vulnerabilite: r.vulnerability_level,
+                projet_id: r.project_id,
+                projet_titre: r.project_title,
+                projet_statut: STATUS_LABELS[r.project_status] || r.project_status,
+                structure: r.structure_code
+            }));
+        }
+
         return { error: `Tool ${name} inconnu` };
     } catch (err) {
         return { error: err.message };
@@ -311,7 +466,9 @@ Utilisateur connecté : ${who}
 Ton rôle : répondre aux questions sur l'état des projets de gestion des inondations en utilisant les données réelles de la plateforme.
 
 Consignes :
-- Utilise TOUJOURS les tools disponibles (list_projects, get_project, get_stats, list_structures, list_observations, list_pv, get_pv) pour obtenir les données actualisées. Ne fabrique jamais de chiffres.
+- Utilise TOUJOURS les tools disponibles (list_projects, get_project, get_stats, list_structures, list_sites, list_geometries, list_observations, list_pv, get_pv) pour obtenir les données actualisées. Ne fabrique jamais de chiffres.
+- Pour les questions sur les sites (points d'intervention, coordonnées, PCS, vulnérabilité), utilise list_sites avec des filtres (commune, région, structure…).
+- Pour les questions sur les tracés (conduites de drainage, zones inondables, zones d'intervention), utilise list_geometries (filtre par usage: drainage / intervention / zone_inondable).
 - Pour les questions sur les directives du Ministre, utilise list_observations.
 - Pour les questions sur les visites de terrain, comptes-rendus, PV, recommandations du Préfet/Gouverneur, utilise list_pv (et get_pv pour le détail).
 - Réponds en français, ton direct et factuel.
