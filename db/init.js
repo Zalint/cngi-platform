@@ -573,7 +573,26 @@ async function initDatabase() {
 }
 
 async function seedConfig(pool) {
-    const count = await pool.query('SELECT COUNT(*) FROM app_config');
+    // Les fonds de carte sont seedés idempotemment (ON CONFLICT DO NOTHING) à chaque
+    // démarrage, pour que l'admin puisse les activer/désactiver. Les autres
+    // catégories ne sont seedées que si la table est vide.
+    const mapLayers = [
+        { category: 'map_layers', value: 'osm',        label: 'Plan (OSM standard)', sort_order: 1 },
+        { category: 'map_layers', value: 'carto',      label: 'Plan détaillé (CARTO Voyager)', sort_order: 2 },
+        { category: 'map_layers', value: 'osm_fr',     label: 'Plan français (OSM France)', sort_order: 3 },
+        { category: 'map_layers', value: 'hot',        label: 'Plan HOT (humanitaire)', sort_order: 4 },
+        { category: 'map_layers', value: 'satellite',  label: 'Satellite (Esri)', sort_order: 5 },
+    ];
+    for (const c of mapLayers) {
+        await pool.query(
+            `INSERT INTO app_config (category, value, label, sort_order, is_active)
+             VALUES ($1, $2, $3, $4, true)
+             ON CONFLICT (category, value) DO NOTHING`,
+            [c.category, c.value, c.label, c.sort_order]
+        );
+    }
+
+    const count = await pool.query('SELECT COUNT(*) FROM app_config WHERE category != $1', ['map_layers']);
     if (parseInt(count.rows[0].count) > 0) return;
 
     console.log('Seeding app config...');

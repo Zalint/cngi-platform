@@ -74,6 +74,16 @@ const DashboardPage = {
         const structureId = (user.role === 'utilisateur' || user.role === 'directeur') ? user.structure_id : null;
         // superviseur and commandement_territorial use structureId = null (backend handles territorial filtering)
 
+        // Charger les fonds de carte activés par l'admin (non bloquant — défaut = tous activés)
+        try {
+            const mapLayersRes = await API.config.getByCategory('map_layers');
+            const rows = mapLayersRes.data || [];
+            this.data.enabledMapLayers = new Set(rows.filter(r => r.is_active).map(r => r.value));
+        } catch {
+            // En cas d'échec : on active tout par défaut pour ne pas casser la carte
+            this.data.enabledMapLayers = new Set(['osm', 'carto', 'osm_fr', 'hot', 'satellite']);
+        }
+
         // Charger les dernières observations (non bloquant)
         try {
             const obsRes = await API.observations.list();
@@ -672,9 +682,37 @@ const DashboardPage = {
             minZoom: 7
         }).fitBounds(senegalBounds);
 
+        // Attribution ODbL : tous les fonds dérivés d'OSM doivent créditer
+        // "© OpenStreetMap contributors" avec lien vers la page copyright.
+        // Cf. https://www.openstreetmap.org/copyright.
+        const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+        // Plan OSM standard (densité de labels conservatrice — bon pour la vue d'ensemble)
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap',
+            attribution: OSM_ATTR,
             maxZoom: 19
+        });
+        // Plan détaillé CARTO Voyager — labels plus denses (rues, POI, commerces).
+        // Gratuit sans clé API pour un usage raisonnable. Le {r} sert l'image @2x sur
+        // écrans haute densité. Basemaps publics CARTO : OK jusqu'à quelques dizaines
+        // de milliers de tuiles/mois ; passer à un compte CARTO payant en cas de fort
+        // trafic. Cf. https://carto.com/attributions.
+        const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: `${OSM_ATTR} &copy; <a href="https://carto.com/attributions">CARTO</a>`,
+            subdomains: 'abcd',
+            maxZoom: 20
+        });
+        // Plan OSM France — labels français, densité supérieure à OSM par défaut.
+        // Adapté au contexte sénégalais (Marché, Résidence, Imprimerie…).
+        const osmFrLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+            attribution: `${OSM_ATTR} &copy; <a href="https://www.openstreetmap.fr/mentions-legales/">OSM France</a>`,
+            maxZoom: 20
+        });
+        // Plan humanitaire (HOT OSM) — rendu utilisé par MSF / Croix-Rouge, densité
+        // remarquable sur le bâti africain (écoles, hôpitaux, points d'eau).
+        const hotLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+            attribution: `${OSM_ATTR} Tiles &copy; <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>`,
+            maxZoom: 20
         });
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
@@ -687,9 +725,22 @@ const DashboardPage = {
         });
         const satelliteGroup = L.layerGroup([satelliteLayer, satelliteLabelsLayer]);
 
-        osmLayer.addTo(this.map);
+        // Filtre selon la config admin : seuls les fonds marqués is_active sont
+        // proposés dans le switcher. Si aucun n'est activé (config anormale),
+        // fallback sur OSM pour que la carte reste utilisable.
+        const enabled = this.data.enabledMapLayers || new Set(['osm','carto','osm_fr','hot','satellite']);
+        const layerChoices = {};
+        if (enabled.has('osm'))       layerChoices['Plan'] = osmLayer;
+        if (enabled.has('carto'))     layerChoices['Plan détaillé'] = cartoLayer;
+        if (enabled.has('osm_fr'))    layerChoices['Plan français'] = osmFrLayer;
+        if (enabled.has('hot'))       layerChoices['Plan HOT'] = hotLayer;
+        if (enabled.has('satellite')) layerChoices['Satellite'] = satelliteGroup;
+        if (Object.keys(layerChoices).length === 0) layerChoices['Plan'] = osmLayer;
+
+        // Layer par défaut = le premier activé
+        Object.values(layerChoices)[0].addTo(this.map);
         L.control.layers(
-            { 'Plan': osmLayer, 'Satellite': satelliteGroup },
+            layerChoices,
             null,
             { position: 'topright', collapsed: false }
         ).addTo(this.map);
