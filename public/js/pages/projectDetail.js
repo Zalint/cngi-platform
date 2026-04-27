@@ -33,16 +33,34 @@ const ProjectDetailPage = {
     },
 
     /**
-     * Vrai si l'utilisateur peut modifier ce projet (admin OU directeur de la
-     * structure principale OU utilisateur rattaché à la structure).
+     * Vrai si la structure de l'utilisateur est rattachée au projet courant —
+     * principale OU secondaire (via project_structures, exposée comme
+     * project.assigned_structures par l'API).
+     * Miroir frontend de ProjectStructure.userHasAccessToProject.
+     */
+    userStructureLinkedToProject() {
+        const u = Auth.getUser();
+        const p = this.data.project;
+        if (!u || !p || u.structure_id == null) return false;
+        if (p.structure_id === u.structure_id) return true;
+        const assigned = Array.isArray(p.assigned_structures) ? p.assigned_structures : [];
+        return assigned.some(s => s && s.id === u.structure_id);
+    },
+
+    /**
+     * Vrai si l'utilisateur peut modifier ce projet. Miroir backend de
+     * canUserModifyProject :
+     *  - admin : toujours
+     *  - directeur / utilisateur AVEC structure ET (structure principale du
+     *    projet OU rattachée via project_structures)
+     *  - tous les autres rôles : non
      */
     canModifyThisProject() {
         if (Auth.hasRole('admin')) return true;
-        if (this.isDirecteurOfThisProject()) return true;
         const u = Auth.getUser();
-        const p = this.data.project;
-        if (u && p && u.role === 'utilisateur' && u.structure_id === p.structure_id) return true;
-        return false;
+        if (!u) return false;
+        if (u.role !== 'directeur' && u.role !== 'utilisateur') return false;
+        return this.userStructureLinkedToProject();
     },
 
     async render(id) {

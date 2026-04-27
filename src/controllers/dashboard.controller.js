@@ -14,6 +14,27 @@ function denyIncompleteTerritorial(res) {
     });
 }
 
+/**
+ * Détermine la structure à utiliser pour filtrer les stats / listes du dashboard.
+ *
+ * - utilisateur : pinné à sa propre structure (peut pas élargir).
+ * - lecteur / auditeur AVEC structure (scopés) : pinnés à leur structure
+ *   également — sans ça, ils pourraient passer ?structure_id=autre pour voir
+ *   les stats d'une autre structure (privilege escalation).
+ * - lecteur / auditeur SANS structure (lecture globale) : peuvent filtrer
+ *   librement via ?structure_id (pour explorer une structure donnée).
+ * - admin / superviseur / directeur : lecture globale, peuvent filtrer via
+ *   ?structure_id pour scoper la vue.
+ * - commandement_territorial : géré séparément par les variantes "ByTerritory".
+ */
+function effectiveStructureId(req) {
+    const role = req.user.role;
+    const userSid = req.user.structure_id;
+    if (role === 'utilisateur') return userSid;
+    if ((role === 'lecteur' || role === 'auditeur') && userSid) return userSid;
+    return req.query.structure_id;
+}
+
 exports.getMetrics = async (req, res, next) => {
     try {
         if (isIncompleteTerritorial(req.user)) return denyIncompleteTerritorial(res);
@@ -23,7 +44,7 @@ exports.getMetrics = async (req, res, next) => {
             metrics = await DashboardModel.getMetricsByTerritory(req.user.territorial_level, req.user.territorial_value);
         } else {
             // superviseur and admin see all; utilisateur/directeur see their structure
-            const structureId = (req.user.role === 'utilisateur') ? req.user.structure_id : req.query.structure_id;
+            const structureId = effectiveStructureId(req);
             metrics = await DashboardModel.getMetrics(structureId);
         }
 
@@ -40,7 +61,7 @@ exports.getProjectsByStructure = async (req, res, next) => {
         if (req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value) {
             data = await DashboardModel.getProjectsByStructureByTerritory(req.user.territorial_level, req.user.territorial_value);
         } else {
-            const structureId = (req.user.role === 'utilisateur') ? req.user.structure_id : req.query.structure_id;
+            const structureId = effectiveStructureId(req);
             data = await DashboardModel.getProjectsByStructure(structureId);
         }
         res.json({ success: true, data });
@@ -56,7 +77,7 @@ exports.getMapData = async (req, res, next) => {
         if (req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value) {
             sites = await DashboardModel.getMapDataByTerritory(req.user.territorial_level, req.user.territorial_value);
         } else {
-            const structureId = (req.user.role === 'utilisateur') ? req.user.structure_id : req.query.structure_id;
+            const structureId = effectiveStructureId(req);
             sites = await DashboardModel.getMapData(structureId);
         }
         res.json({ success: true, count: sites.length, data: sites });
@@ -131,7 +152,7 @@ exports.getRecentProjects = async (req, res, next) => {
         if (req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value) {
             projects = await DashboardModel.getRecentProjectsByTerritory(req.user.territorial_level, req.user.territorial_value, limit);
         } else {
-            const structureId = (req.user.role === 'utilisateur') ? req.user.structure_id : req.query.structure_id;
+            const structureId = effectiveStructureId(req);
             // Directeur : on remonte sa structure en priorité (tier principal puis
             // secondaire) tout en restant en lecture globale.
             const preferred = (req.user.role === 'directeur' && req.user.structure_id) ? req.user.structure_id : null;
@@ -150,7 +171,7 @@ exports.getLateProjects = async (req, res, next) => {
         if (req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value) {
             projects = await DashboardModel.getLateProjectsByTerritory(req.user.territorial_level, req.user.territorial_value);
         } else {
-            const structureId = (req.user.role === 'utilisateur') ? req.user.structure_id : req.query.structure_id;
+            const structureId = effectiveStructureId(req);
             projects = await DashboardModel.getLateProjects(structureId);
         }
         res.json({ success: true, count: projects.length, data: projects });
@@ -163,7 +184,7 @@ exports.getChartData = async (req, res, next) => {
     try {
         if (isIncompleteTerritorial(req.user)) return denyIncompleteTerritorial(res);
         const isTerritorial = req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value;
-        const structureId = (req.user.role === 'utilisateur') ? req.user.structure_id : req.query.structure_id;
+        const structureId = effectiveStructureId(req);
 
         const [projectsByStructure, measureTypes, budgetStats] = await Promise.all([
             isTerritorial
