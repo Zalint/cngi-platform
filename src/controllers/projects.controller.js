@@ -3,7 +3,7 @@ const ProjectStructure = require('../models/projectStructure.model');
 const NotificationModel = require('../models/notification.model');
 const db = require('../config/db');
 const { validateProjectData, validateProjectDataForUpdate } = require('../utils/validators');
-const { canUserAccessProject } = require('../utils/projectAccess');
+const { canUserAccessProject, canUserModifyProject, isDirecteurOfProject } = require('../utils/projectAccess');
 
 const STATUS_LABELS = {
     preconisee:   'Préconisée',
@@ -92,13 +92,14 @@ exports.getAllProjects = async (req, res, next) => {
             // Commandement territorial voit les projets de son territoire
             projects = await ProjectModel.findByTerritory(req.user.territorial_level, req.user.territorial_value);
         } else if (
-            ((req.user.role === 'utilisateur' || req.user.role === 'directeur') && req.user.structure_id)
+            (req.user.role === 'utilisateur' && req.user.structure_id)
             || isScopedReader
         ) {
-            // Utilisateur / directeur / lecteur ou auditeur scopés → filtrer par leur structure via project_structures
+            // Utilisateur / lecteur ou auditeur scopés → filtrer par leur structure via project_structures
             projects = await ProjectStructure.getProjectsByStructure(req.user.structure_id);
         } else {
-            // Admin voit tous les projets
+            // Admin et directeur voient tous les projets (directeur = lecture globale,
+            // écriture restreinte à sa structure via canUserModifyProject)
             const filters = {};
             if (req.query.structure_id) filters.structure_id = req.query.structure_id;
             if (req.query.status) filters.status = req.query.status;
@@ -143,8 +144,9 @@ exports.createProject = async (req, res, next) => {
         // Ajouter l'ID de l'utilisateur créateur
         req.body.created_by_user_id = req.user.id;
         
-        // Si utilisateur, forcer sa structure
-        if (req.user.role === 'utilisateur') {
+        // Si utilisateur ou directeur, forcer sa structure (créer un projet pour
+        // une autre structure est réservé à l'admin).
+        if (req.user.role === 'utilisateur' || req.user.role === 'directeur') {
             req.body.structure_id = req.user.structure_id;
         }
         
@@ -169,14 +171,12 @@ exports.updateProject = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Projet non trouvé' });
         }
         
-        // Vérifier l'accès
-        if (req.user.role === 'utilisateur' && req.user.structure_id) {
-            const hasAccess = await ProjectStructure.userHasAccessToProject(req.user.id, req.params.id);
-            if (!hasAccess) {
-                return res.status(403).json({ success: false, message: 'Accès refusé' });
-            }
+        // Vérifier l'accès en écriture (admin = tout, directeur/utilisateur = sa structure)
+        const canModify = await canUserModifyProject(req.user, req.params.id);
+        if (!canModify) {
+            return res.status(403).json({ success: false, message: 'Accès refusé' });
         }
-        
+
         // Utiliser la validation pour mise à jour (champs partiels)
         const validation = validateProjectDataForUpdate(req.body);
         if (!validation.valid) {
@@ -245,11 +245,12 @@ exports.deleteProject = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Projet non trouvé' });
         }
         
-        // Vérifier l'accès (admin ou utilisateur de la structure principale)
-        if (req.user.role === 'utilisateur' && project.structure_id !== req.user.structure_id) {
+        // Vérifier l'accès en écriture (admin, ou directeur/utilisateur de la structure)
+        const canModify = await canUserModifyProject(req.user, req.params.id);
+        if (!canModify) {
             return res.status(403).json({ success: false, message: 'Accès refusé' });
         }
-        
+
         await ProjectModel.delete(req.params.id);
         res.json({ success: true, message: 'Projet supprimé avec succès (restaurable par un admin)' });
     } catch (error) {
@@ -346,7 +347,8 @@ exports.getStats = async (req, res, next) => {
         if (req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value) {
             stats = await ProjectModel.getStatsByTerritory(req.user.territorial_level, req.user.territorial_value);
         } else {
-            const structureId = (req.user.role === 'utilisateur' || req.user.role === 'directeur') ? req.user.structure_id : req.query.structure_id;
+            // Directeur a la lecture globale ; utilisateur reste scopé.
+            const structureId = (req.user.role === 'utilisateur') ? req.user.structure_id : req.query.structure_id;
             stats = await ProjectModel.getStats(structureId);
         }
         res.json({ success: true, data: stats });
@@ -458,10 +460,12 @@ exports.assignUserToMeasure = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Projet non trouvé' });
         }
 
-        // Vérifier si l'utilisateur est le chef de projet ou admin
+        // Vérifier si l'utilisateur est le chef de projet, admin, ou directeur de la
+        // structure principale du projet (admin de structure).
         const isManager = await ProjectModel.isProjectManager(req.params.projectId, req.user.id);
-        if (!isManager && req.user.role !== 'admin') {
-            return res.status(403).json({ success: false, message: 'Seul le chef de projet peut assigner des utilisateurs' });
+        const isDirOfStruct = isDirecteurOfProject(req.user, measure);
+        if (!isManager && req.user.role !== 'admin' && !isDirOfStruct) {
+            return res.status(403).json({ success: false, message: 'Seul le chef de projet ou le directeur de la structure peut assigner des utilisateurs' });
         }
 
         const updated = await ProjectModel.assignUserToMeasure(measureId, userId);
@@ -494,8 +498,14 @@ exports.reassignMeasure = async (req, res, next) => {
         const { structure_id, assigned_user_id } = req.body;
 
         const isManager = await ProjectModel.isProjectManager(projectId, req.user.id);
-        if (!isManager && req.user.role !== 'admin') {
-            return res.status(403).json({ success: false, message: 'Seul le chef de projet ou un admin peut réassigner une mesure' });
+        // Pour le directeur de la structure, on charge le projet (léger) pour vérifier sa structure
+        let isDirOfStruct = false;
+        if (req.user.role === 'directeur' && !isManager && req.user.role !== 'admin') {
+            const proj = await ProjectModel.findById(projectId);
+            isDirOfStruct = isDirecteurOfProject(req.user, proj);
+        }
+        if (!isManager && req.user.role !== 'admin' && !isDirOfStruct) {
+            return res.status(403).json({ success: false, message: 'Seul le chef de projet, le directeur de la structure ou un admin peut réassigner une mesure' });
         }
 
         // L'UPDATE filtre sur id + project_id : retourne null si la mesure n'appartient pas au projet
@@ -550,8 +560,9 @@ exports.updateMeasureStatus = async (req, res, next) => {
 
         const isAssigned = measure.assigned_user_id === req.user.id;
         const isManager = await ProjectModel.isProjectManager(req.params.projectId, req.user.id);
-        
-        if (!isAssigned && !isManager && req.user.role !== 'admin') {
+        const isDirOfStruct = isDirecteurOfProject(req.user, project);
+
+        if (!isAssigned && !isManager && req.user.role !== 'admin' && !isDirOfStruct) {
             return res.status(403).json({ success: false, message: 'Accès refusé' });
         }
 

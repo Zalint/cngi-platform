@@ -21,11 +21,13 @@ jest.mock('../../../src/models/projectStructure.model', () => ({
 }));
 jest.mock('../../../src/utils/projectAccess', () => ({
     canUserAccessProject: jest.fn(),
+    canUserModifyProject: jest.fn(),
+    isDirecteurOfProject: jest.fn(() => false),
 }));
 
 const ProjectModel = require('../../../src/models/project.model');
 const ProjectStructure = require('../../../src/models/projectStructure.model');
-const { canUserAccessProject } = require('../../../src/utils/projectAccess');
+const { canUserAccessProject, canUserModifyProject } = require('../../../src/utils/projectAccess');
 const ctrl = require('../../../src/controllers/projects.controller');
 const { mockReq, mockRes, mockNext } = require('../../helpers/http');
 
@@ -68,6 +70,15 @@ describe('getAllProjects — dispatching par rôle', () => {
         const res = mockRes();
         await ctrl.getAllProjects(mockReq({ user: { role: 'utilisateur', structure_id: 3 } }), res, mockNext());
         expect(res.body.data[0].budget).toBe(500);
+    });
+
+    test('directeur → findAll (lecture globale, comme admin)', async () => {
+        ProjectModel.findAll.mockResolvedValue([{ id: 1, budget: 500 }]);
+        const res = mockRes();
+        await ctrl.getAllProjects(mockReq({ user: { role: 'directeur', structure_id: 3 } }), res, mockNext());
+        expect(ProjectModel.findAll).toHaveBeenCalled();
+        expect(ProjectStructure.getProjectsByStructure).not.toHaveBeenCalled();
+        expect(res.body.data[0].budget).toBe(500); // pas de redaction
     });
 
     test('commandement_territorial → findByTerritory', async () => {
@@ -174,8 +185,9 @@ describe('deleteProject', () => {
         await ctrl.deleteProject(mockReq({ params: { id: '1' }, user: { role: 'admin' } }), res, mockNext());
         expect(res.statusCode).toBe(404);
     });
-    test('403 si utilisateur d\'une autre structure', async () => {
+    test('403 si utilisateur sans droit (canUserModifyProject false)', async () => {
         ProjectModel.findById.mockResolvedValue({ id: 1, structure_id: 9 });
+        canUserModifyProject.mockResolvedValue(false);
         const res = mockRes();
         await ctrl.deleteProject(
             mockReq({ params: { id: '1' }, user: { role: 'utilisateur', structure_id: 5 } }),
@@ -185,6 +197,7 @@ describe('deleteProject', () => {
     });
     test('admin : soft delete ok', async () => {
         ProjectModel.findById.mockResolvedValue({ id: 1, structure_id: 9 });
+        canUserModifyProject.mockResolvedValue(true);
         ProjectModel.delete.mockResolvedValue({ id: 1 });
         const res = mockRes();
         await ctrl.deleteProject(mockReq({ params: { id: '1' }, user: { role: 'admin' } }), res, mockNext());

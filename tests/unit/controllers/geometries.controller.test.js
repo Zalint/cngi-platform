@@ -8,10 +8,11 @@ jest.mock('../../../src/models/geometry.model', () => ({
 }));
 jest.mock('../../../src/utils/projectAccess', () => ({
     canUserAccessProject: jest.fn(),
+    canUserModifyProject: jest.fn(),
 }));
 
 const GeometryModel = require('../../../src/models/geometry.model');
-const { canUserAccessProject } = require('../../../src/utils/projectAccess');
+const { canUserAccessProject, canUserModifyProject } = require('../../../src/utils/projectAccess');
 const ctrl = require('../../../src/controllers/geometries.controller');
 const { mockReq, mockRes, mockNext } = require('../../helpers/http');
 
@@ -40,13 +41,13 @@ describe('geometries.list', () => {
 
 describe('geometries.create', () => {
     test('403 sans accès', async () => {
-        canUserAccessProject.mockResolvedValue(false);
+        canUserModifyProject.mockResolvedValue(false);
         const res = mockRes();
         await ctrl.create(mockReq({ params: { projectId: '1' }, user: {} }), res, mockNext());
         expect(res.statusCode).toBe(403);
     });
     test('201 succès', async () => {
-        canUserAccessProject.mockResolvedValue(true);
+        canUserModifyProject.mockResolvedValue(true);
         GeometryModel.create.mockResolvedValue({ id: 99 });
         const res = mockRes();
         await ctrl.create(mockReq({
@@ -59,14 +60,14 @@ describe('geometries.create', () => {
 
 describe('geometries.update', () => {
     test('404 si la géométrie n\'appartient pas au projet', async () => {
-        canUserAccessProject.mockResolvedValue(true);
+        canUserModifyProject.mockResolvedValue(true);
         GeometryModel.findById.mockResolvedValue({ id: 5, project_id: 999 });
         const res = mockRes();
         await ctrl.update(mockReq({ params: { projectId: '1', geomId: '5' }, user: {}, body: {} }), res, mockNext());
         expect(res.statusCode).toBe(404);
     });
     test('200 succès', async () => {
-        canUserAccessProject.mockResolvedValue(true);
+        canUserModifyProject.mockResolvedValue(true);
         GeometryModel.findById.mockResolvedValue({ id: 5, project_id: 1 });
         GeometryModel.update.mockResolvedValue({ id: 5 });
         const res = mockRes();
@@ -77,7 +78,7 @@ describe('geometries.update', () => {
 
 describe('geometries.remove', () => {
     test('404 si appartient à un autre projet', async () => {
-        canUserAccessProject.mockResolvedValue(true);
+        canUserModifyProject.mockResolvedValue(true);
         GeometryModel.findById.mockResolvedValue({ id: 5, project_id: 999 });
         const res = mockRes();
         await ctrl.remove(mockReq({ params: { projectId: '1', geomId: '5' }, user: {} }), res, mockNext());
@@ -85,7 +86,7 @@ describe('geometries.remove', () => {
         expect(GeometryModel.remove).not.toHaveBeenCalled();
     });
     test('200 succès', async () => {
-        canUserAccessProject.mockResolvedValue(true);
+        canUserModifyProject.mockResolvedValue(true);
         GeometryModel.findById.mockResolvedValue({ id: 5, project_id: 1 });
         const res = mockRes();
         await ctrl.remove(mockReq({ params: { projectId: '1', geomId: '5' }, user: {} }), res, mockNext());
@@ -101,7 +102,7 @@ describe('geometries.importGeoJSON', () => {
         expect(res.statusCode).toBe(400);
     });
     test('201 avec compteurs', async () => {
-        canUserAccessProject.mockResolvedValue(true);
+        canUserModifyProject.mockResolvedValue(true);
         GeometryModel.importGeoJSON.mockResolvedValue({
             imported: [{ id: 1 }, { id: 2 }],
             skipped: [{ index: 0, reason: 'x' }]

@@ -2,11 +2,17 @@ const db = require('../config/db');
 const ProjectStructure = require('../models/projectStructure.model');
 
 /**
- * Vérifie si un utilisateur peut accéder à un projet, en tenant compte de son rôle.
+ * Vérifie si un utilisateur peut LIRE un projet, en tenant compte de son rôle.
  *
  * - admin / superviseur : accès à tout
- * - utilisateur / directeur : seulement les projets liés à leur structure (via project_structures)
+ * - directeur : accès à tout en lecture (vue globale du contexte CNGIRI)
+ * - lecteur / auditeur global (sans structure) : accès à tout
+ * - lecteur / auditeur scopés (avec structure) : projets liés à leur structure
+ * - utilisateur : seulement les projets liés à sa structure (via project_structures)
  * - commandement_territorial : seulement les projets situés dans leur territoire (via localities/sites)
+ *
+ * Pour vérifier le droit de MODIFICATION (create/update/delete/assign), utiliser
+ * canUserModifyProject — directeur y est restreint à sa structure.
  *
  * @param {Object} user - req.user (id, role, structure_id, territorial_level, territorial_value)
  * @param {number|string} projectId
@@ -17,14 +23,17 @@ async function canUserAccessProject(user, projectId) {
 
     if (user.role === 'admin' || user.role === 'superviseur') return true;
 
+    // Directeur : lecture globale. L'écriture est gérée par canUserModifyProject.
+    if (user.role === 'directeur') return true;
+
     // Lecteur / auditeur global (sans structure) : accès à tout.
-    // Avec une structure : même règle que utilisateur/directeur.
+    // Avec une structure : même règle qu'utilisateur.
     if (user.role === 'lecteur' || user.role === 'auditeur') {
         if (!user.structure_id) return true;
         return ProjectStructure.userHasAccessToProject(user.id, projectId);
     }
 
-    if (user.role === 'utilisateur' || user.role === 'directeur') {
+    if (user.role === 'utilisateur') {
         if (!user.structure_id) return false;
         return ProjectStructure.userHasAccessToProject(user.id, projectId);
     }
@@ -49,4 +58,40 @@ async function canUserAccessProject(user, projectId) {
     return false;
 }
 
-module.exports = { canUserAccessProject };
+/**
+ * Vérifie si un utilisateur peut MODIFIER un projet (create/update/delete/
+ * geometries CRUD/assign/reassign). Plus restrictif que canUserAccessProject.
+ *
+ * - admin : accès écriture à tout
+ * - directeur / utilisateur : seulement les projets liés à leur structure
+ * - tous les autres rôles : refus (lecteur, auditeur, superviseur,
+ *   commandement_territorial — l'écriture passe par d'autres flux côté PV /
+ *   observations / commentaires).
+ *
+ * @param {Object} user
+ * @param {number|string} projectId
+ * @returns {Promise<boolean>}
+ */
+async function canUserModifyProject(user, projectId) {
+    if (!user || !projectId) return false;
+    if (user.role === 'admin') return true;
+    if (user.role === 'directeur' || user.role === 'utilisateur') {
+        if (!user.structure_id) return false;
+        return ProjectStructure.userHasAccessToProject(user.id, projectId);
+    }
+    return false;
+}
+
+/**
+ * Vrai si l'utilisateur est directeur ET le projet appartient à sa structure
+ * principale. Utilisé pour étendre certains droits "admin de structure"
+ * (assignation, réassignation, changement de statut de mesure) au directeur.
+ */
+function isDirecteurOfProject(user, project) {
+    return !!(user && project
+        && user.role === 'directeur'
+        && user.structure_id != null
+        && project.structure_id === user.structure_id);
+}
+
+module.exports = { canUserAccessProject, canUserModifyProject, isDirecteurOfProject };

@@ -183,11 +183,12 @@ describe('dashboard.getMapGeometries — filtrage par rôle', () => {
         }), mockRes(), mockNext());
         expect(db.query.mock.calls[0][1]).toEqual([3]);
     });
-    test('directeur avec structure', async () => {
+    test('directeur : lecture globale, pas de filtre structure', async () => {
         db.query.mockResolvedValue({ rows: [] });
         await ctrl.getMapGeometries(mockReq({
             user: { role: 'directeur', structure_id: 7 }
         }), mockRes(), mockNext());
-        expect(db.query.mock.calls[0][1]).toEqual([7]);
+        // Plus de filtre structure pour directeur — il voit tout
+        expect(db.query.mock.calls[0][1]).toEqual([]);
     });
 });

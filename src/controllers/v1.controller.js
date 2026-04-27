@@ -63,7 +63,7 @@ async function getProjectsForUser(user, filters = {}) {
     let projects;
     if (user.role === 'commandement_territorial') {
         projects = await ProjectModel.findByTerritory(user.territorial_level, user.territorial_value);
-    } else if ((user.role === 'utilisateur' || user.role === 'directeur') && user.structure_id) {
+    } else if (user.role === 'utilisateur' && user.structure_id) {
         projects = await ProjectStructure.getProjectsByStructure(user.structure_id);
     } else {
         projects = await ProjectModel.findAll({});

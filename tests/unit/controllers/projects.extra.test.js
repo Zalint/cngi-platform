@@ -32,7 +32,11 @@ jest.mock('../../../src/models/projectStructure.model', () => ({
     userHasAccessToProject: jest.fn(),
 }));
 jest.mock('../../../src/models/notification.model', () => ({ create: jest.fn().mockResolvedValue(null) }));
-jest.mock('../../../src/utils/projectAccess', () => ({ canUserAccessProject: jest.fn() }));
+jest.mock('../../../src/utils/projectAccess', () => ({
+    canUserAccessProject: jest.fn(),
+    canUserModifyProject: jest.fn(),
+    isDirecteurOfProject: jest.fn(() => false),
+}));
 
 const ProjectModel = require('../../../src/models/project.model');
 const ProjectStructure = require('../../../src/models/projectStructure.model');
@@ -54,8 +58,9 @@ describe('updateProject (batch)', () => {
         await ctrl.updateProject(mockReq({ params: { id: '1' }, user: { role: 'admin' }, body: {} }), res, mockNext());
         expect(res.statusCode).toBe(404);
     });
-    test('403 utilisateur sans accès à la structure', async () => {
-        ProjectStructure.userHasAccessToProject.mockResolvedValue(false);
+    test('403 si canUserModifyProject false', async () => {
+        const { canUserModifyProject } = require('../../../src/utils/projectAccess');
+        canUserModifyProject.mockResolvedValue(false);
         const res = mockRes();
         await ctrl.updateProject(mockReq({
             params: { id: '1' }, user: { role: 'utilisateur', id: 2, structure_id: 5 }, body: {}
@@ -63,6 +68,8 @@ describe('updateProject (batch)', () => {
         expect(res.statusCode).toBe(403);
     });
     test('400 validation échoue', async () => {
+        const { canUserModifyProject } = require('../../../src/utils/projectAccess');
+        canUserModifyProject.mockResolvedValue(true);
         const res = mockRes();
         await ctrl.updateProject(mockReq({
             params: { id: '1' }, user: { role: 'admin' }, body: { status: 'bad' }
@@ -70,6 +77,8 @@ describe('updateProject (batch)', () => {
         expect(res.statusCode).toBe(400);
     });
     test('appelle tous les updateX si batch fourni', async () => {
+        const { canUserModifyProject } = require('../../../src/utils/projectAccess');
+        canUserModifyProject.mockResolvedValue(true);
         await ctrl.updateProject(mockReq({
             params: { id: '1' }, user: { role: 'admin' },
             body: {

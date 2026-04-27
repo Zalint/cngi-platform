@@ -51,9 +51,13 @@ describe('canUserAccessProject', () => {
         expect(ok).toBe(false);
     });
 
-    test('directeur avec structure : délègue', async () => {
-        ProjectStructure.userHasAccessToProject.mockResolvedValue(true);
+    test('directeur : lecture globale (true sans appel à userHasAccessToProject)', async () => {
         expect(await canUserAccessProject({ role: 'directeur', id: 2, structure_id: 5 }, 10)).toBe(true);
+        expect(ProjectStructure.userHasAccessToProject).not.toHaveBeenCalled();
+    });
+
+    test('directeur sans structure : lecture globale aussi', async () => {
+        expect(await canUserAccessProject({ role: 'directeur', id: 2 }, 10)).toBe(true);
     });
 
     describe('commandement_territorial', () => {
@@ -84,5 +88,61 @@ describe('canUserAccessProject', () => {
 
     test('rôle inconnu → refus', async () => {
         expect(await canUserAccessProject({ role: 'invite' }, 10)).toBe(false);
+    });
+});
+
+describe('canUserModifyProject', () => {
+    const { canUserModifyProject } = require('../../../src/utils/projectAccess');
+
+    test('refus si user ou projectId manquant', async () => {
+        expect(await canUserModifyProject(null, 1)).toBe(false);
+        expect(await canUserModifyProject({ role: 'admin' }, null)).toBe(false);
+    });
+
+    test('admin : true', async () => {
+        expect(await canUserModifyProject({ role: 'admin' }, 10)).toBe(true);
+    });
+
+    test('directeur sans structure : refus', async () => {
+        expect(await canUserModifyProject({ role: 'directeur', id: 2 }, 10)).toBe(false);
+    });
+
+    test('directeur avec structure : délègue à userHasAccessToProject', async () => {
+        ProjectStructure.userHasAccessToProject.mockResolvedValue(true);
+        expect(await canUserModifyProject({ role: 'directeur', id: 2, structure_id: 5 }, 10)).toBe(true);
+        expect(ProjectStructure.userHasAccessToProject).toHaveBeenCalledWith(2, 10);
+    });
+
+    test('utilisateur avec structure : délègue', async () => {
+        ProjectStructure.userHasAccessToProject.mockResolvedValue(false);
+        expect(await canUserModifyProject({ role: 'utilisateur', id: 2, structure_id: 5 }, 10)).toBe(false);
+    });
+
+    test('superviseur, lecteur, auditeur, commandement_territorial : refus écriture', async () => {
+        expect(await canUserModifyProject({ role: 'superviseur' }, 10)).toBe(false);
+        expect(await canUserModifyProject({ role: 'lecteur', structure_id: 5 }, 10)).toBe(false);
+        expect(await canUserModifyProject({ role: 'auditeur', structure_id: 5 }, 10)).toBe(false);
+        expect(await canUserModifyProject({ role: 'commandement_territorial', territorial_level: 'region', territorial_value: 'Dakar' }, 10)).toBe(false);
+    });
+});
+
+describe('isDirecteurOfProject', () => {
+    const { isDirecteurOfProject } = require('../../../src/utils/projectAccess');
+
+    test('false sans user / sans projet', () => {
+        expect(isDirecteurOfProject(null, { id: 1, structure_id: 5 })).toBe(false);
+        expect(isDirecteurOfProject({ role: 'directeur', structure_id: 5 }, null)).toBe(false);
+    });
+    test('false si rôle ≠ directeur', () => {
+        expect(isDirecteurOfProject({ role: 'admin', structure_id: 5 }, { structure_id: 5 })).toBe(false);
+    });
+    test('false si directeur sans structure', () => {
+        expect(isDirecteurOfProject({ role: 'directeur' }, { structure_id: 5 })).toBe(false);
+    });
+    test('false si structures différentes', () => {
+        expect(isDirecteurOfProject({ role: 'directeur', structure_id: 5 }, { structure_id: 9 })).toBe(false);
+    });
+    test('true si directeur de la structure principale du projet', () => {
+        expect(isDirecteurOfProject({ role: 'directeur', structure_id: 5 }, { structure_id: 5 })).toBe(true);
     });
 });

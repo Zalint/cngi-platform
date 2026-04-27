@@ -102,7 +102,7 @@ exports.exportProjectsXlsx = async (req, res, next) => {
         let projects;
         if (req.user.role === 'commandement_territorial') {
             projects = await ProjectModel.findByTerritory(req.user.territorial_level, req.user.territorial_value);
-        } else if ((req.user.role === 'utilisateur' || req.user.role === 'directeur') && req.user.structure_id) {
+        } else if (req.user.role === 'utilisateur' && req.user.structure_id) {
             projects = await ProjectStructure.getProjectsByStructure(req.user.structure_id);
         } else {
             projects = await ProjectModel.findAll({});
