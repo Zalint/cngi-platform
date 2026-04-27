@@ -347,8 +347,19 @@ exports.getStats = async (req, res, next) => {
         if (req.user.role === 'commandement_territorial' && req.user.territorial_level && req.user.territorial_value) {
             stats = await ProjectModel.getStatsByTerritory(req.user.territorial_level, req.user.territorial_value);
         } else {
-            // Directeur a la lecture globale ; utilisateur reste scopé.
-            const structureId = (req.user.role === 'utilisateur') ? req.user.structure_id : req.query.structure_id;
+            // Scoping cohérent avec getAllProjects :
+            //  - utilisateur : pinné à sa structure
+            //  - lecteur / auditeur SCOPÉS (avec structure) : pinnés à leur structure
+            //    (sinon ils pourraient passer ?structure_id=autre pour voir les stats
+            //    d'une structure non autorisée — privilege escalation)
+            //  - admin / superviseur / directeur / lecteur global : peuvent filtrer
+            //    librement via ?structure_id
+            const role = req.user.role;
+            const userSid = req.user.structure_id;
+            let structureId;
+            if (role === 'utilisateur') structureId = userSid;
+            else if ((role === 'lecteur' || role === 'auditeur') && userSid) structureId = userSid;
+            else structureId = req.query.structure_id;
             stats = await ProjectModel.getStats(structureId);
         }
         res.json({ success: true, data: stats });
