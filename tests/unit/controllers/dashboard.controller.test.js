@@ -104,7 +104,16 @@ describe('dashboard — happy paths des autres endpoints', () => {
     test('getRecentProjects admin + limit', async () => {
         DashboardModel.getRecentProjects.mockResolvedValue([]);
         await ctrl.getRecentProjects(mockReq({ user: { role: 'admin' }, query: { limit: 5 } }), mockRes(), mockNext());
-        expect(DashboardModel.getRecentProjects).toHaveBeenCalledWith(5, undefined);
+        // 3e arg = preferredStructureId, null pour admin
+        expect(DashboardModel.getRecentProjects).toHaveBeenCalledWith(5, undefined, null);
+    });
+
+    test('getRecentProjects directeur : preferredStructureId = sa structure', async () => {
+        DashboardModel.getRecentProjects.mockResolvedValue([]);
+        await ctrl.getRecentProjects(mockReq({
+            user: { role: 'directeur', structure_id: 7 }, query: { limit: 5 }
+        }), mockRes(), mockNext());
+        expect(DashboardModel.getRecentProjects).toHaveBeenCalledWith(5, undefined, 7);
     });
     test('getRecentProjects commandement', async () => {
         DashboardModel.getRecentProjectsByTerritory.mockResolvedValue([]);

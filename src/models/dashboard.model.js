@@ -119,9 +119,17 @@ class DashboardModel {
     }
 
     /**
-     * Récupérer les projets récents
+     * Récupérer les projets récents.
+     *
+     * @param {number} limit - taille du résultat
+     * @param {number|null} structureId - filtre dur (utilisateur scopé) : ne renvoie que les projets liés à cette structure
+     * @param {number|null} preferredStructureId - tri en priorité (directeur) :
+     *        renvoie tous les projets visibles, MAIS classe en premier ceux dont
+     *        la structure principale est preferredStructureId, puis ceux où elle
+     *        apparaît en secondaire, puis le reste — chaque groupe trié par
+     *        date DESC. preferredStructureId est ignoré si structureId est fourni.
      */
-    static async getRecentProjects(limit = 10, structureId = null) {
+    static async getRecentProjects(limit = 10, structureId = null, preferredStructureId = null) {
         let query = `
             SELECT
                 p.id,
@@ -131,6 +139,7 @@ class DashboardModel {
                 p.start_date,
                 p.deadline_date,
                 p.created_at,
+                p.structure_id,
                 s.name as structure_name,
                 s.code as structure_code,
                 (SELECT string_agg(s2.code, ',' ORDER BY s2.code)
@@ -144,14 +153,38 @@ class DashboardModel {
         `;
 
         const params = [];
+        let paramIdx = 1;
+
         if (structureId) {
-            query += ' AND p.id IN (SELECT project_id FROM project_structures WHERE structure_id = $1)';
+            // Filtre dur : utilisateur scopé à sa structure
+            query += ` AND p.id IN (SELECT project_id FROM project_structures WHERE structure_id = $${paramIdx++})`;
             params.push(structureId);
+            query += ` ORDER BY p.created_at DESC LIMIT $${paramIdx}`;
+            params.push(limit);
+        } else if (preferredStructureId) {
+            // Tri par tier (directeur) : structure principale → secondaire → autres,
+            // puis date DESC à l'intérieur de chaque groupe.
+            const idxPref = paramIdx++;
+            params.push(preferredStructureId);
+            query += `
+                ORDER BY
+                    CASE
+                        WHEN p.structure_id = $${idxPref} THEN 0
+                        WHEN EXISTS (
+                            SELECT 1 FROM project_structures ps3
+                            WHERE ps3.project_id = p.id AND ps3.structure_id = $${idxPref}
+                        ) THEN 1
+                        ELSE 2
+                    END,
+                    p.created_at DESC
+                LIMIT $${paramIdx}
+            `;
+            params.push(limit);
+        } else {
+            query += ` ORDER BY p.created_at DESC LIMIT $${paramIdx}`;
+            params.push(limit);
         }
 
-        query += ' ORDER BY p.created_at DESC LIMIT $' + (structureId ? 2 : 1);
-        params.push(limit);
-        
         const result = await db.query(query, params);
         return result.rows;
     }

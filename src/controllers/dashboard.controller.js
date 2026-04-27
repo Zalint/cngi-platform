@@ -132,7 +132,10 @@ exports.getRecentProjects = async (req, res, next) => {
             projects = await DashboardModel.getRecentProjectsByTerritory(req.user.territorial_level, req.user.territorial_value, limit);
         } else {
             const structureId = (req.user.role === 'utilisateur') ? req.user.structure_id : req.query.structure_id;
-            projects = await DashboardModel.getRecentProjects(limit, structureId);
+            // Directeur : on remonte sa structure en priorité (tier principal puis
+            // secondaire) tout en restant en lecture globale.
+            const preferred = (req.user.role === 'directeur' && req.user.structure_id) ? req.user.structure_id : null;
+            projects = await DashboardModel.getRecentProjects(limit, structureId, preferred);
         }
         res.json({ success: true, data: projects });
     } catch (error) {

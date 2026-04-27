@@ -43,9 +43,27 @@ describe('DashboardModel.getRecentProjects', () => {
         await DashboardModel.getRecentProjects();
         expect(db.query.mock.calls[0][1]).toEqual([10]);
     });
-    test('avec structure : params dans le bon ordre', async () => {
+    test('avec structureId : filtre dur via project_structures', async () => {
         db.query.mockResolvedValueOnce({ rows: [] });
         await DashboardModel.getRecentProjects(5, 3);
+        expect(db.query.mock.calls[0][1]).toEqual([3, 5]);
+        expect(db.query.mock.calls[0][0]).toMatch(/p\.id IN \(SELECT project_id FROM project_structures/);
+    });
+    test('avec preferredStructureId : tri par tier (principale > secondaire > autres)', async () => {
+        db.query.mockResolvedValueOnce({ rows: [] });
+        await DashboardModel.getRecentProjects(5, null, 7);
+        const [q, params] = db.query.mock.calls[0];
+        // Tri SQL avec CASE
+        expect(q).toMatch(/CASE/);
+        expect(q).toMatch(/p\.structure_id = \$1/);
+        expect(q).toMatch(/EXISTS \(\s*SELECT 1 FROM project_structures/);
+        expect(params).toEqual([7, 5]);
+    });
+    test('structureId prioritaire sur preferredStructureId', async () => {
+        db.query.mockResolvedValueOnce({ rows: [] });
+        await DashboardModel.getRecentProjects(5, 3, 7);
+        // Quand structureId est défini, on garde le filtre dur, pas le tri par tier
+        expect(db.query.mock.calls[0][0]).not.toMatch(/CASE\s*WHEN p\.structure_id/);
         expect(db.query.mock.calls[0][1]).toEqual([3, 5]);
     });
 });

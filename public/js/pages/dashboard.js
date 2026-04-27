@@ -97,6 +97,8 @@ const DashboardPage = {
         // Tous les rôles (admin, directeur, utilisateur, superviseur, …) chargent
         // le même set de données. Le filtrage par rôle est déjà fait côté backend
         // (cf. canUserAccessProject / dispatching dans dashboard.controller).
+        // Pour le directeur, le tri à 3 niveaux (structure principale → secondaire
+        // → autres) est appliqué côté SQL via DashboardModel.getRecentProjects.
         const [metrics, projectsByStructure, recentProjects, mapData, mapGeometries, allProjects] = await Promise.all([
             API.dashboard.getMetrics(structureId),
             API.dashboard.getProjectsByStructure(),
