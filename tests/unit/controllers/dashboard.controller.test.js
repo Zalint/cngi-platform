@@ -104,7 +104,16 @@ describe('dashboard — happy paths des autres endpoints', () => {
     test('getRecentProjects admin + limit', async () => {
         DashboardModel.getRecentProjects.mockResolvedValue([]);
         await ctrl.getRecentProjects(mockReq({ user: { role: 'admin' }, query: { limit: 5 } }), mockRes(), mockNext());
-        expect(DashboardModel.getRecentProjects).toHaveBeenCalledWith(5, undefined);
+        // 3e arg = preferredStructureId, null pour admin
+        expect(DashboardModel.getRecentProjects).toHaveBeenCalledWith(5, undefined, null);
+    });
+
+    test('getRecentProjects directeur : preferredStructureId = sa structure', async () => {
+        DashboardModel.getRecentProjects.mockResolvedValue([]);
+        await ctrl.getRecentProjects(mockReq({
+            user: { role: 'directeur', structure_id: 7 }, query: { limit: 5 }
+        }), mockRes(), mockNext());
+        expect(DashboardModel.getRecentProjects).toHaveBeenCalledWith(5, undefined, 7);
     });
     test('getRecentProjects commandement', async () => {
         DashboardModel.getRecentProjectsByTerritory.mockResolvedValue([]);
@@ -183,11 +192,12 @@ describe('dashboard.getMapGeometries — filtrage par rôle', () => {
         }), mockRes(), mockNext());
         expect(db.query.mock.calls[0][1]).toEqual([3]);
     });
-    test('directeur avec structure', async () => {
+    test('directeur : lecture globale, pas de filtre structure', async () => {
         db.query.mockResolvedValue({ rows: [] });
         await ctrl.getMapGeometries(mockReq({
             user: { role: 'directeur', structure_id: 7 }
         }), mockRes(), mockNext());
-        expect(db.query.mock.calls[0][1]).toEqual([7]);
+        // Plus de filtre structure pour directeur — il voit tout
+        expect(db.query.mock.calls[0][1]).toEqual([]);
     });
 });

@@ -8,7 +8,7 @@ const { protect, authorize } = require('../middlewares/auth');
 router.use(protect);
 
 router.get('/', projectsController.getAllProjects);
-router.post('/', authorize('admin', 'utilisateur'), projectsController.createProject);
+router.post('/', authorize('admin', 'utilisateur', 'directeur'), projectsController.createProject);
 router.get('/stats', projectsController.getStats);
 // Corbeille (soft delete) — admin uniquement
 router.get('/deleted', authorize('admin'), projectsController.listDeleted);
@@ -16,16 +16,16 @@ router.post('/:id/restore', authorize('admin'), projectsController.restoreProjec
 router.delete('/:id/hard', authorize('admin'), projectsController.hardDeleteProject);
 router.get('/export/xlsx', authorize('admin', 'utilisateur', 'directeur', 'superviseur', 'commandement_territorial', 'auditeur'), exportController.exportProjectsXlsx);
 router.get('/:id', projectsController.getProjectById);
-router.put('/:id', authorize('admin', 'utilisateur'), projectsController.updateProject);
-router.patch('/:id/progress', authorize('admin', 'utilisateur'), projectsController.updateProgress);
-router.delete('/:id', authorize('admin', 'utilisateur'), projectsController.deleteProject);
+router.put('/:id', authorize('admin', 'utilisateur', 'directeur'), projectsController.updateProject);
+router.patch('/:id/progress', authorize('admin', 'utilisateur', 'directeur'), projectsController.updateProgress);
+router.delete('/:id', authorize('admin', 'utilisateur', 'directeur'), projectsController.deleteProject);
 
 // Sous-ressources
-router.post('/:id/localities', authorize('admin', 'utilisateur'), projectsController.addLocality);
-router.post('/:id/sites', authorize('admin', 'utilisateur'), projectsController.addSite);
-router.post('/:id/measures', authorize('admin', 'utilisateur'), projectsController.addMeasure);
-router.post('/:id/stakeholders', authorize('admin', 'utilisateur'), projectsController.addStakeholder);
-router.post('/:id/financing', authorize('admin', 'utilisateur'), projectsController.addFinancing);
+router.post('/:id/localities', authorize('admin', 'utilisateur', 'directeur'), projectsController.addLocality);
+router.post('/:id/sites', authorize('admin', 'utilisateur', 'directeur'), projectsController.addSite);
+router.post('/:id/measures', authorize('admin', 'utilisateur', 'directeur'), projectsController.addMeasure);
+router.post('/:id/stakeholders', authorize('admin', 'utilisateur', 'directeur'), projectsController.addStakeholder);
+router.post('/:id/financing', authorize('admin', 'utilisateur', 'directeur'), projectsController.addFinancing);
 
 // Project-Structure Mappings (Admin only)
 router.get('/mappings/all', authorize('admin'), projectsController.getAllMappings);
@@ -34,9 +34,9 @@ router.post('/:id/structures', authorize('admin'), projectsController.assignStru
 router.delete('/:id/structures/:structureId', authorize('admin'), projectsController.removeStructureFromProject);
 
 // Assignation d'utilisateurs aux mesures (Chef de projet ou Admin)
-router.put('/:projectId/measures/:measureId/assign', authorize('admin', 'utilisateur'), projectsController.assignUserToMeasure);
-router.put('/:projectId/measures/:measureId/reassign', authorize('admin', 'utilisateur'), projectsController.reassignMeasure);
-router.put('/:projectId/measures/:measureId/status', authorize('admin', 'utilisateur'), projectsController.updateMeasureStatus);
+router.put('/:projectId/measures/:measureId/assign', authorize('admin', 'utilisateur', 'directeur'), projectsController.assignUserToMeasure);
+router.put('/:projectId/measures/:measureId/reassign', authorize('admin', 'utilisateur', 'directeur'), projectsController.reassignMeasure);
+router.put('/:projectId/measures/:measureId/status', authorize('admin', 'utilisateur', 'directeur'), projectsController.updateMeasureStatus);
 
 // Géométries (tracés) d'un projet — polylignes et polygones
 router.get('/:projectId/geometries', geometriesController.list);

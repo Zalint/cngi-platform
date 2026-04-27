@@ -20,22 +20,11 @@ const DashboardPage = {
             const user = Auth.getUser();
             await this.loadData();
 
-            // Vue spécifique pour le directeur : organisation par projet
-            if (user.role === 'directeur') {
-                return `
-                    ${Navbar.render()}
-                    <div class="main-content with-sidebar">
-                        ${Navbar.renderTopBar('Tableau de bord - Vue Directeur')}
-                        <div class="content-area">
-                            ${this.renderObservationsBanner()}
-                            ${this.renderPvBanner()}
-                            ${this.renderDirectorView()}
-                        </div>
-                    </div>
-                `;
-            }
+            // Tous les rôles voient désormais la vue standard (KPIs + carte +
+            // projets par structure + Gantt). Le directeur a la lecture globale
+            // au backend, donc il voit les mêmes données qu'un admin.
 
-            // Vue standard pour admin et utilisateur
+            // Vue standard pour admin / directeur / utilisateur
             return `
                 ${Navbar.render()}
                 <div class="main-content with-sidebar">
@@ -71,7 +60,10 @@ const DashboardPage = {
 
     async loadData() {
         const user = Auth.getUser();
-        const structureId = (user.role === 'utilisateur' || user.role === 'directeur') ? user.structure_id : null;
+        // Directeur : lecture globale (vue admin) → on ne pousse pas son
+        // structure_id pour ne pas filtrer les métriques. Seul l'utilisateur
+        // standard reste scopé à sa structure côté frontend.
+        const structureId = user.role === 'utilisateur' ? user.structure_id : null;
         // superviseur and commandement_territorial use structureId = null (backend handles territorial filtering)
 
         // Charger les fonds de carte activés par l'admin (non bloquant — défaut = tous activés)
@@ -102,33 +94,28 @@ const DashboardPage = {
             this.data.myMeasuresStats = myStats.data || {};
         } catch { this.data.myMeasuresStats = {}; }
 
-        // Pour le directeur, charger aussi les projets détaillés
-        if (user.role === 'directeur') {
-            const projectsResponse = await API.projects.getAll();
-            this.data.projects = projectsResponse.data;
-            
-            // Charger les métriques de base
-            const metrics = await API.dashboard.getMetrics(structureId);
-            this.data.metrics = metrics.data;
-        } else {
-            const [metrics, projectsByStructure, recentProjects, mapData, mapGeometries, allProjects] = await Promise.all([
-                API.dashboard.getMetrics(structureId),
-                API.dashboard.getProjectsByStructure(),
-                API.dashboard.getRecentProjects(this.data.recentProjectsLimit + 1),
-                API.dashboard.getMapData(structureId),
-                API.dashboard.getMapGeometries().catch(() => ({ data: [] })),
-                API.projects.getAll()
-            ]);
+        // Tous les rôles (admin, directeur, utilisateur, superviseur, …) chargent
+        // le même set de données. Le filtrage par rôle est déjà fait côté backend
+        // (cf. canUserAccessProject / dispatching dans dashboard.controller).
+        // Pour le directeur, le tri à 3 niveaux (structure principale → secondaire
+        // → autres) est appliqué côté SQL via DashboardModel.getRecentProjects.
+        const [metrics, projectsByStructure, recentProjects, mapData, mapGeometries, allProjects] = await Promise.all([
+            API.dashboard.getMetrics(structureId),
+            API.dashboard.getProjectsByStructure(),
+            API.dashboard.getRecentProjects(this.data.recentProjectsLimit + 1),
+            API.dashboard.getMapData(structureId),
+            API.dashboard.getMapGeometries().catch(() => ({ data: [] })),
+            API.projects.getAll()
+        ]);
 
-            this.data.metrics = metrics.data;
-            this.data.projectsByStructure = projectsByStructure.data;
-            const recentData = recentProjects.data || [];
-            this.data.recentProjectsHasMore = recentData.length > this.data.recentProjectsLimit;
-            this.data.recentProjects = recentData.slice(0, this.data.recentProjectsLimit);
-            this.data.mapSites = mapData.data || [];
-            this.data.mapGeometries = mapGeometries.data || [];
-            this.data.allProjects = allProjects.data || [];
-        }
+        this.data.metrics = metrics.data;
+        this.data.projectsByStructure = projectsByStructure.data;
+        const recentData = recentProjects.data || [];
+        this.data.recentProjectsHasMore = recentData.length > this.data.recentProjectsLimit;
+        this.data.recentProjects = recentData.slice(0, this.data.recentProjectsLimit);
+        this.data.mapSites = mapData.data || [];
+        this.data.mapGeometries = mapGeometries.data || [];
+        this.data.allProjects = allProjects.data || [];
     },
 
     renderObservationsBanner() {

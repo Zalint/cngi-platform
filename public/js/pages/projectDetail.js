@@ -18,6 +18,33 @@ const ProjectDetailPage = {
         }
     },
 
+    /**
+     * Vrai si l'utilisateur connecté est directeur de la structure principale
+     * du projet courant (admin de structure : peut tout faire sur ce projet
+     * comme un admin global, miroir backend de isDirecteurOfProject).
+     */
+    isDirecteurOfThisProject() {
+        const u = Auth.getUser();
+        const p = this.data.project;
+        return !!(u && p
+            && u.role === 'directeur'
+            && u.structure_id != null
+            && p.structure_id === u.structure_id);
+    },
+
+    /**
+     * Vrai si l'utilisateur peut modifier ce projet (admin OU directeur de la
+     * structure principale OU utilisateur rattaché à la structure).
+     */
+    canModifyThisProject() {
+        if (Auth.hasRole('admin')) return true;
+        if (this.isDirecteurOfThisProject()) return true;
+        const u = Auth.getUser();
+        const p = this.data.project;
+        if (u && p && u.role === 'utilisateur' && u.structure_id === p.structure_id) return true;
+        return false;
+    },
+
     async render(id) {
         try {
             const response = await API.projects.getById(id);
@@ -122,7 +149,7 @@ const ProjectDetailPage = {
                         </div>
                         <span class="status-badge status-${p.status}">${statusLabel}</span>
                     </div>
-                    ${Auth.hasRole('admin') ? `
+                    ${this.canModifyThisProject() ? `
                         <a href="#/projects/${p.id}/edit" class="btn btn-secondary">✏️ Modifier le projet</a>
                     ` : ''}
                 </div>
@@ -171,7 +198,7 @@ const ProjectDetailPage = {
     renderBudgetAndProgress() {
         const p = this.data.project;
         const currentUser = Auth.getUser();
-        const isProjectManager = p.project_manager_id === currentUser?.id || Auth.hasRole('admin');
+        const isProjectManager = p.project_manager_id === currentUser?.id || Auth.hasRole('admin') || this.isDirecteurOfThisProject();
         
         return `
             <div class="card mb-4">
@@ -226,7 +253,7 @@ const ProjectDetailPage = {
 
     renderLocalitiesAndSitesEditable() {
         const currentUser = Auth.getUser();
-        const isProjectManager = this.data.project.project_manager_id === currentUser?.id || Auth.hasRole('admin');
+        const isProjectManager = this.data.project.project_manager_id === currentUser?.id || Auth.hasRole('admin') || this.isDirecteurOfThisProject();
         
         return `
             <div class="card mb-4">
@@ -387,8 +414,8 @@ const ProjectDetailPage = {
 
     renderMeasuresEditable() {
         const currentUser = Auth.getUser();
-        const canEdit = Auth.hasAnyRole('admin', 'utilisateur');
-        const isProjectManager = this.data.project.project_manager_id === currentUser?.id || Auth.hasRole('admin');
+        const canEdit = Auth.hasAnyRole('admin', 'utilisateur', 'directeur');
+        const isProjectManager = this.data.project.project_manager_id === currentUser?.id || Auth.hasRole('admin') || this.isDirecteurOfThisProject();
         
         return `
             <div class="card mb-4">
@@ -833,7 +860,7 @@ const ProjectDetailPage = {
 
     renderFinancingEditable() {
         const currentUser = Auth.getUser();
-        const isProjectManager = this.data.project.project_manager_id === currentUser?.id || Auth.hasRole('admin');
+        const isProjectManager = this.data.project.project_manager_id === currentUser?.id || Auth.hasRole('admin') || this.isDirecteurOfThisProject();
         
         return `
             <div class="card mb-4">
@@ -1843,7 +1870,7 @@ const ProjectDetailPage = {
     // ==================== Documents ====================
     renderDocuments() {
         const currentUser = Auth.getUser();
-        const isProjectManager = this.data.project.project_manager_id === currentUser?.id || Auth.hasRole('admin');
+        const isProjectManager = this.data.project.project_manager_id === currentUser?.id || Auth.hasRole('admin') || this.isDirecteurOfThisProject();
         const docs = this.data.documents || [];
 
         const fileIcon = (mime) => {
