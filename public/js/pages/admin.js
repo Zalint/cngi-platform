@@ -801,6 +801,9 @@ const AdminPage = {
         const mapLayers = this.data.configItems
             .filter(c => c.category === 'map_layers')
             .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        const maxFileSizeRow = this.data.configItems
+            .find(c => c.category === 'upload_limits' && c.value === 'max_file_size_mb');
+        const maxFileSizeMb = maxFileSizeRow ? parseInt(maxFileSizeRow.label, 10) : 5;
 
         const renderTable = (title, category, items) => `
             <div style="margin-bottom: 32px;">
@@ -884,6 +887,29 @@ const AdminPage = {
             </div>
         `;
 
+        // Section "Limites d'upload" — un seul réglage pour l'instant (taille
+        // max), mais conçue pour pouvoir en ajouter (types autorisés, etc.).
+        const renderUploadLimits = () => maxFileSizeRow ? `
+            <div style="margin-bottom: 32px;">
+                <h3 style="margin:0 0 8px;color:#202B5D;">Limites d'upload</h3>
+                <p style="color:#62718D;font-size:13px;margin:0 0 16px;">
+                    Taille maximale d'un document uploadé. Le changement est pris en compte immédiatement (pas de redémarrage).
+                </p>
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <label for="cfg-max-file-size" style="color:#202B5D;font-weight:600;">Taille max (Mo)</label>
+                    <input type="number" id="cfg-max-file-size" min="1" max="500" step="1"
+                           value="${maxFileSizeMb}"
+                           style="width:90px;padding:8px 10px;border:1px solid #dce3ed;border-radius:6px;font-size:14px;outline:none;" />
+                    <button class="btn btn-primary"
+                            onclick="AdminPage.saveMaxFileSize(${maxFileSizeRow.id})"
+                            style="font-size:13px;">
+                        Enregistrer
+                    </button>
+                    <span style="color:#8896AB;font-size:12px;">Plage : 1 – 500 Mo</span>
+                </div>
+            </div>
+        ` : '';
+
         return `
             <div class="card">
                 <h2 style="margin-bottom:24px;">Configuration des listes</h2>
@@ -891,8 +917,26 @@ const AdminPage = {
                 ${renderTable('Types de mesure', 'measure_type', types)}
                 ${renderTable('Statuts de mesure', 'measure_status', statuses)}
                 ${renderMapLayers()}
+                ${renderUploadLimits()}
             </div>
         `;
+    },
+
+    async saveMaxFileSize(id) {
+        const input = document.getElementById('cfg-max-file-size');
+        const mb = parseInt(input.value, 10);
+        if (!Number.isFinite(mb) || mb < 1 || mb > 500) {
+            Toast.warning('Valeur invalide (1 – 500).');
+            return;
+        }
+        try {
+            await API.config.update(id, { label: String(mb) });
+            const item = this.data.configItems.find(c => c.id === id);
+            if (item) item.label = String(mb);
+            Toast.success(`Taille max upload : ${mb} Mo.`);
+        } catch (err) {
+            Toast.error('Erreur : ' + (err.message || 'Impossible de mettre à jour'));
+        }
     },
 
     async toggleMapLayer(id, isActive) {

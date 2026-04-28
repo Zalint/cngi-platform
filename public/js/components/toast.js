@@ -131,47 +131,77 @@ const Toast = {
         const color = typeColors[type] || typeColors.info;
 
         return new Promise((resolve) => {
+            // Construction par DOM (pas innerHTML) pour ne JAMAIS injecter du HTML
+            // depuis un texte fourni par l'appelant — message / confirmText /
+            // cancelText sont posés via textContent, donc XSS impossible même si
+            // un futur appelant passe une chaîne contenant des balises.
             const overlay = document.createElement('div');
             overlay.className = 'confirm-overlay';
-            overlay.innerHTML = `
-                <div class="confirm-dialog" style="text-align:left;max-width:480px;">
-                    <div class="confirm-message" style="margin-bottom:12px;">${message}</div>
-                    <input type="text" class="prompt-input" value=""
-                           style="width:100%;padding:10px 12px;border:1px solid #dce3ed;border-radius:6px;font-size:14px;outline:none;box-sizing:border-box;" />
-                    <div class="confirm-actions" style="margin-top:18px;">
-                        <button class="confirm-btn confirm-btn-cancel">${cancelText}</button>
-                        <button class="confirm-btn confirm-btn-ok" style="background:${color};">${confirmText}</button>
-                    </div>
-                </div>
-            `;
 
+            const dialog = document.createElement('div');
+            dialog.className = 'confirm-dialog';
+            dialog.style.cssText = 'text-align:left;max-width:480px;';
+
+            const msg = document.createElement('div');
+            msg.className = 'confirm-message';
+            msg.style.cssText = 'margin-bottom:12px;';
+            msg.textContent = message;
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'prompt-input';
+            input.style.cssText = 'width:100%;padding:10px 12px;border:1px solid #dce3ed;border-radius:6px;font-size:14px;outline:none;box-sizing:border-box;';
+            input.value = defaultValue || '';
+            input.placeholder = placeholder;
+
+            const actions = document.createElement('div');
+            actions.className = 'confirm-actions';
+            actions.style.cssText = 'margin-top:18px;';
+
+            const btnCancel = document.createElement('button');
+            btnCancel.type = 'button';
+            btnCancel.className = 'confirm-btn confirm-btn-cancel';
+            btnCancel.textContent = cancelText;
+
+            const btnOk = document.createElement('button');
+            btnOk.type = 'button';
+            btnOk.className = 'confirm-btn confirm-btn-ok';
+            btnOk.style.background = color;
+            btnOk.textContent = confirmText;
+
+            actions.append(btnCancel, btnOk);
+            dialog.append(msg, input, actions);
+            overlay.appendChild(dialog);
             document.body.appendChild(overlay);
             requestAnimationFrame(() => overlay.classList.add('confirm-visible'));
 
-            const input = overlay.querySelector('.prompt-input');
-            input.value = defaultValue || '';
-            input.placeholder = placeholder;
             // Focus + sélection — comportement attendu d'un prompt
             setTimeout(() => { input.focus(); input.select(); }, 50);
 
             const cleanup = () => {
                 overlay.classList.remove('confirm-visible');
                 setTimeout(() => overlay.remove(), 200);
-                document.removeEventListener('keydown', onKey);
+                input.removeEventListener('keydown', onInputKey);
+                document.removeEventListener('keydown', onDocKey);
             };
             const submit = () => { const v = (input.value || '').trim(); cleanup(); resolve(v); };
             const cancel = () => { cleanup(); resolve(null); };
 
-            // Clavier : Enter = OK, Escape = annule. Listener nommé pour pouvoir
-            // le détacher dans cleanup() (sinon fuite à chaque prompt).
-            const onKey = (e) => {
+            // Enter ne doit déclencher le submit QUE si l'input a le focus —
+            // sinon un Enter sur un autre élément focusé (bouton resté actif
+            // après un clic) soumettrait le prompt par inadvertance.
+            const onInputKey = (e) => {
                 if (e.key === 'Enter') { e.preventDefault(); submit(); }
-                else if (e.key === 'Escape') { cancel(); }
             };
-            document.addEventListener('keydown', onKey);
+            // Escape reste global (ferme le modal depuis n'importe où)
+            const onDocKey = (e) => {
+                if (e.key === 'Escape') cancel();
+            };
+            input.addEventListener('keydown', onInputKey);
+            document.addEventListener('keydown', onDocKey);
 
-            overlay.querySelector('.confirm-btn-cancel').addEventListener('click', cancel);
-            overlay.querySelector('.confirm-btn-ok').addEventListener('click', submit);
+            btnCancel.addEventListener('click', cancel);
+            btnOk.addEventListener('click', submit);
             overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel(); });
         });
     }

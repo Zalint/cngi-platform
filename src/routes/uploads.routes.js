@@ -23,17 +23,36 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-const upload = multer({
-    storage: storage,
-    limits: {
-        fileSize: parseInt(process.env.MAX_FILE_SIZE) || 5242880 // 5MB par défaut
-    },
-    fileFilter: fileFilter
-});
+// Middleware factory : la limite de taille est lue dynamiquement depuis
+// app_config (cache TTL 30s), donc l'admin peut la modifier sans redémarrer.
+// On instancie multer par requête pour pouvoir injecter la limite courante.
+async function dynamicUpload(req, res, next) {
+    try {
+        const maxBytes = await fileStorage.getMaxUploadBytes();
+        const upload = multer({
+            storage: storage,
+            limits: { fileSize: maxBytes },
+            fileFilter: fileFilter
+        });
+        upload.single('file')(req, res, (err) => {
+            if (err && err.code === 'LIMIT_FILE_SIZE') {
+                const mb = Math.round(maxBytes / (1024 * 1024));
+                return res.status(413).json({
+                    success: false,
+                    message: `Fichier trop volumineux (max ${mb} Mo).`,
+                    maxBytes
+                });
+            }
+            next(err);
+        });
+    } catch (err) {
+        next(err);
+    }
+}
 
 router.use(protect);
 
-router.post('/', upload.single('file'), uploadsController.uploadFile);
+router.post('/', dynamicUpload, uploadsController.uploadFile);
 router.get('/', uploadsController.getByEntity);
 router.get('/:id', uploadsController.getFileById);
 router.delete('/:id', uploadsController.deleteFile);
