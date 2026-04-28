@@ -109,5 +109,70 @@ const Toast = {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) close();
         });
+    },
+
+    /**
+     * Remplaçant stylé pour window.prompt(). Renvoie une Promise qui résout sur
+     * la valeur saisie (string trimée) ou null si l'utilisateur annule.
+     * Usage :
+     *   const v = await Toast.prompt('Titre du document :', 'mon-fichier');
+     *   if (v === null) return;            // annulé
+     *   if (!v) Toast.warning('Vide');     // OK avec champ vide
+     */
+    prompt(message, defaultValue = '', options = {}) {
+        const {
+            confirmText = 'OK',
+            cancelText = 'Annuler',
+            placeholder = '',
+            type = 'info'
+        } = options;
+
+        const typeColors = { warning: '#f39c12', danger: '#e74c3c', info: '#3794C4' };
+        const color = typeColors[type] || typeColors.info;
+
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.className = 'confirm-overlay';
+            overlay.innerHTML = `
+                <div class="confirm-dialog" style="text-align:left;max-width:480px;">
+                    <div class="confirm-message" style="margin-bottom:12px;">${message}</div>
+                    <input type="text" class="prompt-input" value=""
+                           style="width:100%;padding:10px 12px;border:1px solid #dce3ed;border-radius:6px;font-size:14px;outline:none;box-sizing:border-box;" />
+                    <div class="confirm-actions" style="margin-top:18px;">
+                        <button class="confirm-btn confirm-btn-cancel">${cancelText}</button>
+                        <button class="confirm-btn confirm-btn-ok" style="background:${color};">${confirmText}</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+            requestAnimationFrame(() => overlay.classList.add('confirm-visible'));
+
+            const input = overlay.querySelector('.prompt-input');
+            input.value = defaultValue || '';
+            input.placeholder = placeholder;
+            // Focus + sélection — comportement attendu d'un prompt
+            setTimeout(() => { input.focus(); input.select(); }, 50);
+
+            const cleanup = () => {
+                overlay.classList.remove('confirm-visible');
+                setTimeout(() => overlay.remove(), 200);
+                document.removeEventListener('keydown', onKey);
+            };
+            const submit = () => { const v = (input.value || '').trim(); cleanup(); resolve(v); };
+            const cancel = () => { cleanup(); resolve(null); };
+
+            // Clavier : Enter = OK, Escape = annule. Listener nommé pour pouvoir
+            // le détacher dans cleanup() (sinon fuite à chaque prompt).
+            const onKey = (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); submit(); }
+                else if (e.key === 'Escape') { cancel(); }
+            };
+            document.addEventListener('keydown', onKey);
+
+            overlay.querySelector('.confirm-btn-cancel').addEventListener('click', cancel);
+            overlay.querySelector('.confirm-btn-ok').addEventListener('click', submit);
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel(); });
+        });
     }
 };

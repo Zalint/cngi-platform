@@ -223,7 +223,8 @@ const ObservationsPage = {
         const file = input.files[0];
         if (!file) return;
         const defaultName = file.name.replace(/\.[^.]+$/, '');
-        const label = (prompt('Titre du document :', defaultName) || '').trim();
+        const label = await Toast.prompt('Titre du document :', defaultName);
+        // null = annulé ; '' = saisi vide → on annule aussi (label requis)
         if (!label) { input.value = ''; return; }
         try {
             const res = await API.uploads.upload(file, 'observation', obsId, label);

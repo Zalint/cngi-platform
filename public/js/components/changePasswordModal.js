@@ -114,16 +114,19 @@ const ChangePasswordModal = {
 
     async submit() {
         const $submit = document.getElementById('cp-submit');
-        const current_password = document.getElementById('cp-current').value;
-        const new_password = document.getElementById('cp-new').value;
-        if (!current_password || !new_password) return;
+        // Le backend (auth.controller.changePassword) attend les clés camelCase
+        // currentPassword / newPassword. Envoyer en snake_case faisait passer
+        // req.body.currentPassword à undefined côté serveur → 400.
+        const currentPassword = document.getElementById('cp-current').value;
+        const newPassword = document.getElementById('cp-new').value;
+        if (!currentPassword || !newPassword) return;
 
         $submit.disabled = true;
         const originalText = $submit.textContent;
         $submit.textContent = '⏳ Enregistrement...';
 
         try {
-            await API.auth.changePassword({ current_password, new_password });
+            await API.auth.changePassword({ currentPassword, newPassword });
             Toast.success('Mot de passe modifié avec succès.');
             this.close();
         } catch (err) {
