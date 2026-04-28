@@ -202,7 +202,7 @@ const PvPage = {
         const file = input.files[0];
         if (!file) return;
         const defaultName = file.name.replace(/\.[^.]+$/, '');
-        const label = (prompt('Titre du document :', defaultName) || '').trim();
+        const label = await Toast.prompt('Titre du document :', defaultName);
         if (!label) { input.value = ''; return; }
         try {
             const res = await API.uploads.upload(file, 'pv', pvId, label);
