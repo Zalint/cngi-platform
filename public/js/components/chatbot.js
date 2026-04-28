@@ -7,11 +7,12 @@ const Chatbot = {
     currentUtterance: null,
 
     SUGGESTIONS: [
-        'Combien de projets sont en retard ?',
-        'Quels sont les projets urgents ?',
+        'Quelles échéances tombent dans les 30 prochains jours ?',
+        'Quels projets sont en retard ?',
         'Donne-moi le statut des projets DPGI',
-        'Quel est l\'avancement moyen global ?',
-        'Quels projets n\'ont pas de budget renseigné ?'
+        'Quelles sont les directives urgentes du Ministre ?',
+        'Quelles mesures sont encore préconisées (non démarrées) ?',
+        'Qui pilote le plus de projets ?'
     ],
 
     init() {

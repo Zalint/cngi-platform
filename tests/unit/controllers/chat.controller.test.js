@@ -67,8 +67,8 @@ describe('chat.chat — happy path sans tool', () => {
         expect(res.body.message).toBe('Bonjour');
     });
 
-    test('500 si 5 itérations sans réponse finale', async () => {
-        // Retourne toujours un tool_call → boucle max 5 itérations puis finalMessage=null
+    test('500 si 6 itérations sans réponse finale', async () => {
+        // Retourne toujours un tool_call → boucle max 6 itérations puis finalMessage=null
         mockCompletionsCreate.mockResolvedValue({
             choices: [{ message: {
                 role: 'assistant',
@@ -79,7 +79,7 @@ describe('chat.chat — happy path sans tool', () => {
         const res = mockRes();
         await ctrl.chat(mockReq({ user, body: { messages: [{ role: 'user', content: 'hi' }] } }), res, mockNext());
         expect(res.statusCode).toBe(500);
-        expect(mockCompletionsCreate).toHaveBeenCalledTimes(5);
+        expect(mockCompletionsCreate).toHaveBeenCalledTimes(6);
     });
 });
 
