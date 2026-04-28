@@ -7,7 +7,15 @@ const PORT = process.env.PORT || 3000;
 
 // Initialise le backend de stockage des uploads (création du dossier en mode
 // disk, vérification du bucket en mode r2). Voir src/config/storage.js.
-storage.init();
+// Si l'init échoue (disque non accessible, EACCES sur le mount Render…),
+// on log et on quitte proprement avec le même chemin que les autres erreurs
+// fatales — pas de crash brutal qui laisse Render relancer en boucle.
+try {
+    storage.init();
+} catch (err) {
+    console.error('Failed to initialize storage backend:', err.name, err.message);
+    process.exit(1);
+}
 
 // Initialiser la base de données puis démarrer le serveur
 initDatabase().then(() => {

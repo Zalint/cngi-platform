@@ -5,6 +5,8 @@ jest.mock('../../../src/config/storage', () => ({
     multerStorage: jest.fn(),
     init: jest.fn(),
     mountStatic: jest.fn(),
+    getMaxUploadBytes: jest.fn().mockResolvedValue(5 * 1024 * 1024),
+    invalidateMaxUploadBytesCache: jest.fn(),
     driver: 'disk',
 }));
 

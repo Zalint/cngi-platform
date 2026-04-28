@@ -592,7 +592,26 @@ async function seedConfig(pool) {
         );
     }
 
-    const count = await pool.query('SELECT COUNT(*) FROM app_config WHERE category != $1', ['map_layers']);
+    // Limites configurables par l'admin. Stockées dans app_config avec une
+    // convention : `value` = identifiant de réglage, `label` = valeur courante
+    // (en string, parsée par le backend selon le type attendu).
+    // Pour max_file_size_mb : entier positif (Mo). Défaut 5.
+    const limits = [
+        { category: 'upload_limits', value: 'max_file_size_mb', label: '5', sort_order: 1 },
+    ];
+    for (const c of limits) {
+        await pool.query(
+            `INSERT INTO app_config (category, value, label, sort_order, is_active)
+             VALUES ($1, $2, $3, $4, true)
+             ON CONFLICT (category, value) DO NOTHING`,
+            [c.category, c.value, c.label, c.sort_order]
+        );
+    }
+
+    const count = await pool.query(
+        'SELECT COUNT(*) FROM app_config WHERE category NOT IN ($1, $2)',
+        ['map_layers', 'upload_limits']
+    );
     if (parseInt(count.rows[0].count) > 0) return;
 
     console.log('Seeding app config...');
