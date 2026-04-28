@@ -4,17 +4,11 @@ const multer = require('multer');
 const path = require('path');
 const uploadsController = require('../controllers/uploads.controller');
 const { protect } = require('../middlewares/auth');
+const fileStorage = require('../config/storage');
 
-// Configuration de multer pour le stockage des fichiers
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/');
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
+// Configuration multer déléguée à l'abstraction de stockage (disque local par
+// défaut, R2 plus tard via STORAGE_DRIVER=r2). Cf. src/config/storage.js.
+const storage = fileStorage.multerStorage();
 
 const fileFilter = (req, file, cb) => {
     // Autoriser certains types de fichiers

@@ -72,8 +72,11 @@ if (process.env.NODE_ENV === 'development') {
     });
 }
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Serve uploaded files via le backend de stockage configuré.
+// En mode disk : monte express.static. En mode r2 : no-op (les fichiers sont
+// servis par R2 directement). Cf. src/config/storage.js.
+const fileStorage = require('./config/storage');
+fileStorage.mountStatic(app);
 
 // Serve frontend files
 app.use(express.static(path.join(__dirname, '../public'), {

@@ -1,7 +1,14 @@
 jest.mock('../../../src/config/db', () => require('../../helpers/db').createDbMock());
-jest.mock('fs', () => ({ existsSync: jest.fn(), unlinkSync: jest.fn() }));
+// Mock de l'abstraction de stockage : on ne touche plus fs directement.
+jest.mock('../../../src/config/storage', () => ({
+    deleteFile: jest.fn().mockResolvedValue(undefined),
+    multerStorage: jest.fn(),
+    init: jest.fn(),
+    mountStatic: jest.fn(),
+    driver: 'disk',
+}));
 
-const fs = require('fs');
+const storage = require('../../../src/config/storage');
 const db = require('../../../src/config/db');
 const ctrl = require('../../../src/controllers/uploads.controller');
 const { mockReq, mockRes, mockNext } = require('../../helpers/http');
@@ -75,22 +82,28 @@ describe('uploads.deleteFile', () => {
         await ctrl.deleteFile(mockReq({ params: { id: '1' } }), res, mockNext());
         expect(res.statusCode).toBe(404);
     });
-    test('supprime fichier physique + row', async () => {
+    test('supprime via storage.deleteFile + row DB', async () => {
+        const row = { id: 1, path: '/tmp/f.pdf' };
         db.query
-            .mockResolvedValueOnce({ rows: [{ id: 1, path: '/tmp/f.pdf' }] })
+            .mockResolvedValueOnce({ rows: [row] })
             .mockResolvedValueOnce({ rows: [] });
-        fs.existsSync.mockReturnValue(true);
         const res = mockRes();
         await ctrl.deleteFile(mockReq({ params: { id: '1' } }), res, mockNext());
-        expect(fs.unlinkSync).toHaveBeenCalledWith('/tmp/f.pdf');
+        // Le contrôleur passe la row entière à l'abstraction de stockage —
+        // c'est le driver (disk / r2) qui décide quoi faire avec.
+        expect(storage.deleteFile).toHaveBeenCalledWith(row);
+        // 2 db.query : SELECT puis DELETE
+        expect(db.query.mock.calls[1][0]).toMatch(/DELETE FROM uploads/);
         expect(res.body.success).toBe(true);
     });
-    test('ne unlink pas si le fichier n\'existe plus', async () => {
-        db.query
-            .mockResolvedValueOnce({ rows: [{ id: 1, path: '/nope' }] })
-            .mockResolvedValueOnce({ rows: [] });
-        fs.existsSync.mockReturnValue(false);
-        await ctrl.deleteFile(mockReq({ params: { id: '1' } }), mockRes(), mockNext());
-        expect(fs.unlinkSync).not.toHaveBeenCalled();
+
+    test('storage.deleteFile qui rejette propage au next()', async () => {
+        const row = { id: 1, path: '/nope' };
+        db.query.mockResolvedValueOnce({ rows: [row] });
+        storage.deleteFile.mockRejectedValueOnce(new Error('disk fail'));
+        const next = mockNext();
+        await ctrl.deleteFile(mockReq({ params: { id: '1' } }), mockRes(), next);
+        expect(next).toHaveBeenCalled();
+        expect(next.mock.calls[0][0].message).toBe('disk fail');
     });
 });

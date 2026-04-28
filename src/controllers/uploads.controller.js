@@ -1,6 +1,5 @@
 const db = require('../config/db');
-const path = require('path');
-const fs = require('fs');
+const storage = require('../config/storage');
 
 exports.uploadFile = async (req, res, next) => {
     try {
@@ -77,12 +76,11 @@ exports.deleteFile = async (req, res, next) => {
         }
         
         const file = result.rows[0];
-        
-        // Supprimer le fichier physique
-        if (fs.existsSync(file.path)) {
-            fs.unlinkSync(file.path);
-        }
-        
+
+        // Supprimer le fichier physique via l'abstraction de stockage
+        // (disque local en mode disk, DeleteObjectCommand en mode r2)
+        await storage.deleteFile(file);
+
         // Supprimer l'enregistrement en base
         await db.query('DELETE FROM uploads WHERE id = $1', [req.params.id]);
         

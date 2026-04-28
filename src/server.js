@@ -1,17 +1,13 @@
 require('dotenv').config();
 const app = require('./app');
-const fs = require('fs');
-const path = require('path');
 const initDatabase = require('../db/init');
+const storage = require('./config/storage');
 
 const PORT = process.env.PORT || 3000;
 
-// Créer le dossier uploads s'il n'existe pas
-const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('Created uploads directory');
-}
+// Initialise le backend de stockage des uploads (création du dossier en mode
+// disk, vérification du bucket en mode r2). Voir src/config/storage.js.
+storage.init();
 
 // Initialiser la base de données puis démarrer le serveur
 initDatabase().then(() => {
