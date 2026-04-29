@@ -3,10 +3,11 @@ const UserModel = require('../models/user.model');
 const { validateUsername, validatePassword } = require('../utils/validators');
 
 /**
- * Générer un token JWT
+ * Générer un token JWT. Inclut token_version pour permettre la révocation
+ * des sessions (cf. UserModel.bumpTokenVersion).
  */
-const generateToken = (userId) => {
-    return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+const generateToken = (userId, tokenVersion = 0) => {
+    return jwt.sign({ id: userId, tv: tokenVersion }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRES_IN || '7d'
     });
 };
@@ -59,8 +60,8 @@ exports.login = async (req, res, next) => {
         // Mettre à jour la dernière connexion
         await UserModel.updateLastLogin(user.id);
         
-        // Générer le token
-        const token = generateToken(user.id);
+        // Générer le token (avec token_version pour révocation)
+        const token = generateToken(user.id, user.token_version || 0);
         
         // Supprimer le hash du mot de passe de la réponse
         delete user.password_hash;
@@ -143,14 +144,42 @@ exports.changePassword = async (req, res, next) => {
             });
         }
         
-        // Mettre à jour le mot de passe
+        // Mettre à jour le mot de passe + invalider toutes les autres sessions
         await UserModel.updatePassword(req.user.id, newPassword);
-        
+        const newVersion = await UserModel.bumpTokenVersion(req.user.id);
+
+        // Re-signer un token frais pour la session courante (sinon l'utilisateur
+        // serait déconnecté immédiatement après son propre changement de password).
+        const freshToken = generateToken(req.user.id, newVersion);
+
         res.json({
             success: true,
-            message: 'Mot de passe modifié avec succès'
+            message: 'Mot de passe modifié. Toutes les autres sessions ont été déconnectées.',
+            data: { token: freshToken }
         });
         
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @route   POST /api/auth/logout-all-devices
+ * @desc    Invalide toutes les sessions actives de l'utilisateur (incrémente
+ *          token_version). L'appareil courant reçoit un token frais pour
+ *          rester connecté ; les autres seront déconnectés à leur prochaine
+ *          requête.
+ * @access  Private
+ */
+exports.logoutAllDevices = async (req, res, next) => {
+    try {
+        const newVersion = await UserModel.bumpTokenVersion(req.user.id);
+        const freshToken = generateToken(req.user.id, newVersion);
+        res.json({
+            success: true,
+            message: 'Toutes les autres sessions ont été déconnectées.',
+            data: { token: freshToken }
+        });
     } catch (error) {
         next(error);
     }

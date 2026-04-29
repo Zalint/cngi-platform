@@ -165,6 +165,22 @@ class UserModel {
         `, [email]);
         return result.rows.length > 0;
     }
+
+    /**
+     * Incrémente le token_version de l'utilisateur. Effet : tous les JWT
+     * existants pour ce user deviennent invalides à la prochaine requête.
+     * Utilisé pour : force-logout admin, déconnexion tous appareils, changement
+     * de mot de passe.
+     * @returns {number|null} la nouvelle valeur de token_version, ou null si user introuvable.
+     */
+    static async bumpTokenVersion(id) {
+        const result = await db.query(`
+            UPDATE users SET token_version = token_version + 1
+            WHERE id = $1
+            RETURNING token_version
+        `, [id]);
+        return result.rows[0]?.token_version ?? null;
+    }
 }
 
 module.exports = UserModel;

@@ -5,6 +5,7 @@ const { protect } = require('../middlewares/auth');
 
 router.post('/login', authController.login);
 router.post('/logout', protect, authController.logout);
+router.post('/logout-all-devices', protect, authController.logoutAllDevices);
 router.get('/me', protect, authController.getMe);
 router.post('/change-password', protect, authController.changePassword);
 

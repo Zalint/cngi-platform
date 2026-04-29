@@ -167,6 +167,11 @@ const Navbar = {
                                     onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='transparent'">
                                 ${Icon.render('key', 16, 'currentColor')} Changer le mot de passe
                             </button>
+                            <button onclick="event.stopPropagation(); Navbar.logoutAllDevices();"
+                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#202B5D;font-weight:600;"
+                                    onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='transparent'">
+                                ${Icon.render('log-out', 16, 'currentColor')} Déconnecter mes autres appareils
+                            </button>
                             <div style="height:1px;background:#eef;"></div>
                             <button onclick="event.stopPropagation(); Navbar.logout();"
                                     style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#c0392b;font-weight:600;"
@@ -235,6 +240,24 @@ const Navbar = {
         if (typeof ChangePasswordModal !== 'undefined') {
             ChangePasswordModal.open();
         }
+    },
+
+    logoutAllDevices() {
+        const dd = document.getElementById('user-menu-dropdown');
+        if (dd) dd.style.display = 'none';
+        Toast.confirm(
+            'Déconnecter toutes vos autres sessions actives ? Cet appareil restera connecté.',
+            async () => {
+                try {
+                    const res = await API.auth.logoutAllDevices();
+                    if (res?.data?.token) Auth.setToken(res.data.token);
+                    Toast.success('Vos autres sessions ont été déconnectées.');
+                } catch (err) {
+                    Toast.error('Erreur : ' + (err.message || 'échec'));
+                }
+            },
+            { type: 'danger', confirmText: 'Déconnecter' }
+        );
     },
 
     toggleSidebar() {

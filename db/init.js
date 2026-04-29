@@ -61,12 +61,15 @@ async function initDatabase() {
                 ALTER TABLE users ADD COLUMN IF NOT EXISTS territorial_level VARCHAR(20);
                 ALTER TABLE users ADD COLUMN IF NOT EXISTS territorial_value VARCHAR(100);
                 ALTER TABLE users ADD COLUMN IF NOT EXISTS title VARCHAR(150);
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP;
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
             EXCEPTION WHEN others THEN NULL;
             END $$
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_users_structure ON users(structure_id)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_users_last_activity ON users(last_activity_at DESC)`);
 
         // Forms
         await client.query(`
@@ -470,6 +473,22 @@ async function initDatabase() {
             )
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC)`);
+
+        // Announcements (bandeau d'annonce broadcast pour tous les utilisateurs)
+        // Ex : "L'app sera indisponible 5 min à 14h00 pour maintenance"
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS announcements (
+                id SERIAL PRIMARY KEY,
+                message TEXT NOT NULL,
+                level VARCHAR(20) NOT NULL DEFAULT 'info' CHECK (level IN ('info', 'warning', 'critical')),
+                dismissable BOOLEAN NOT NULL DEFAULT true,
+                starts_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP,
+                created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_announcements_active ON announcements(starts_at, expires_at)`);
 
         // API Keys (authentification de l'API externe v1)
         await client.query(`

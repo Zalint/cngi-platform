@@ -23,6 +23,7 @@ const v1Routes = require('./routes/v1.routes');
 const chatRoutes = require('./routes/chat.routes');
 const observationsRoutes = require('./routes/observations.routes');
 const pvRoutes = require('./routes/pv.routes');
+const announcementsRoutes = require('./routes/announcements.routes');
 
 // Import middlewares
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
@@ -107,6 +108,7 @@ app.use('/api/v1', v1Routes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/observations', observationsRoutes);
 app.use('/api/pv', pvRoutes);
+app.use('/api/announcements', announcementsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
