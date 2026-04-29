@@ -352,6 +352,8 @@ const AdminPage = {
                 await this.loadAnnouncements();
                 const content = document.getElementById('admin-content');
                 if (content) content.innerHTML = this.renderAnnouncements();
+                // Le bandeau peut être encore affiché si l'annonce était active : refresh.
+                if (typeof AnnouncementBanner !== 'undefined') AnnouncementBanner.refresh();
             } catch (err) {
                 Toast.error('Erreur : ' + (err.message || 'échec'));
             }
@@ -817,16 +819,24 @@ const AdminPage = {
                 // Toujours arrêter l'auto-refresh sessions quand on change d'onglet
                 if (tabName !== 'sessions') this.stopSessionsAutoRefresh();
 
+                // Marquer l'onglet actif pour ignorer les callbacks async obsolètes
+                // (cas : l'utilisateur clique announcements puis sessions avant la
+                // fin du fetch ; sans ce check, le callback announcements écraserait
+                // le contenu du tab sessions).
+                this.currentTab = tabName;
+
                 if (tabName === 'users') {
                     content.innerHTML = this.renderUsers();
                 } else if (tabName === 'announcements') {
                     content.innerHTML = '<div class="card" style="padding:40px;text-align:center;color:#8896AB;">Chargement...</div>';
                     this.loadAnnouncements().then(() => {
+                        if (this.currentTab !== 'announcements') return;
                         content.innerHTML = this.renderAnnouncements();
                     });
                 } else if (tabName === 'sessions') {
                     content.innerHTML = '<div class="card" style="padding:40px;text-align:center;color:#8896AB;">Chargement...</div>';
                     this.loadSessions().then(() => {
+                        if (this.currentTab !== 'sessions') return;
                         content.innerHTML = this.renderSessions();
                         this.startSessionsAutoRefresh();
                     });
@@ -836,6 +846,7 @@ const AdminPage = {
                     content.innerHTML = this.renderConfig();
                 } else if (tabName === 'api-keys') {
                     this.loadApiKeys().then(() => {
+                        if (this.currentTab !== 'api-keys') return;
                         content.innerHTML = this.renderApiKeys();
                     });
                 } else if (tabName === 'docs') {
@@ -843,6 +854,7 @@ const AdminPage = {
                 } else if (tabName === 'trash') {
                     content.innerHTML = '<div class="card" style="padding:40px;text-align:center;color:#8896AB;">Chargement...</div>';
                     this.loadTrash().then(() => {
+                        if (this.currentTab !== 'trash') return;
                         content.innerHTML = this.renderTrash();
                     });
                 }

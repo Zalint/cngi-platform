@@ -66,12 +66,15 @@ describe('UserModel', () => {
         expect(params[9]).toBeNull(); // title
     });
 
-    test('updatePassword hashe et envoie le hash', async () => {
-        db.query.mockResolvedValueOnce({ rows: [{ id: 1, username: 'x' }] });
-        await UserModel.updatePassword(1, 'NewPass123');
+    test('updatePasswordAndBumpVersion hashe, bump version et renvoie token_version', async () => {
+        db.query.mockResolvedValueOnce({ rows: [{ id: 1, username: 'x', token_version: 7 }] });
+        const result = await UserModel.updatePasswordAndBumpVersion(1, 'NewPass123');
+        const sql = db.query.mock.calls[0][0];
         const params = db.query.mock.calls[0][1];
+        expect(sql).toMatch(/token_version\s*=\s*token_version\s*\+\s*1/);
         expect(params[1]).toBe(1);
         expect(await bcrypt.compare('NewPass123', params[0])).toBe(true);
+        expect(result.token_version).toBe(7);
     });
 
     test('comparePassword renvoie true si match', async () => {

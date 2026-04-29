@@ -144,9 +144,13 @@ exports.changePassword = async (req, res, next) => {
             });
         }
         
-        // Mettre à jour le mot de passe + invalider toutes les autres sessions
-        await UserModel.updatePassword(req.user.id, newPassword);
-        const newVersion = await UserModel.bumpTokenVersion(req.user.id);
+        // Mettre à jour le mot de passe ET invalider les autres sessions en une
+        // seule requête atomique (évite l'état partiel si la 2e requête échoue).
+        const updated = await UserModel.updatePasswordAndBumpVersion(req.user.id, newPassword);
+        if (!updated) {
+            return res.status(500).json({ success: false, message: 'Échec de la mise à jour' });
+        }
+        const newVersion = updated.token_version;
 
         // Re-signer un token frais pour la session courante (sinon l'utilisateur
         // serait déconnecté immédiatement après son propre changement de password).

@@ -3,7 +3,8 @@ jest.mock('../../../src/models/user.model', () => ({
     findById: jest.fn(),
     comparePassword: jest.fn(),
     updateLastLogin: jest.fn(),
-    updatePassword: jest.fn(),
+    updatePasswordAndBumpVersion: jest.fn(),
+    bumpTokenVersion: jest.fn(),
 }));
 
 const jwt = require('jsonwebtoken');
@@ -107,13 +108,15 @@ describe('auth.changePassword', () => {
     test('200 si succès', async () => {
         UserModel.findByUsername.mockResolvedValue({ password_hash: 'h' });
         UserModel.comparePassword.mockResolvedValue(true);
+        UserModel.updatePasswordAndBumpVersion = jest.fn().mockResolvedValue({ id: 1, username: 'j', token_version: 1 });
         const res = mockRes();
         await changePassword(mockReq({
             user: { id: 1, username: 'j' },
             body: { currentPassword: 'x', newPassword: VALID_PW }
         }), res, mockNext());
         expect(res.statusCode).toBe(200);
-        expect(UserModel.updatePassword).toHaveBeenCalledWith(1, VALID_PW);
+        expect(UserModel.updatePasswordAndBumpVersion).toHaveBeenCalledWith(1, VALID_PW);
+        expect(res.body?.data?.token).toBeDefined();
     });
 });
 

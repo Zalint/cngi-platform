@@ -10,8 +10,12 @@ const { validateUserData } = require('../utils/validators');
  */
 exports.forceLogout = async (req, res, next) => {
     try {
+        // Validation stricte : "12abc" doit être rejeté (parseInt l'accepterait).
+        if (typeof req.params.id !== 'string' || !/^\d+$/.test(req.params.id)) {
+            return res.status(400).json({ success: false, message: 'ID invalide' });
+        }
         const targetId = parseInt(req.params.id, 10);
-        if (!Number.isInteger(targetId)) {
+        if (!Number.isSafeInteger(targetId) || targetId <= 0) {
             return res.status(400).json({ success: false, message: 'ID invalide' });
         }
         if (targetId === req.user.id) {

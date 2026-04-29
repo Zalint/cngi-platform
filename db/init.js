@@ -485,8 +485,17 @@ async function initDatabase() {
                 starts_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 expires_at TIMESTAMP,
                 created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT announcements_valid_window CHECK (expires_at IS NULL OR expires_at >= starts_at)
             )
+        `);
+        // Migration : la contrainte est ajoutée si la table existait déjà sans elle.
+        await client.query(`
+            DO $$ BEGIN
+                ALTER TABLE announcements ADD CONSTRAINT announcements_valid_window
+                    CHECK (expires_at IS NULL OR expires_at >= starts_at);
+            EXCEPTION WHEN duplicate_object THEN NULL;
+            END $$
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_announcements_active ON announcements(starts_at, expires_at)`);
 

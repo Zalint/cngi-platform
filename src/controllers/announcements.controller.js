@@ -1,17 +1,32 @@
 const AnnouncementModel = require('../models/announcement.model');
 
-function format(a) {
-    return {
+/**
+ * Sérialise une annonce. `includeAdmin` ajoute les champs identitaires
+ * (created_by, author) — réservé aux endpoints admin pour ne pas exposer
+ * d'IDs internes au flux public.
+ */
+function format(a, { includeAdmin = false } = {}) {
+    const base = {
         id: a.id,
         message: a.message,
         level: a.level,
         dismissable: a.dismissable,
         starts_at: a.starts_at,
         expires_at: a.expires_at,
-        created_at: a.created_at,
-        created_by: a.created_by,
-        author: [a.first_name, a.last_name].filter(Boolean).join(' ') || a.username || null
+        created_at: a.created_at
     };
+    if (includeAdmin) {
+        base.created_by = a.created_by;
+        base.author = [a.first_name, a.last_name].filter(Boolean).join(' ') || a.username || null;
+    }
+    return base;
+}
+
+// "12abc" → 12 avec parseInt — on veut un rejet strict.
+function parseStrictId(raw) {
+    if (typeof raw !== 'string' || !/^\d+$/.test(raw)) return null;
+    const n = Number(raw);
+    return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 
 /**
@@ -22,7 +37,7 @@ function format(a) {
 exports.getActive = async (req, res, next) => {
     try {
         const rows = await AnnouncementModel.findActive();
-        res.json({ success: true, count: rows.length, data: rows.map(format) });
+        res.json({ success: true, count: rows.length, data: rows.map(r => format(r)) });
     } catch (err) { next(err); }
 };
 
@@ -34,7 +49,7 @@ exports.getActive = async (req, res, next) => {
 exports.getAll = async (req, res, next) => {
     try {
         const rows = await AnnouncementModel.findAll();
-        res.json({ success: true, count: rows.length, data: rows.map(format) });
+        res.json({ success: true, count: rows.length, data: rows.map(r => format(r, { includeAdmin: true })) });
     } catch (err) { next(err); }
 };
 
@@ -71,7 +86,7 @@ exports.create = async (req, res, next) => {
             duration_minutes: durationMin,
             created_by: req.user.id
         });
-        res.status(201).json({ success: true, data: format(ann) });
+        res.status(201).json({ success: true, data: format(ann, { includeAdmin: true }) });
     } catch (err) {
         if (err.statusCode === 400) return res.status(400).json({ success: false, message: err.message });
         next(err);
@@ -85,8 +100,8 @@ exports.create = async (req, res, next) => {
  */
 exports.revoke = async (req, res, next) => {
     try {
-        const id = parseInt(req.params.id, 10);
-        if (!Number.isInteger(id)) return res.status(400).json({ success: false, message: 'ID invalide' });
+        const id = parseStrictId(req.params.id);
+        if (id === null) return res.status(400).json({ success: false, message: 'ID invalide' });
         const ok = await AnnouncementModel.revoke(id);
         if (!ok) return res.status(404).json({ success: false, message: 'Annonce introuvable ou déjà expirée' });
         res.json({ success: true, message: 'Annonce révoquée' });
@@ -100,8 +115,8 @@ exports.revoke = async (req, res, next) => {
  */
 exports.remove = async (req, res, next) => {
     try {
-        const id = parseInt(req.params.id, 10);
-        if (!Number.isInteger(id)) return res.status(400).json({ success: false, message: 'ID invalide' });
+        const id = parseStrictId(req.params.id);
+        if (id === null) return res.status(400).json({ success: false, message: 'ID invalide' });
         const ok = await AnnouncementModel.delete(id);
         if (!ok) return res.status(404).json({ success: false, message: 'Annonce introuvable' });
         res.json({ success: true, message: 'Annonce supprimée' });

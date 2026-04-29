@@ -104,18 +104,20 @@ class UserModel {
     }
 
     /**
-     * Mettre à jour le mot de passe
+     * Met à jour le mot de passe ET incrémente token_version dans une seule
+     * requête (atomique). Évite l'état partiel "password changé mais sessions
+     * non révoquées" si une seconde requête échouait.
+     * @returns {{ id, username, token_version }} ou undefined si user introuvable.
      */
-    static async updatePassword(id, newPassword) {
+    static async updatePasswordAndBumpVersion(id, newPassword) {
         const password_hash = await bcrypt.hash(newPassword, 10);
-        
         const result = await db.query(`
             UPDATE users
-            SET password_hash = $1
+            SET password_hash = $1,
+                token_version = token_version + 1
             WHERE id = $2
-            RETURNING id, username
+            RETURNING id, username, token_version
         `, [password_hash, id]);
-        
         return result.rows[0];
     }
 

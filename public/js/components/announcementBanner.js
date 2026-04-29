@@ -59,13 +59,25 @@ const AnnouncementBanner = {
     },
 
     async refresh() {
-        if (!Auth.isAuthenticated()) return;
+        if (!Auth.isAuthenticated()) {
+            // Logout / token révoqué : nettoyer affichage et stopper le polling.
+            this.cache = [];
+            this.stopPolling();
+            this.render();
+            return;
+        }
         try {
             const res = await API.announcements.getActive();
             this.cache = res.data || [];
             this.render();
-        } catch {
-            // silencieux : ne pas spammer la console si réseau down
+        } catch (err) {
+            // Si l'API renvoie 401 (session révoquée), faire le ménage.
+            if (err && (err.status === 401 || /401/.test(String(err.message || '')))) {
+                this.cache = [];
+                this.stopPolling();
+                this.render();
+            }
+            // sinon silencieux : ne pas spammer la console si réseau down
         }
     },
 
@@ -186,6 +198,18 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => AnnouncementBanner.init(), 600);
 });
 window.addEventListener('auth:login', () => AnnouncementBanner.init());
+
+// Logout dans l'onglet courant : nettoyer immédiatement.
+window.addEventListener('auth:logout', () => AnnouncementBanner.refresh());
+
+// Logout depuis un AUTRE onglet (force-logout par admin, déconnexion explicite,
+// expiration du token effacé) : l'événement natif `storage` détecte la
+// disparition de la clé `cngi_token` dans localStorage.
+window.addEventListener('storage', (e) => {
+    if (e.key === Auth.TOKEN_KEY && !e.newValue) {
+        AnnouncementBanner.refresh();
+    }
+});
 
 // Re-applique l'offset après changement de page SPA (la sidebar est rebuild)
 window.addEventListener('hashchange', () => {
