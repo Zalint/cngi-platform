@@ -1,4 +1,5 @@
-const CACHE_NAME = 'cngi-v1';
+// Bump à chaque release pour purger les anciens caches chez les utilisateurs.
+const CACHE_NAME = 'cngi-v2-2026-04-29';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

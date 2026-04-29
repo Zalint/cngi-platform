@@ -3,7 +3,14 @@ jest.mock('../../../src/config/db', () => require('../../helpers/db').createDbMo
 const db = require('../../../src/config/db');
 const GeometryModel = require('../../../src/models/geometry.model');
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+    jest.clearAllMocks();
+    // Le module geometry.model met en cache la limite max de features (TTL 30s).
+    // On purge le cache entre tests pour avoir un état déterministe.
+    if (typeof GeometryModel.invalidateMaxFeaturesCache === 'function') {
+        GeometryModel.invalidateMaxFeaturesCache();
+    }
+});
 
 describe('GeometryModel validators', () => {
     test('_validateKind accepte linestring/polygon', () => {
@@ -105,8 +112,16 @@ describe('GeometryModel.importGeoJSON', () => {
     test('rejette non FeatureCollection (400)', async () => {
         await expect(GeometryModel.importGeoJSON(1, { type: 'X' }, 1)).rejects.toMatchObject({ statusCode: 400 });
     });
-    test('rejette > 500 features (413)', async () => {
-        const features = Array.from({ length: 501 }, () => ({
+    test('rejette quand on dépasse la limite configurée (413)', async () => {
+        // La limite est lue depuis app_config (cache 30s). On force un retour à
+        // "pas de config" → le code retombe sur le défaut (2000). Pour
+        // déclencher le 413, on envoie 2001 features.
+        db.query.mockResolvedValueOnce({ rows: [] }); // SELECT app_config → 0 lignes
+        // Important : invalider le cache pour que la requête soit faite
+        if (typeof GeometryModel.invalidateMaxFeaturesCache === 'function') {
+            GeometryModel.invalidateMaxFeaturesCache();
+        }
+        const features = Array.from({ length: 2001 }, () => ({
             type: 'Feature',
             geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
             properties: {}
@@ -116,6 +131,7 @@ describe('GeometryModel.importGeoJSON', () => {
     });
     test('skip features invalides, importe le reste', async () => {
         const client = db.__client;
+        db.query.mockResolvedValueOnce({ rows: [] }); // SELECT app_config (limite features)
         db.query.mockResolvedValueOnce({ rows: [{ id: 1, code: 'DPGI' }] }); // structures
         client.query
             .mockResolvedValueOnce({}) // BEGIN
@@ -137,6 +153,7 @@ describe('GeometryModel.importGeoJSON', () => {
     });
     test('ROLLBACK si INSERT échoue', async () => {
         const client = db.__client;
+        db.query.mockResolvedValueOnce({ rows: [] }); // SELECT app_config (limite features)
         db.query.mockResolvedValueOnce({ rows: [] }); // structures
         client.query
             .mockResolvedValueOnce({}) // BEGIN
