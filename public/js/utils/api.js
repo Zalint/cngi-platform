@@ -95,6 +95,7 @@ const API = {
     auth: {
         login: (credentials) => API.post('/auth/login', credentials),
         logout: () => API.post('/auth/logout', {}),
+        logoutAllDevices: () => API.post('/auth/logout-all-devices', {}),
         getMe: () => API.get('/auth/me'),
         changePassword: (data) => API.post('/auth/change-password', data)
     },
@@ -106,7 +107,18 @@ const API = {
         create: (data) => API.post('/users', data),
         update: (id, data) => API.put(`/users/${id}`, data),
         delete: (id) => API.delete(`/users/${id}`),
-        getByStructure: (structureId) => API.get(`/users/structure/${structureId}`)
+        getByStructure: (structureId) => API.get(`/users/structure/${structureId}`),
+        getActiveSessions: (onlineMinutes = 5) => API.get(`/users/active-sessions?online_minutes=${onlineMinutes}`),
+        forceLogout: (id) => API.post(`/users/${id}/force-logout`, {})
+    },
+
+    // === Announcements (broadcast banner) ===
+    announcements: {
+        getActive: () => API.get('/announcements/active'),
+        getAll: () => API.get('/announcements'),
+        create: (data) => API.post('/announcements', data),
+        revoke: (id) => API.post(`/announcements/${id}/revoke`, {}),
+        delete: (id) => API.delete(`/announcements/${id}`)
     },
 
     // === Structures endpoints ===

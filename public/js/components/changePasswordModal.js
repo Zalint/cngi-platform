@@ -126,8 +126,10 @@ const ChangePasswordModal = {
         $submit.textContent = '⏳ Enregistrement...';
 
         try {
-            await API.auth.changePassword({ currentPassword, newPassword });
-            Toast.success('Mot de passe modifié avec succès.');
+            const res = await API.auth.changePassword({ currentPassword, newPassword });
+            // Le backend renvoie un token frais (les autres sessions sont révoquées).
+            if (res?.data?.token) Auth.setToken(res.data.token);
+            Toast.success('Mot de passe modifié. Vos autres sessions ont été déconnectées.');
             this.close();
         } catch (err) {
             console.error(err);

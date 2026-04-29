@@ -5,8 +5,11 @@ const AdminPage = {
         users: [],
         structures: [],
         configItems: [],
-        apiKeys: []
+        apiKeys: [],
+        sessions: null,
+        announcements: []
     },
+    sessionsRefreshTimer: null,
 
     async render() {
         if (!Auth.hasRole('admin')) {
@@ -64,6 +67,12 @@ const AdminPage = {
                         </button>
                         <button class="admin-tab" data-tab="api-keys" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
                             Clés API
+                        </button>
+                        <button class="admin-tab" data-tab="sessions" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
+                            Sessions actives
+                        </button>
+                        <button class="admin-tab" data-tab="announcements" style="padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
+                            Annonces
                         </button>
                         <button class="admin-tab" data-tab="trash" style="display:inline-flex;align-items:center;gap:6px;padding: 16px 24px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 600; color: #666;">
                             ${Icon.render('trash', 15, 'currentColor')} Corbeille
@@ -179,6 +188,324 @@ const AdminPage = {
             const res = await API.projects.listDeleted();
             this.data.deletedProjects = res.data || [];
         } catch (e) { this.data.deletedProjects = []; }
+    },
+
+    async loadAnnouncements() {
+        try {
+            const res = await API.announcements.getAll();
+            this.data.announcements = res.data || [];
+        } catch (err) {
+            console.error('loadAnnouncements', err);
+            this.data.announcements = [];
+        }
+    },
+
+    isAnnouncementActive(a) {
+        const now = Date.now();
+        const startsOk = !a.starts_at || new Date(a.starts_at).getTime() <= now;
+        const notExpired = !a.expires_at || new Date(a.expires_at).getTime() > now;
+        return startsOk && notExpired;
+    },
+
+    renderAnnouncements() {
+        const items = this.data.announcements || [];
+        const esc = (t) => String(t || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const levelLabel = { info: 'Info', warning: 'Avertissement', critical: 'Critique' };
+        const levelColor = { info: '#3b82f6', warning: '#f59e0b', critical: '#dc2626' };
+
+        const rows = items.map(a => {
+            const active = this.isAnnouncementActive(a);
+            const expiresLabel = a.expires_at
+                ? new Date(a.expires_at).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+                : 'Indéfinie';
+            return `
+                <tr>
+                    <td style="padding:10px 12px;">
+                        <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${levelColor[a.level]}22;color:${levelColor[a.level]};">${levelLabel[a.level] || a.level}</span>
+                    </td>
+                    <td style="padding:10px 12px;">${esc(a.message)}</td>
+                    <td style="padding:10px 12px;color:#62718D;font-size:12px;">${expiresLabel}</td>
+                    <td style="padding:10px 12px;">
+                        ${active
+                            ? '<span style="color:#16a34a;font-weight:600;font-size:12px;">● Active</span>'
+                            : '<span style="color:#94a3b8;font-size:12px;">Expirée</span>'}
+                    </td>
+                    <td style="padding:10px 12px;color:#62718D;font-size:12px;">${esc(a.author || '—')}</td>
+                    <td style="padding:10px 12px;text-align:right;">
+                        ${active ? `<button class="btn btn-secondary" style="font-size:11px;padding:4px 10px;margin-right:4px;" onclick="AdminPage.revokeAnnouncement(${a.id})">Révoquer</button>` : ''}
+                        <button class="btn-icon" onclick="AdminPage.deleteAnnouncement(${a.id})" title="Supprimer définitivement">${Icon.render('trash', 14, 'var(--color-danger)')}</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <div>
+                <div class="card" style="padding:16px;margin-bottom:20px;">
+                    <h3 style="margin:0 0 12px;font-size:15px;">Nouvelle annonce</h3>
+                    <div style="display:grid;grid-template-columns:1fr;gap:10px;">
+                        <textarea id="ann-message" class="form-control" rows="2" maxlength="1000" placeholder="Ex : L'application sera indisponible 5 minutes à 14h00 pour maintenance."></textarea>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
+                            <div style="flex:0 0 auto;">
+                                <label style="display:block;font-size:11px;color:#62718D;margin-bottom:4px;">Niveau</label>
+                                <select id="ann-level" class="form-control" style="min-width:140px;">
+                                    <option value="info">Info</option>
+                                    <option value="warning" selected>Avertissement</option>
+                                    <option value="critical">Critique</option>
+                                </select>
+                            </div>
+                            <div style="flex:0 0 auto;">
+                                <label style="display:block;font-size:11px;color:#62718D;margin-bottom:4px;">Disparaît dans</label>
+                                <select id="ann-duration" class="form-control" style="min-width:160px;">
+                                    <option value="15">15 minutes</option>
+                                    <option value="30">30 minutes</option>
+                                    <option value="60" selected>1 heure</option>
+                                    <option value="240">4 heures</option>
+                                    <option value="1440">1 jour</option>
+                                    <option value="">Indéfinie (à révoquer manuellement)</option>
+                                </select>
+                            </div>
+                            <div style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding-bottom:8px;">
+                                <input type="checkbox" id="ann-dismissable" checked>
+                                <label for="ann-dismissable" style="font-size:12px;cursor:pointer;">Masquable par les users</label>
+                            </div>
+                            <button class="btn btn-primary" style="margin-left:auto;" onclick="AdminPage.createAnnouncement()">
+                                Publier
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="padding:0;overflow:hidden;">
+                    <div style="padding:14px 16px;border-bottom:1px solid var(--color-border);">
+                        <h3 style="margin:0;font-size:15px;">Historique (${items.length})</h3>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="background:#f8fafc;text-align:left;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">
+                                <th style="padding:10px 12px;">Niveau</th>
+                                <th style="padding:10px 12px;">Message</th>
+                                <th style="padding:10px 12px;">Expire</th>
+                                <th style="padding:10px 12px;">État</th>
+                                <th style="padding:10px 12px;">Auteur</th>
+                                <th style="padding:10px 12px;text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows || '<tr><td colspan="6" style="padding:30px;text-align:center;color:#8896AB;">Aucune annonce</td></tr>'}</tbody>
+                    </table>
+                </div>
+                <p style="margin-top:12px;font-size:11px;color:#94a3b8;">
+                    Les utilisateurs voient le bandeau dans la minute qui suit la publication ou la révocation (polling 60s).
+                </p>
+            </div>
+        `;
+    },
+
+    async createAnnouncement() {
+        const message = document.getElementById('ann-message')?.value.trim();
+        const level = document.getElementById('ann-level')?.value || 'info';
+        const durationStr = document.getElementById('ann-duration')?.value;
+        const dismissable = document.getElementById('ann-dismissable')?.checked !== false;
+
+        if (!message) {
+            Toast.error('Le message ne peut pas être vide');
+            return;
+        }
+
+        // On envoie la DURÉE en minutes, pas une date. Le serveur fait
+        // expires_at = NOW() + INTERVAL → pas de problème de fuseau horaire.
+        const expires_in_minutes = durationStr ? parseInt(durationStr, 10) : null;
+
+        try {
+            await API.announcements.create({ message, level, dismissable, expires_in_minutes });
+            Toast.success('Annonce publiée');
+            await this.loadAnnouncements();
+            const content = document.getElementById('admin-content');
+            if (content) content.innerHTML = this.renderAnnouncements();
+            // Forcer le bandeau à se rafraîchir tout de suite côté admin
+            if (typeof AnnouncementBanner !== 'undefined') AnnouncementBanner.refresh();
+        } catch (err) {
+            Toast.error('Erreur : ' + (err.message || 'échec'));
+        }
+    },
+
+    revokeAnnouncement(id) {
+        Toast.confirm('Révoquer immédiatement cette annonce ?', async () => {
+            try {
+                await API.announcements.revoke(id);
+                Toast.success('Annonce révoquée');
+                await this.loadAnnouncements();
+                const content = document.getElementById('admin-content');
+                if (content) content.innerHTML = this.renderAnnouncements();
+                if (typeof AnnouncementBanner !== 'undefined') AnnouncementBanner.refresh();
+            } catch (err) {
+                Toast.error('Erreur : ' + (err.message || 'échec'));
+            }
+        }, { type: 'danger', confirmText: 'Révoquer' });
+    },
+
+    deleteAnnouncement(id) {
+        Toast.confirm('Supprimer définitivement cette annonce de l\'historique ?', async () => {
+            try {
+                await API.announcements.delete(id);
+                Toast.success('Annonce supprimée');
+                await this.loadAnnouncements();
+                const content = document.getElementById('admin-content');
+                if (content) content.innerHTML = this.renderAnnouncements();
+            } catch (err) {
+                Toast.error('Erreur : ' + (err.message || 'échec'));
+            }
+        }, { type: 'danger', confirmText: 'Supprimer' });
+    },
+
+    async loadSessions() {
+        try {
+            const res = await API.users.getActiveSessions(5);
+            this.data.sessions = res;
+        } catch (err) {
+            console.error('loadSessions error', err);
+            this.data.sessions = { stats: {}, data: [], error: err.message };
+        }
+    },
+
+    formatRelative(isoDate) {
+        if (!isoDate) return 'jamais';
+        const diff = Date.now() - new Date(isoDate).getTime();
+        const sec = Math.round(diff / 1000);
+        if (sec < 0) return 'maintenant';
+        if (sec < 60) return `il y a ${sec}s`;
+        const min = Math.round(sec / 60);
+        if (min < 60) return `il y a ${min} min`;
+        const h = Math.round(min / 60);
+        if (h < 24) return `il y a ${h} h`;
+        const d = Math.round(h / 24);
+        if (d < 30) return `il y a ${d} j`;
+        return new Date(isoDate).toLocaleDateString('fr-FR');
+    },
+
+    formatDate(isoDate) {
+        if (!isoDate) return '—';
+        const dt = new Date(isoDate);
+        return dt.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    },
+
+    renderSessions() {
+        const s = this.data.sessions;
+        if (!s) {
+            return `<div class="card" style="padding:40px;text-align:center;color:#8896AB;">Chargement...</div>`;
+        }
+        if (s.error) {
+            return `<div class="alert alert-error">Erreur : ${s.error}</div>`;
+        }
+        const stats = s.stats || {};
+        const users = s.data || [];
+
+        const statCard = (label, value, color) => `
+            <div style="flex:1;background:white;border:1px solid var(--color-border);border-radius:8px;padding:16px;text-align:center;">
+                <div style="font-size:28px;font-weight:700;color:${color};">${value}</div>
+                <div style="font-size:11px;color:#62718D;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;">${label}</div>
+            </div>
+        `;
+
+        const esc = (t) => { const v = String(t||''); return v.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); };
+
+        const currentUserId = (Auth.getUser() || {}).id;
+        const rows = users.map(u => {
+            const dot = u.is_online
+                ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,0.2);"></span>'
+                : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e0;"></span>';
+            const statusLabel = u.is_online ? 'En ligne' : (u.last_activity_at ? this.formatRelative(u.last_activity_at) : 'Jamais actif');
+            const isSelf = u.id === currentUserId;
+            const action = isSelf
+                ? '<span style="font-size:11px;color:#94a3b8;">vous</span>'
+                : `<button class="btn btn-secondary" style="font-size:11px;padding:4px 10px;" onclick="AdminPage.forceLogout(${u.id}, ${JSON.stringify(u.nom_complet).replace(/"/g, '&quot;')})">Forcer la déconnexion</button>`;
+            return `
+                <tr>
+                    <td style="padding:10px 12px;">${dot} ${esc(u.nom_complet)}</td>
+                    <td style="padding:10px 12px;color:#62718D;font-size:13px;">${esc(u.username)}</td>
+                    <td style="padding:10px 12px;">${esc(u.role)}</td>
+                    <td style="padding:10px 12px;">${esc(u.structure_code || '—')}</td>
+                    <td style="padding:10px 12px;color:#62718D;">${this.formatDate(u.last_login)}</td>
+                    <td style="padding:10px 12px;color:${u.is_online ? '#16a34a' : '#62718D'};font-weight:${u.is_online ? '600' : 'normal'};">${statusLabel}</td>
+                    <td style="padding:10px 12px;text-align:right;">${action}</td>
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <div>
+                <div style="display:flex;gap:12px;margin-bottom:20px;">
+                    ${statCard('En ligne', stats.online || 0, '#16a34a')}
+                    ${statCard('Actifs 24h', stats.active_24h || 0, '#0ea5e9')}
+                    ${statCard('Actifs 7j', stats.active_7d || 0, '#6366f1')}
+                    ${statCard('Total actifs', stats.total || 0, '#1e3c72')}
+                    ${statCard('Jamais connectés', stats.never_logged || 0, '#94a3b8')}
+                </div>
+                <div class="card" style="padding:0;overflow:hidden;">
+                    <div style="padding:14px 16px;border-bottom:1px solid var(--color-border);display:flex;justify-content:space-between;align-items:center;">
+                        <h3 style="margin:0;font-size:15px;">Utilisateurs (seuil "en ligne" = ${s.online_threshold_minutes || 5} min)</h3>
+                        <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="AdminPage.refreshSessions()">Rafraîchir</button>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="background:#f8fafc;text-align:left;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">
+                                <th style="padding:10px 12px;">Utilisateur</th>
+                                <th style="padding:10px 12px;">Username</th>
+                                <th style="padding:10px 12px;">Rôle</th>
+                                <th style="padding:10px 12px;">Structure</th>
+                                <th style="padding:10px 12px;">Dernière connexion</th>
+                                <th style="padding:10px 12px;">Activité</th>
+                                <th style="padding:10px 12px;text-align:right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows || '<tr><td colspan="7" style="padding:30px;text-align:center;color:#8896AB;">Aucun utilisateur</td></tr>'}</tbody>
+                    </table>
+                </div>
+                <p style="margin-top:12px;font-size:11px;color:#94a3b8;">Auto-rafraîchi toutes les 30 secondes.</p>
+            </div>
+        `;
+    },
+
+    forceLogout(userId, userName) {
+        Toast.confirm(
+            `Forcer la déconnexion de ${userName} ? Toutes ses sessions actives seront révoquées immédiatement.`,
+            async () => {
+                try {
+                    await API.users.forceLogout(userId);
+                    Toast.success('Sessions révoquées');
+                    await this.refreshSessions();
+                } catch (err) {
+                    Toast.error('Erreur : ' + (err.message || 'échec'));
+                }
+            },
+            { type: 'danger', confirmText: 'Forcer la déconnexion' }
+        );
+    },
+
+    async refreshSessions() {
+        await this.loadSessions();
+        const content = document.getElementById('admin-content');
+        if (content && document.querySelector('.admin-tab.active')?.getAttribute('data-tab') === 'sessions') {
+            content.innerHTML = this.renderSessions();
+        }
+    },
+
+    startSessionsAutoRefresh() {
+        this.stopSessionsAutoRefresh();
+        this.sessionsRefreshTimer = setInterval(() => {
+            if (document.querySelector('.admin-tab.active')?.getAttribute('data-tab') === 'sessions') {
+                this.refreshSessions();
+            } else {
+                this.stopSessionsAutoRefresh();
+            }
+        }, 30000);
+    },
+
+    stopSessionsAutoRefresh() {
+        if (this.sessionsRefreshTimer) {
+            clearInterval(this.sessionsRefreshTimer);
+            this.sessionsRefreshTimer = null;
+        }
     },
 
     renderTrash() {
@@ -487,8 +814,22 @@ const AdminPage = {
                 const tabName = tab.getAttribute('data-tab');
                 const content = document.getElementById('admin-content');
                 
+                // Toujours arrêter l'auto-refresh sessions quand on change d'onglet
+                if (tabName !== 'sessions') this.stopSessionsAutoRefresh();
+
                 if (tabName === 'users') {
                     content.innerHTML = this.renderUsers();
+                } else if (tabName === 'announcements') {
+                    content.innerHTML = '<div class="card" style="padding:40px;text-align:center;color:#8896AB;">Chargement...</div>';
+                    this.loadAnnouncements().then(() => {
+                        content.innerHTML = this.renderAnnouncements();
+                    });
+                } else if (tabName === 'sessions') {
+                    content.innerHTML = '<div class="card" style="padding:40px;text-align:center;color:#8896AB;">Chargement...</div>';
+                    this.loadSessions().then(() => {
+                        content.innerHTML = this.renderSessions();
+                        this.startSessionsAutoRefresh();
+                    });
                 } else if (tabName === 'structures') {
                     content.innerHTML = this.renderStructures();
                 } else if (tabName === 'config') {

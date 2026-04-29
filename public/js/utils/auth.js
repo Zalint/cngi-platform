@@ -43,6 +43,15 @@ const Auth = {
     },
 
     /**
+     * Met à jour uniquement le token (utilisé après "logout all devices" ou
+     * changement de mot de passe — le serveur renvoie un token frais pour
+     * garder la session courante alors que les autres sont révoquées).
+     */
+    setToken(token) {
+        if (token) localStorage.setItem(this.TOKEN_KEY, token);
+    },
+
+    /**
      * Vérifier si l'utilisateur a un rôle spécifique
      */
     hasRole(role) {
