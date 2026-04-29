@@ -92,8 +92,8 @@ const UsersPage = {
                                 </div>
 
                                 <div class="form-group">
-                                    <label>Email *</label>
-                                    <input type="email" id="email" class="form-control" required>
+                                    <label>Email <span style="color:#94a3b8;font-weight:400;">(facultatif)</span></label>
+                                    <input type="email" id="email" class="form-control" placeholder="utilisateur@exemple.com">
                                 </div>
 
                                 <div class="form-group">
@@ -357,7 +357,7 @@ const UsersPage = {
         const role = document.getElementById('role').value;
         const userData = {
             username: document.getElementById('username').value.trim(),
-            email: document.getElementById('email').value.trim(),
+            email: document.getElementById('email').value.trim() || null,
             first_name: document.getElementById('first_name').value.trim(),
             last_name: document.getElementById('last_name').value.trim() || null,
             role: role,

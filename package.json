@@ -14,7 +14,9 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
     "collectCoverageFrom": [
       "src/**/*.js",
       "!src/server.js",
@@ -22,7 +24,9 @@
       "!src/config/**",
       "!src/routes/**"
     ],
-    "setupFiles": ["<rootDir>/tests/setup.js"]
+    "setupFiles": [
+      "<rootDir>/tests/setup.js"
+    ]
   },
   "keywords": [
     "cngi",
@@ -44,7 +48,8 @@
     "multer": "^1.4.5-lts.1",
     "openai": "^6.34.0",
     "pdfkit": "^0.18.0",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "resend": "^6.12.2"
   },
   "devDependencies": {
     "jest": "^30.3.0",

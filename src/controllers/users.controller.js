@@ -1,6 +1,7 @@
 const UserModel = require('../models/user.model');
 const db = require('../config/db');
 const trackActivity = require('../middlewares/trackActivity');
+const emailService = require('../services/email.service');
 const { validateUserData } = require('../utils/validators');
 
 /**
@@ -195,7 +196,11 @@ exports.createUser = async (req, res, next) => {
         }
         
         const user = await UserModel.create(req.body);
-        
+
+        // Email de bienvenue (no-op si pas d'email ou Resend non configuré).
+        // Fire-and-forget : ne bloque ni n'échoue la création de compte.
+        emailService.sendWelcomeEmail(user).catch(() => {});
+
         res.status(201).json({
             success: true,
             message: 'Utilisateur créé avec succès',
