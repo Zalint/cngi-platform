@@ -35,11 +35,15 @@ const Auth = {
     },
 
     /**
-     * Déconnecter l'utilisateur
+     * Déconnecter l'utilisateur. Émet un événement `auth:logout` pour que les
+     * composants (bandeau d'annonces, etc.) puissent réagir immédiatement
+     * dans l'onglet courant. Pour les autres onglets, l'événement natif
+     * `storage` est écouté ailleurs (fiable cross-tab).
      */
     logout() {
         localStorage.removeItem(this.TOKEN_KEY);
         localStorage.removeItem(this.USER_KEY);
+        try { window.dispatchEvent(new Event('auth:logout')); } catch {}
     },
 
     /**

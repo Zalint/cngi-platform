@@ -14,3 +14,10 @@ CREATE INDEX IF NOT EXISTS idx_users_last_activity ON users(last_activity_at DES
 -- password). Le JWT embarque la version au moment de la signature ; protect
 -- rejette si la version du token != version courante en DB.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
+-- Bandeau d'annonces (broadcast admin → users). Voir db/init.js pour le
+-- CREATE TABLE complet, qui est exécuté au démarrage et ajoute aussi la
+-- contrainte CHECK (expires_at IS NULL OR expires_at >= starts_at) en mode
+-- NOT VALID (pour ne pas crasher si des lignes legacy violent la règle).
+-- Une fois les données nettoyées, lancer manuellement :
+--     ALTER TABLE announcements VALIDATE CONSTRAINT announcements_valid_window;

@@ -316,13 +316,18 @@ const AdminPage = {
         // expires_at = NOW() + INTERVAL → pas de problème de fuseau horaire.
         const expires_in_minutes = durationStr ? parseInt(durationStr, 10) : null;
 
+        // Capture l'onglet actif AVANT l'await — si l'utilisateur change d'onglet
+        // pendant la requête, on ne doit pas écraser le contenu du nouvel onglet.
+        const initialTab = this.currentTab;
         try {
             await API.announcements.create({ message, level, dismissable, expires_in_minutes });
             Toast.success('Annonce publiée');
             await this.loadAnnouncements();
-            const content = document.getElementById('admin-content');
-            if (content) content.innerHTML = this.renderAnnouncements();
-            // Forcer le bandeau à se rafraîchir tout de suite côté admin
+            if (this.currentTab === initialTab) {
+                const content = document.getElementById('admin-content');
+                if (content) content.innerHTML = this.renderAnnouncements();
+            }
+            // Le bandeau lui-même est indépendant de l'onglet actif → toujours refresh.
             if (typeof AnnouncementBanner !== 'undefined') AnnouncementBanner.refresh();
         } catch (err) {
             Toast.error('Erreur : ' + (err.message || 'échec'));
@@ -330,13 +335,16 @@ const AdminPage = {
     },
 
     revokeAnnouncement(id) {
+        const initialTab = this.currentTab;
         Toast.confirm('Révoquer immédiatement cette annonce ?', async () => {
             try {
                 await API.announcements.revoke(id);
                 Toast.success('Annonce révoquée');
                 await this.loadAnnouncements();
-                const content = document.getElementById('admin-content');
-                if (content) content.innerHTML = this.renderAnnouncements();
+                if (this.currentTab === initialTab) {
+                    const content = document.getElementById('admin-content');
+                    if (content) content.innerHTML = this.renderAnnouncements();
+                }
                 if (typeof AnnouncementBanner !== 'undefined') AnnouncementBanner.refresh();
             } catch (err) {
                 Toast.error('Erreur : ' + (err.message || 'échec'));
@@ -345,13 +353,18 @@ const AdminPage = {
     },
 
     deleteAnnouncement(id) {
+        const initialTab = this.currentTab;
         Toast.confirm('Supprimer définitivement cette annonce de l\'historique ?', async () => {
             try {
                 await API.announcements.delete(id);
                 Toast.success('Annonce supprimée');
                 await this.loadAnnouncements();
-                const content = document.getElementById('admin-content');
-                if (content) content.innerHTML = this.renderAnnouncements();
+                if (this.currentTab === initialTab) {
+                    const content = document.getElementById('admin-content');
+                    if (content) content.innerHTML = this.renderAnnouncements();
+                }
+                // Le bandeau peut être encore affiché si l'annonce était active : refresh.
+                if (typeof AnnouncementBanner !== 'undefined') AnnouncementBanner.refresh();
             } catch (err) {
                 Toast.error('Erreur : ' + (err.message || 'échec'));
             }
@@ -817,16 +830,24 @@ const AdminPage = {
                 // Toujours arrêter l'auto-refresh sessions quand on change d'onglet
                 if (tabName !== 'sessions') this.stopSessionsAutoRefresh();
 
+                // Marquer l'onglet actif pour ignorer les callbacks async obsolètes
+                // (cas : l'utilisateur clique announcements puis sessions avant la
+                // fin du fetch ; sans ce check, le callback announcements écraserait
+                // le contenu du tab sessions).
+                this.currentTab = tabName;
+
                 if (tabName === 'users') {
                     content.innerHTML = this.renderUsers();
                 } else if (tabName === 'announcements') {
                     content.innerHTML = '<div class="card" style="padding:40px;text-align:center;color:#8896AB;">Chargement...</div>';
                     this.loadAnnouncements().then(() => {
+                        if (this.currentTab !== 'announcements') return;
                         content.innerHTML = this.renderAnnouncements();
                     });
                 } else if (tabName === 'sessions') {
                     content.innerHTML = '<div class="card" style="padding:40px;text-align:center;color:#8896AB;">Chargement...</div>';
                     this.loadSessions().then(() => {
+                        if (this.currentTab !== 'sessions') return;
                         content.innerHTML = this.renderSessions();
                         this.startSessionsAutoRefresh();
                     });
@@ -836,6 +857,7 @@ const AdminPage = {
                     content.innerHTML = this.renderConfig();
                 } else if (tabName === 'api-keys') {
                     this.loadApiKeys().then(() => {
+                        if (this.currentTab !== 'api-keys') return;
                         content.innerHTML = this.renderApiKeys();
                     });
                 } else if (tabName === 'docs') {
@@ -843,6 +865,7 @@ const AdminPage = {
                 } else if (tabName === 'trash') {
                     content.innerHTML = '<div class="card" style="padding:40px;text-align:center;color:#8896AB;">Chargement...</div>';
                     this.loadTrash().then(() => {
+                        if (this.currentTab !== 'trash') return;
                         content.innerHTML = this.renderTrash();
                     });
                 }

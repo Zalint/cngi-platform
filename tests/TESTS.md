@@ -313,7 +313,7 @@ Matrice `canUserAccessProject` × 7 rôles :
 - `findAll/findById/findByUsername/findByStructure` : params et SQL
 - `create` : **bcrypt réellement appelé** (hash vérifié avec `compare`)
 - Optionnels normalisés en NULL
-- `updatePassword` hashe
+- `updatePasswordAndBumpVersion` hashe + bump token_version
 - `comparePassword` true/false
 - `usernameExists / emailExists` true/false
 - `delete / updateLastLogin`

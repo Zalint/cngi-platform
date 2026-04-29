@@ -127,10 +127,20 @@ const ChangePasswordModal = {
 
         try {
             const res = await API.auth.changePassword({ currentPassword, newPassword });
-            // Le backend renvoie un token frais (les autres sessions sont révoquées).
-            if (res?.data?.token) Auth.setToken(res.data.token);
-            Toast.success('Mot de passe modifié. Vos autres sessions ont été déconnectées.');
             this.close();
+            if (res?.data?.token) {
+                // Le backend a renvoyé un token frais : la session courante reste valide,
+                // les autres sessions sont déconnectées.
+                Auth.setToken(res.data.token);
+                Toast.success('Mot de passe modifié. Vos autres sessions ont été déconnectées.');
+            } else {
+                // Pas de token frais : par sécurité on déconnecte (sinon le user aurait
+                // un JWT révoqué et toutes ses requêtes échoueraient en 401 silencieux).
+                Toast.success('Mot de passe modifié. Veuillez vous reconnecter.');
+                Auth.logout();
+                setTimeout(() => { window.location.href = '/'; }, 800);
+            }
+            return;
         } catch (err) {
             console.error(err);
             Toast.error(err?.message || 'Erreur lors du changement de mot de passe.');
