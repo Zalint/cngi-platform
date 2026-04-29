@@ -34,25 +34,40 @@ const APP_URL = process.env.APP_URL || 'https://www.cngiri.com';
 
 /**
  * Envoi générique. Ne lève jamais : log et retourne false en cas d'échec.
- * @returns {Promise<boolean>} true si envoyé, false sinon (no-op ou erreur).
+ *
+ * Le SDK Resend renvoie `{ data, error }` (il ne throw PAS sur les erreurs
+ * API type "domain not verified" ou "rate limited") — on doit inspecter
+ * `error` explicitement pour distinguer succès et échec.
+ *
+ * Aucun log ne contient l'adresse du destinataire (PII) ni le sujet ; on
+ * ne log que des messages génériques + les erreurs SDK.
+ *
+ * @returns {Promise<boolean>} true uniquement si envoi accepté par Resend.
  */
 async function send({ to, subject, html, text }) {
     if (!to) return false;
     const client = getClient();
     if (!client) {
-        // Pas de clé : log discret en dev pour faciliter le debug, sinon silence.
+        // Pas de clé : signal discret en dev, silencieux en prod. Pas de PII.
         if (process.env.NODE_ENV === 'development') {
-            console.log(`[email] skip (no RESEND_API_KEY) → ${to} | ${subject}`);
+            console.log('[email] skipped (no RESEND_API_KEY)');
         }
         return false;
     }
+    let response;
     try {
-        await client.emails.send({ from: FROM, to, subject, html, text });
-        return true;
+        response = await client.emails.send({ from: FROM, to, subject, html, text });
     } catch (err) {
-        console.error(`[email] échec envoi à ${to} :`, err?.message || err);
+        // Erreur réseau / SDK (rare car le SDK gère les erreurs API via response.error)
+        console.error('[email] send failed:', err?.message || 'unknown error');
         return false;
     }
+    if (response?.error) {
+        // Erreurs API : domain not verified, rate limit, payload invalid…
+        console.error('[email] send failed:', response.error.message || response.error.name || 'API error');
+        return false;
+    }
+    return true;
 }
 
 // ==================== Templates ====================

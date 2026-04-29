@@ -355,9 +355,9 @@ const UsersPage = {
         event.preventDefault();
 
         const role = document.getElementById('role').value;
+        const emailVal = document.getElementById('email').value.trim();
         const userData = {
             username: document.getElementById('username').value.trim(),
-            email: document.getElementById('email').value.trim() || null,
             first_name: document.getElementById('first_name').value.trim(),
             last_name: document.getElementById('last_name').value.trim() || null,
             role: role,
@@ -367,6 +367,11 @@ const UsersPage = {
             territorial_value: role === 'commandement_territorial' ? (document.getElementById('territorial_value').value || null) : null,
             title: (role === 'superviseur' || role === 'commandement_territorial') ? (document.getElementById('title').value.trim() || null) : null
         };
+        // Email : si vide on OMET le champ. Côté update, COALESCE($1, email) traite
+        // undefined comme "ne pas toucher" ; envoyer null écraserait silencieusement
+        // (en pratique COALESCE garderait l'ancien, ce qui est trompeur). En create,
+        // l'absence du champ → INSERT NULL, comportement attendu.
+        if (emailVal) userData.email = emailVal;
 
         const password = document.getElementById('password').value;
         if (password) {
