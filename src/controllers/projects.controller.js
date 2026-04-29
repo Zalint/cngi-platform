@@ -1,9 +1,35 @@
 const ProjectModel = require('../models/project.model');
 const ProjectStructure = require('../models/projectStructure.model');
 const NotificationModel = require('../models/notification.model');
+const UserModel = require('../models/user.model');
+const emailService = require('../services/email.service');
 const db = require('../config/db');
 const { validateProjectData, validateProjectDataForUpdate } = require('../utils/validators');
 const { canUserAccessProject, canUserModifyProject, isDirecteurOfProject } = require('../utils/projectAccess');
+
+/**
+ * Helper : envoie un email à un utilisateur s'il a une adresse, sinon no-op.
+ * Fire-and-forget : ne casse jamais le flux métier.
+ */
+async function _emailMeasureAssigned(userId, measure, project) {
+    try {
+        const user = await UserModel.findById(userId);
+        if (user?.email) await emailService.sendMeasureAssignedEmail({ user, measure, project });
+    } catch (err) {
+        console.error('Email measure_assigned failed:', err?.message || err);
+    }
+}
+
+async function _emailMeasureStatusChanged(userId, measure, project, oldStatus, newStatus) {
+    try {
+        const user = await UserModel.findById(userId);
+        if (user?.email) {
+            await emailService.sendMeasureStatusChangedEmail({ user, measure, project, oldStatus, newStatus });
+        }
+    } catch (err) {
+        console.error('Email measure_status_changed failed:', err?.message || err);
+    }
+}
 
 const STATUS_LABELS = {
     preconisee:   'Préconisée',
@@ -481,7 +507,7 @@ exports.assignUserToMeasure = async (req, res, next) => {
 
         const updated = await ProjectModel.assignUserToMeasure(measureId, userId);
 
-        // Notification à l'utilisateur assigné (best-effort, non bloquant)
+        // Notification + email à l'utilisateur assigné (best-effort, non bloquant)
         if (parseInt(userId) !== req.user.id) {
             const projTitle = measure.title || `Projet #${req.params.projectId}`;
             const measureDesc = (updated?.description || '').slice(0, 120);
@@ -492,6 +518,7 @@ exports.assignUserToMeasure = async (req, res, next) => {
                 body: measureDesc || null,
                 linkUrl: `#/my-measures`
             }).catch(err => console.error('Notification create failed:', err));
+            _emailMeasureAssigned(parseInt(userId), updated, { title: projTitle });
         }
 
         res.json({ success: true, message: 'Utilisateur assigné à la mesure', data: updated });
@@ -529,7 +556,7 @@ exports.reassignMeasure = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Mesure non trouvée pour ce projet' });
         }
 
-        // Notification si nouvelle assignation utilisateur (≠ actuel)
+        // Notification + email si nouvelle assignation utilisateur (≠ actuel)
         if (assigned_user_id && parseInt(assigned_user_id) !== req.user.id) {
             NotificationModel.create({
                 userId: parseInt(assigned_user_id),
@@ -538,6 +565,10 @@ exports.reassignMeasure = async (req, res, next) => {
                 body: (updated.description || '').slice(0, 120) || null,
                 linkUrl: `#/my-measures`
             }).catch(err => console.error('Notification create failed:', err));
+            // On charge le projet une fois pour avoir le titre dans l'email.
+            ProjectModel.findById(projectId)
+                .then(p => _emailMeasureAssigned(parseInt(assigned_user_id), updated, p))
+                .catch(() => {});
         }
 
         res.json({ success: true, message: 'Mesure réassignée', data: updated });
@@ -577,6 +608,7 @@ exports.updateMeasureStatus = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'Accès refusé' });
         }
 
+        const oldStatus = measure.status;
         const updated = await ProjectModel.updateMeasureStatus(measureId, status, constraints);
 
         // Notifier tous les "watchers" du projet/mesure : admins, directeur de
@@ -591,13 +623,19 @@ exports.updateMeasureStatus = async (req, res, next) => {
             const projTitle = project.title || `Projet #${req.params.projectId}`;
             const body = (measure.description || '').slice(0, 140) || null;
             const link = `#/projects/${req.params.projectId}`;
-            return Promise.all(userIds.map(uid => NotificationModel.create({
+            // Notifications in-app
+            const notifs = userIds.map(uid => NotificationModel.create({
                 userId: uid,
                 type: 'measure_status_changed',
                 title: `Statut changé → ${statusLabel} · ${projTitle}`,
                 body,
                 linkUrl: link
-            })));
+            }));
+            // Emails (no-op pour ceux sans email)
+            for (const uid of userIds) {
+                _emailMeasureStatusChanged(uid, measure, project, oldStatus, status);
+            }
+            return Promise.all(notifs);
         }).catch(err => console.error('Notify watchers failed:', err));
 
         res.json({ success: true, message: 'Statut de la mesure mis à jour', data: updated });

@@ -58,4 +58,13 @@ function trackActivity(req, res, next) {
 // Exposé pour tests.
 trackActivity._reset = () => lastWritten.clear();
 
+/**
+ * Retire un user de la map du throttle. Utilisé après un force-logout admin
+ * pour que la prochaine activité du user (post-reconnexion) écrive
+ * immédiatement last_activity_at au lieu d'être throttled.
+ */
+trackActivity.clearUser = (userId) => {
+    if (userId) lastWritten.delete(userId);
+};
+
 module.exports = trackActivity;
