@@ -608,8 +608,9 @@ const AdminPage = {
     },
 
     renderDocumentation() {
-        const section = (title, body) => `
-            <div style="margin-bottom:32px;">
+        // Helpers de mise en forme
+        const section = (id, title, body) => `
+            <div id="doc-${id}" style="margin-bottom:32px;scroll-margin-top:80px;">
                 <h2 style="color:#202B5D;border-bottom:2px solid #3794C4;padding-bottom:6px;margin-bottom:16px;">${title}</h2>
                 ${body}
             </div>`;
@@ -622,6 +623,60 @@ const AdminPage = {
                 </table>
             </div>`;
 
+        const note = (color, body) => `
+            <p style="background:${color}22;border-left:3px solid ${color};padding:10px 12px;font-size:12px;border-radius:0 6px 6px 0;margin:8px 0;">${body}</p>`;
+
+        const step = (n, title, body) => `
+            <div style="display:flex;gap:12px;margin-bottom:12px;">
+                <div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:#3794C4;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">${n}</div>
+                <div style="flex:1;"><strong style="color:#202B5D;">${title}</strong><div style="font-size:13px;color:#475569;">${body}</div></div>
+            </div>`;
+
+        // Échappement HTML — appliqué à toute valeur venant de la DB (structures,
+        // configItems) avant interpolation, pour neutraliser un éventuel injection
+        // d'un admin malveillant ou d'un compte compromis.
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({
+            '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+        }[c]));
+
+        // Données dynamiques
+        const structures = (this.data.structures || []).slice().sort((a, b) => (a.code || '').localeCompare(b.code || ''));
+        const cfg = this.data.configItems || [];
+        const findCfg = (cat, val) => cfg.find(c => c.category === cat && c.value === val);
+        const maxFileSizeMb = parseInt(findCfg('upload_limits', 'max_file_size_mb')?.label || '5', 10);
+        const geometryMax = parseInt(findCfg('import_limits', 'geometry_max_features')?.label || '2000', 10);
+        const mapLayers = cfg.filter(c => c.category === 'map_layers' && c.is_active)
+                              .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+        // Sommaire (table des matières cliquable)
+        const TOC = [
+            ['mission',     '🎯 Mission'],
+            ['roles',       '👥 Rôles : qui peut faire quoi'],
+            ['structures',  '🏢 Structures'],
+            ['workflow',    '🔄 Cycle de vie d\'un projet'],
+            ['create-proj', '📦 Créer un projet (pas-à-pas)'],
+            ['measures',    '🔧 Mesures : créer, assigner, suivre'],
+            ['cartography', '🗺️ Sites, localités, géométries'],
+            ['geojson',     '📥 Import GeoJSON'],
+            ['map-layers',  '🌍 Fonds de carte'],
+            ['observations','🗣️ Directives du Ministre'],
+            ['pv',          '📋 PV du Commandement Territorial'],
+            ['forms',       '📝 Formulaires dynamiques'],
+            ['notifs',      '🔔 Notifications et emails'],
+            ['sessions',    '🔐 Sessions, mot de passe, sécurité'],
+            ['announce',    '📣 Annonces broadcast'],
+            ['api-keys',    '🔑 Clés API'],
+            ['limits',      '📏 Limites techniques'],
+            ['glossary',    '📖 Glossaire']
+        ];
+        const tocHtml = `
+            <div style="background:#f0f4f8;padding:14px 18px;border-radius:8px;margin-bottom:24px;border-left:3px solid #3794C4;">
+                <div style="font-weight:700;color:#202B5D;font-size:13px;margin-bottom:8px;">Sommaire</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;">
+                    ${TOC.map(([id, label]) => `<a href="#doc-${id}" style="color:#3794C4;text-decoration:none;">${label}</a>`).join('')}
+                </div>
+            </div>`;
+
         return `
             <div class="card" style="padding:30px;line-height:1.6;">
                 <div style="background:linear-gradient(135deg,#202B5D 0%,#3794C4 100%);color:white;padding:24px;border-radius:10px;margin-bottom:32px;">
@@ -629,167 +684,390 @@ const AdminPage = {
                     <p style="margin:0;opacity:0.9;">Guide de référence des rôles, entités et concepts de la plateforme.</p>
                 </div>
 
-                ${section('🎯 Mission de la plateforme', `
-                    <p>La plateforme <strong>CNGIRI</strong> (Comité National de Gestion Intégrée du Risque d'Inondation) centralise
-                    le suivi des projets, mesures et interventions liés à la gestion des inondations au Sénégal. Elle fait travailler
-                    ensemble les structures techniques (ONAS, BNSP, DPGI…), le commandement territorial (Gouverneurs, Préfets, Sous-préfets)
-                    et la tutelle ministérielle.</p>
-                `)}
+                ${tocHtml}
 
-                ${section('👥 Rôles utilisateur', `
-                    <p>La plateforme définit <strong>7 rôles</strong>. Chaque utilisateur a exactement un rôle, ce qui détermine ce qu'il voit et peut faire.</p>
-                    ${table(
-                        ['Rôle', 'Persona', 'Voit', 'Peut créer / modifier'],
-                        [
-                            ['<strong>Admin</strong>', 'Administrateur système', 'Tout', 'Utilisateurs, structures, configuration, clés API, tous projets'],
-                            ['<strong>Superviseur</strong>', 'Ministre / cabinet', 'Tous les projets', 'Observations (directives adressées aux structures)'],
-                            ['<strong>Commandement Territorial</strong>', 'Gouverneur (région) · Préfet (département) · Sous-préfet (arrondissement)', 'Projets de son territoire uniquement', 'PV de visite liés à son territoire'],
-                            ['<strong>Directeur</strong>', 'Directeur de structure (ex. DG ONAS)', 'Projets de sa structure', 'Projets de sa structure, assignations de mesures'],
-                            ['<strong>Utilisateur</strong>', 'Agent opérationnel d\'une structure', 'Projets de sa structure', 'Projets de sa structure, mise à jour statut des mesures qui lui sont assignées'],
-                            ['<strong>Auditeur</strong> 🔍', 'Cour des Comptes · IGE · Bailleur (BM, BAD, AFD) · Conseiller', 'Tout (y compris données financières) — scopable sur une structure', '<em>Rien</em> — lecture seule. Peut exporter Excel et générer rapport IA.'],
-                            ['<strong>Lecteur</strong> 👁', 'Communicant · journaliste accrédité · personnel interne · visiteur', 'Tout SAUF les montants financiers — scopable sur une structure', '<em>Rien</em> — lecture seule, pas d\'export, pas de rapport IA.']
-                        ]
-                    )}
-                    <p style="background:#fff8e1;border-left:3px solid #f39c12;padding:10px;font-size:12px;">
-                        <strong>Note :</strong> le Superviseur et le Commandement Territorial n'appartiennent à <em>aucune</em> structure technique — ils observent et pilotent.
-                        Les rôles <strong>Auditeur</strong> et <strong>Lecteur</strong> sont des profils de lecture seule : aucune écriture possible, quel que soit le contexte.
-                    </p>
-                    <p style="background:#e0f2fe;border-left:3px solid #3794C4;padding:10px;font-size:12px;">
-                        <strong>Scope global vs. scope structure :</strong> pour <code>lecteur</code> et <code>auditeur</code>, le champ <em>Structure</em> au moment de la création de l'utilisateur détermine la portée.
-                        <br>• <strong>Sans structure</strong> → lecteur/auditeur <em>global</em> : voit tous les projets, toutes les structures.
-                        <br>• <strong>Avec une structure</strong> → lecteur/auditeur <em>scopé</em> : ne voit que les projets et PV rattachés à cette structure. Exemple : un bailleur AFD qui finance uniquement des projets ONAS → rôle <em>auditeur</em> scopé sur ONAS.
-                    </p>
-                `)}
-
-                ${section('⭐ Le « Chef de projet »', `
-                    <p><strong>Ce n'est pas un rôle</strong>, mais une <em>désignation</em> faite sur un projet (champ
-                    <code>project_manager_id</code>). N'importe quel utilisateur ou directeur peut être désigné chef de projet au moment
-                    de la création du projet.</p>
-                    ${table(
-                        ['Action', 'Chef de projet', 'Utilisateur lambda', 'Admin'],
-                        [
-                            ['Assigner un utilisateur à une mesure', '✅', '❌', '✅'],
-                            ['Réassigner une mesure (structure + utilisateur)', '✅', '❌', '✅'],
-                            ['Modifier le statut d\'une mesure', '✅ (toutes)', '✅ uniquement celles qui lui sont assignées', '✅'],
-                            ['Modifier les infos du projet', '✅ (s\'il est de la structure)', '✅ (s\'il est de la structure)', '✅']
-                        ]
-                    )}
-                `)}
-
-                ${section('🏢 Structures', `
-                    <p>Les <strong>structures</strong> sont les organismes publics qui portent les projets CNGIRI. Chaque utilisateur
-                    (hors admin/superviseur/commandement) appartient à <em>une</em> structure et ne voit que les projets qui lui sont rattachés.</p>
-                    ${table(
-                        ['Code', 'Nom complet', 'Rôle métier'],
-                        [
-                            ['<strong>DPGI</strong>', 'Direction de la Prévention et de la Gestion des Inondations', 'Coordination / prévention'],
-                            ['<strong>ONAS</strong>', 'Office National de l\'Assainissement du Sénégal', 'Assainissement, eaux usées, drainage'],
-                            ['<strong>BNSP</strong>', 'Brigade Nationale des Sapeurs-Pompiers', 'Interventions d\'urgence et secours'],
-                            ['<strong>CETUD</strong>', 'Conseil Exécutif des Transports Urbains de Dakar', 'Infrastructures de transport urbain'],
-                            ['<strong>AGEROUTE</strong>', 'Agence des Travaux et de Gestion des Routes', 'Entretien et gestion du réseau routier'],
-                            ['<strong>DPC</strong>', 'Direction de la Protection Civile', 'Coordination de la protection civile']
-                        ]
-                    )}
-                    <p style="font-size:12px;color:#62718D;">Un projet a une structure <strong>principale</strong>, plus éventuellement des structures <strong>secondaires</strong> qui y contribuent.</p>
-                `)}
-
-                ${section('📦 Projet', `
-                    <p>Un <strong>projet</strong> est une initiative de gestion des inondations : travaux de drainage, renforcement
-                    de capacités, construction d'ouvrages, etc.</p>
+                ${section('mission', '🎯 Mission de la plateforme', `
+                    <p><strong>CNGIRI</strong> (Comité National de Gestion Intégrée du Risque d'Inondation) centralise le suivi opérationnel de la lutte contre les inondations au Sénégal. La plateforme fait collaborer trois cercles d'acteurs :</p>
                     <ul>
-                        <li><strong>Statut</strong> : <em>Démarrage</em> → <em>En cours</em> → <em>Terminé</em> (ou <em>En retard</em>, <em>Annulé</em>).</li>
-                        <li><strong>Priorité</strong> : Normale, Haute, Urgente.</li>
-                        <li><strong>Type</strong> : <em>Renforcement de la résilience</em> ou <em>Structurant</em>.</li>
-                        <li><strong>Avancement</strong> (%) calculé à partir des mesures réalisées.</li>
-                        <li>Budget, dates de début / échéance, chef de projet désigné.</li>
-                        <li>Contient plusieurs <em>sites</em>, plusieurs <em>localités</em>, plusieurs <em>mesures</em>.</li>
+                        <li><strong>Les structures techniques</strong> qui exécutent (DPGI, ONAS, BNSP, CETUD, AGEROUTE, DPC…).</li>
+                        <li><strong>Le commandement territorial</strong> qui supervise sur le terrain (Gouverneurs, Préfets, Sous-préfets).</li>
+                        <li><strong>La tutelle ministérielle</strong> qui pilote stratégiquement et émet des directives.</li>
                     </ul>
+                    <p>Chaque acteur voit et fait ce qui correspond à son périmètre. La plateforme produit un état d'avancement consolidé en temps réel : projets, mesures, sites, géométries, retards, échéances, financements.</p>
                 `)}
 
-                ${section('🔧 Action / Mesure', `
-                    <p>Une <strong>mesure</strong> est une action concrète à mener sur un projet, attribuée à une structure et
-                    éventuellement à un utilisateur précis.</p>
+                ${section('roles', '👥 Rôles : qui peut faire quoi', `
+                    <p>Chaque utilisateur a <strong>un seul rôle</strong>. Le rôle détermine ce qu'il voit et ce qu'il peut faire. Au-delà du rôle, deux désignations changent les permissions sur un projet précis : <em>Chef de projet</em> et <em>Directeur d'une structure rattachée</em>.</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:20px;">Les 7 rôles</h3>
+                    ${table(
+                        ['Rôle', 'Qui (persona)', 'Périmètre de visibilité', 'Peut écrire'],
+                        [
+                            ['<strong>Admin</strong>', 'Administrateur système / DSI', 'Tout', 'Tout : utilisateurs, structures, configuration, clés API, tous projets, annonces, sessions'],
+                            ['<strong>Superviseur</strong>', 'Ministre, cabinet', 'Tous les projets', 'Observations (directives au format texte adressées aux structures, avec échéance optionnelle)'],
+                            ['<strong>Commandement Territorial</strong>', 'Gouverneur (région), Préfet (département), Sous-préfet (arrondissement)', 'Projets/sites/mesures de son territoire', 'PV de visite (compte-rendu structuré du terrain)'],
+                            ['<strong>Directeur</strong>', 'Directeur de structure (ex. DG ONAS)', 'Projets de sa structure', 'Tout sur les projets de sa structure : création, mesures, assignations, géométries'],
+                            ['<strong>Utilisateur</strong>', 'Agent opérationnel d\'une structure', 'Projets de sa structure', 'Crée des projets pour sa structure ; met à jour le statut des mesures qui lui sont assignées'],
+                            ['<strong>Auditeur</strong> 🔍', 'Cour des Comptes, IGE, bailleur (BM, BAD, AFD), conseiller', 'Tout, <em>budgets compris</em>. Optionnellement scopé sur une structure.', '<em>Rien</em>. Lecture seule. Peut exporter Excel et générer un rapport IA.'],
+                            ['<strong>Lecteur</strong> 👁', 'Communicant, journaliste, personnel interne, visiteur', 'Tout <em>sauf les montants financiers</em>. Optionnellement scopé sur une structure.', '<em>Rien</em>. Lecture seule, pas d\'export, pas de rapport IA.']
+                        ]
+                    )}
+                    ${note('#f59e0b', '<strong>À retenir :</strong> Superviseur et Commandement Territorial n\'appartiennent à <em>aucune</em> structure technique — ce sont des rôles de pilotage et de supervision. Auditeur et Lecteur sont strictement en lecture seule.')}
+                    ${note('#3794C4', '<strong>Scope global vs scope structure</strong> (pour Auditeur / Lecteur) :<br>• <em>Sans structure</em> → vue globale, tous projets / toutes structures.<br>• <em>Avec une structure</em> → vue limitée à cette structure (utile pour un bailleur AFD scopé sur les projets ONAS).')}
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:20px;">Le « Chef de projet » : une désignation, pas un rôle</h3>
+                    <p>Au moment de créer un projet, on désigne un <strong>chef de projet</strong> parmi les utilisateurs ou directeurs. Cette désignation lui donne des permissions supplémentaires <em>uniquement sur ce projet</em>.</p>
+                    ${table(
+                        ['Action sur le projet', 'Chef de projet', 'Utilisateur de la structure', 'Directeur de la structure', 'Admin'],
+                        [
+                            ['Modifier le projet (titre, dates, budget…)', '✅', '✅', '✅', '✅'],
+                            ['Ajouter / supprimer des mesures', '✅', '✅', '✅', '✅'],
+                            ['Assigner une mesure à un utilisateur', '✅', '❌', '✅', '✅'],
+                            ['Réassigner une mesure (structure + user)', '✅', '❌', '✅', '✅'],
+                            ['Changer le statut d\'une mesure', '✅ (toutes les mesures du projet)', '✅ (uniquement celles qui lui sont assignées)', '✅', '✅'],
+                            ['Supprimer le projet (soft delete)', '❌', '❌', '✅', '✅']
+                        ]
+                    )}
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:20px;">Synthèse : qui voit quoi</h3>
+                    ${table(
+                        ['Donnée', 'Admin · Superviseur', 'Auditeur', 'Lecteur', 'Commandement', 'Directeur · Utilisateur'],
+                        [
+                            ['Projets', 'Tous', 'Tous (ou structure)', 'Tous (ou structure)', 'Son territoire', 'Sa structure'],
+                            ['Budgets / financements', '✅', '✅', '🔒 masqué', '✅', '✅'],
+                            ['Mesures', 'Toutes', 'Toutes', 'Toutes', 'Via ses projets', 'Via ses projets'],
+                            ['Sites & géométries', 'Tous', 'Tous', 'Tous', 'Son territoire', 'Sa structure'],
+                            ['Directives ministère', 'Toutes', 'Toutes', 'Toutes', 'Globales ou ses projets', 'Globales ou ses projets'],
+                            ['PV du Commandement', 'Tous', 'Tous', 'Tous', 'Les siens + son niveau', 'Liés à ses projets'],
+                            ['Export Excel & rapport IA', '✅', '✅', '❌', '✅', '✅'],
+                            ['Créer / modifier / supprimer', '✅', '❌', '❌', '✅ (PV)', '✅ (ses projets)'],
+                            ['Onglet Administration', '✅ Admin', '❌', '❌', '❌', '❌']
+                        ]
+                    )}
+                `)}
+
+                ${section('structures', '🏢 Structures', `
+                    <p>Les <strong>structures</strong> sont les organismes publics qui portent les projets CNGIRI. Chaque utilisateur (sauf Admin, Superviseur et Commandement) appartient à <em>une seule</em> structure et ne voit que les projets qui lui sont rattachés.</p>
+                    <p>Un projet a une <strong>structure pilote</strong> (responsable principal) plus, optionnellement, des <strong>structures rattachées</strong> qui contribuent. Une mesure peut être assignée à n\'importe laquelle de ces structures.</p>
+                    <p><strong>Structures actuellement déclarées dans la plateforme :</strong></p>
+                    ${structures.length > 0 ? table(
+                        ['Code', 'Nom complet', 'Description'],
+                        structures.map(s => [
+                            `<strong>${esc(s.code) || '—'}</strong>`,
+                            esc(s.name) || '—',
+                            esc(s.description) || '<em style="color:#94a3b8;">—</em>'
+                        ])
+                    ) : '<p style="color:#62718D;font-style:italic;">Aucune structure pour l\'instant. Ajouter via Administration → Structures.</p>'}
+                    ${note('#3794C4', '<strong>Liste dynamique :</strong> ce tableau reflète les structures actuelles en base. Pour ajouter, modifier ou supprimer une structure, aller dans <em>Administration → Structures</em>.')}
+                `)}
+
+                ${section('workflow', '🔄 Cycle de vie d\'un projet', `
+                    <p>Un projet suit un cycle simple, de la création à la clôture. À chaque étape, un acteur précis intervient.</p>
+                    <div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:13px;line-height:1.8;">
+                        <strong>1. Création</strong> par un directeur, un utilisateur ou un admin → choix de la structure pilote, des structures rattachées, du chef de projet, des dates et du budget.<br>
+                        <strong>2. Démarrage</strong> : ajout des localités (où ?), des sites (points GPS), des géométries (tracés sur la carte), des mesures (quoi faire ?).<br>
+                        <strong>3. Pilotage</strong> : le chef de projet assigne chaque mesure à un utilisateur. Les utilisateurs assignés exécutent puis déclarent le statut de leur mesure.<br>
+                        <strong>4. Suivi terrain</strong> : le Commandement Territorial visite et publie des PV. Le Ministre émet des directives (observations) en cas d'alerte.<br>
+                        <strong>5. Clôture</strong> : quand toutes les mesures sont <em>Exécutées</em>, le projet passe au statut <em>Terminé</em>.
+                    </div>
+                    <p style="font-size:12px;color:#62718D;margin-top:12px;">L'avancement (%) du projet est calculé automatiquement à partir des mesures terminées.</p>
+                `)}
+
+                ${section('create-proj', '📦 Créer un projet (pas-à-pas)', `
+                    <p><strong>Qui peut le faire</strong> : Admin, Directeur, Utilisateur (le projet sera rattaché à sa structure).</p>
+                    ${step(1, 'Aller dans Projets → Nouveau projet', 'Le formulaire s\'ouvre en plusieurs onglets (Général, Localités, Sites, Mesures…). Tu peux remplir au minimum l\'onglet Général et compléter le reste plus tard.')}
+                    ${step(2, 'Onglet Général', 'Champs obligatoires : <strong>titre</strong>, <strong>structure pilote</strong>. Champs recommandés : description, contraintes, mesures attendues (texte libre), priorité, type, dates début/fin/échéance, budget.')}
+                    ${step(3, 'Désigner un chef de projet', 'Choisir un utilisateur dans la liste (filtrée par la structure pilote). Il aura des droits étendus sur ce projet (cf. tableau ci-dessus).')}
+                    ${step(4, 'Structures rattachées', 'En plus de la structure pilote, tu peux ajouter des structures secondaires qui contribuent (ex. projet ONAS avec BNSP en appui).')}
+                    ${step(5, 'Onglet Localités', 'Ajouter les zones administratives concernées (Région → Département → Arrondissement → Commune). Permet de retrouver le projet par territoire et de le rendre visible aux Gouverneurs/Préfets concernés.')}
+                    ${step(6, 'Onglet Sites', 'Ajouter les points GPS d\'intervention. Voir la section "Cartographie" plus bas.')}
+                    ${step(7, 'Onglet Mesures', 'Ajouter les actions à mener. Voir la section "Mesures" plus bas.')}
+                    ${step(8, 'Sauvegarder', 'Le projet est enregistré avec le statut <em>Démarrage</em> et 0% d\'avancement.')}
+                    ${note('#3794C4', '<strong>Astuce :</strong> tu peux créer le projet en mode "minimum" (juste le titre et la structure) puis l\'enrichir progressivement. Toutes les sections sont éditables après création.')}
+                    ${note('#f59e0b', '<strong>Pièces jointes :</strong> à tout moment tu peux attacher des documents (PDF, photos, etc.) au projet. Taille max : <strong>${maxFileSizeMb} Mo par fichier</strong> (configurable dans <em>Configuration → Limites d\'upload</em>).')}
+                `)}
+
+                ${section('measures', '🔧 Mesures : créer, assigner, suivre', `
+                    <p>La <strong>mesure</strong> est l'unité de travail élémentaire. C'est à ce niveau que les utilisateurs déclarent ce qui a été fait. L'avancement du projet en découle directement.</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Anatomie d'une mesure</h3>
                     <ul>
-                        <li><strong>Types</strong> : Pompage, Nettoyage, Curage, Équipement, Organisation, Construction, Réhabilitation, Autre.</li>
-                        <li><strong>Statuts</strong> : <em>Préconisée</em> → <em>Exécutée</em> (ou <em>Non exécutée</em>, <em>Observations</em>).</li>
-                        <li>Chaque mesure est assignée à une <strong>structure</strong> (qui exécute) et optionnellement à un <strong>utilisateur</strong>.</li>
-                        <li>Peut être rattachée à un <strong>site</strong> précis.</li>
-                        <li>Des commentaires peuvent être ajoutés pour traçabilité.</li>
+                        <li><strong>Description</strong> : texte libre (« curer 800m de canaux à Pikine »).</li>
+                        <li><strong>Type</strong> (configurable par l\'admin) : Pompage, Nettoyage, Curage, Construction, Réhabilitation, Équipement, Organisation, Autre…</li>
+                        <li><strong>Statut</strong> : Préconisée → Exécutée (ou Non exécutée / Observations).</li>
+                        <li><strong>Structure assignée</strong> : qui exécute (peut être différente de la structure pilote du projet).</li>
+                        <li><strong>Utilisateur assigné</strong> : la personne responsable, optionnel.</li>
+                        <li><strong>Site associé</strong> : lien vers un point GPS précis, optionnel.</li>
+                        <li><strong>Contraintes</strong> et <strong>commentaires</strong> : pour la traçabilité.</li>
                     </ul>
-                    <p style="background:#e3f2fd;border-left:3px solid #3794C4;padding:10px;font-size:12px;">
-                        C'est le grain le plus fin du suivi : c'est au niveau des mesures que les utilisateurs déclarent l'exécution du travail.
-                    </p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Étapes</h3>
+                    ${step(1, 'Ouvrir le projet', 'Aller dans Projets → cliquer sur le projet → onglet Mesures.')}
+                    ${step(2, 'Ajouter une mesure', 'Description + type + structure assignée. La structure peut être la pilote ou une rattachée.')}
+                    ${step(3, 'Assigner à un utilisateur', '<strong>Réservé au chef de projet, directeur de la structure ou admin.</strong> L\'utilisateur reçoit une notification in-app + un email (si configuré).')}
+                    ${step(4, 'Suivi par l\'utilisateur assigné', 'Il voit la mesure dans <em>Mes mesures</em>. Il met à jour le statut quand il a exécuté ou rencontré un problème.')}
+                    ${step(5, 'Clôture automatique', 'Quand toutes les mesures sont <em>Exécutées</em>, le projet est marqué <em>Terminé</em>.')}
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Cycle des statuts</h3>
+                    <div style="background:#f8fafc;padding:12px;border-radius:6px;font-family:monospace;font-size:13px;">
+                        Préconisée  ──► Exécutée<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└►  Non exécutée   (avec motif)<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└►  Observations    (en attente)
+                    </div>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Notifications déclenchées</h3>
+                    ${table(
+                        ['Événement', 'Notification in-app', 'Email (si user a une adresse)'],
+                        [
+                            ['Mesure assignée à un user', '✅ Cloche du destinataire', '✅ Au destinataire'],
+                            ['Mesure réassignée', '✅ Au nouveau destinataire', '✅ Au nouveau destinataire'],
+                            ['Statut de mesure changé', '✅ Aux watchers (chef projet, directeur, admin, assigné)', '✅ Aux watchers']
+                        ]
+                    )}
                 `)}
 
-                ${section('📍 Localité & Site', `
-                    <p><strong>Localité</strong> = zone administrative liée au projet (Région → Département → Arrondissement → Commune).
-                    Le découpage administratif du Sénégal est pré-chargé en base.</p>
-                    <p><strong>Site</strong> = lieu d'intervention concret, géolocalisé (latitude / longitude), rattaché à un projet
-                    et optionnellement à une localité. Un site peut être marqué comme <em>PCS</em> (Plan Communal de Sauvegarde).
-                    Les sites s'affichent sur la carte du tableau de bord.</p>
+                ${section('cartography', '🗺️ Sites, localités, géométries', `
+                    <p>La plateforme distingue trois objets géographiques liés à un projet, complémentaires :</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">📍 Localité (zone administrative)</h3>
+                    <p>Découpage administratif du Sénégal : Région → Département → Arrondissement → Commune. Le découpage complet est pré-chargé dans la base. Une localité ne porte pas de coordonnées GPS — elle sert à <strong>rattacher le projet à un territoire</strong> pour le retrouver et le rendre visible aux autorités concernées.</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">📍 Site (point GPS)</h3>
+                    <p>Lieu d\'intervention concret avec coordonnées (latitude, longitude). S\'affiche comme un <strong>marqueur</strong> sur la carte du tableau de bord.</p>
+                    <ul>
+                        <li>Niveau de <strong>vulnérabilité</strong> : normal / élevée / très élevée (couleur du marqueur).</li>
+                        <li>Marqueur <strong>PCS</strong> (Plan Communal de Sauvegarde) : réservé aux projets DPGI.</li>
+                        <li>Liens optionnels vers une localité parente et vers une mesure.</li>
+                    </ul>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">📐 Géométrie (tracé sur la carte)</h3>
+                    <p>Forme géographique étendue : ligne ou polygone. Trois usages :</p>
+                    ${table(
+                        ['Usage', 'Type', 'Représente quoi'],
+                        [
+                            ['<code>drainage</code>', 'LineString', 'Conduite, canal, caniveau (trait continu)'],
+                            ['<code>intervention</code>', 'LineString ou Polygon', 'Zone d\'intervention en cours (pointillé)'],
+                            ['<code>zone_inondable</code>', 'Polygon', 'Zone à risque (polygone translucide)']
+                        ]
+                    )}
+                    <p>La <strong>couleur</strong> du tracé est déterminée automatiquement par la structure assignée à la géométrie (ONAS bleu, BNSP rouge, etc.). Le niveau de vulnérabilité ajuste l\'opacité.</p>
+                    <p style="font-size:12px;color:#62718D;">Les Points GeoJSON ne sont <strong>pas</strong> supportés en géométrie : un point est un <em>site</em>, pas une géométrie.</p>
                 `)}
 
-                ${section('🗣️ Observations (Ministre)', `
-                    <p>Fonctionnalité exclusive du rôle <strong>Superviseur</strong> (= Ministre). Les observations sont des
-                    <strong>directives</strong> adressées aux structures ou à un projet en particulier :</p>
+                ${section('geojson', '📥 Import GeoJSON (procédure et limites)', `
+                    <p>Pour ajouter beaucoup de tracés d\'un coup, on importe un fichier <strong>GeoJSON</strong>. C\'est le format standard pour échanger des données géographiques (export QGIS, ArcGIS, geojson.io, etc.).</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Format attendu</h3>
+                    <p>Le fichier doit être un <code>FeatureCollection</code>. Chaque feature porte une <code>geometry</code> (LineString ou Polygon) et des <code>properties</code> qui sont mappées sur le modèle CNGIRI :</p>
+                    ${table(
+                        ['Propriété GeoJSON', 'Champ CNGIRI', 'Obligatoire ?'],
+                        [
+                            ['<code>geometry.type</code>', '<code>kind</code> (linestring / polygon)', '✅'],
+                            ['<code>geometry.coordinates</code>', '<code>coordinates</code>', '✅'],
+                            ['<code>properties.name</code>', '<code>name</code>', 'Recommandé'],
+                            ['<code>properties.description</code>', '<code>description</code>', 'Non'],
+                            ['<code>properties.type</code>', '<code>usage_type</code> (drainage / intervention / zone_inondable / autre)', 'Recommandé'],
+                            ['<code>properties.structure_code</code>', '<code>structure_id</code> (résolu via lookup)', 'Recommandé (couleur)'],
+                            ['<code>properties.vulnerability</code>', '<code>vulnerability_level</code>', 'Non']
+                        ]
+                    )}
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Limites</h3>
+                    ${table(
+                        ['Limite', 'Valeur actuelle', 'Modifiable ?'],
+                        [
+                            ['Taille du fichier', '${maxFileSizeMb} Mo', 'Configuration → Limites d\'upload'],
+                            ['Nombre de features par import', '<strong>${geometryMax}</strong>', 'Configuration → Limites d\'import (1 à 50 000)'],
+                            ['Types de géométrie acceptés', 'LineString, Polygon', 'Non (les Points sont à créer comme sites)']
+                        ]
+                    )}
+                    ${note('#f59e0b', '<strong>Trop de features ?</strong> Splitter le fichier en plusieurs imports, ou demander à un admin d\'augmenter la limite via <em>Administration → Configuration → Limites d\'import</em>. Le changement est pris en compte immédiatement.')}
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Exemple minimal</h3>
+                    <pre style="background:#1e293b;color:#e2e8f0;padding:12px;border-radius:6px;font-size:11px;overflow-x:auto;">{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Canal principal Pikine",
+        "type": "drainage",
+        "structure_code": "ONAS"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[-17.39, 14.75], [-17.38, 14.74]]
+      }
+    }
+  ]
+}</pre>
+                    <p style="font-size:12px;color:#62718D;">Les coordonnées sont en <strong>WGS84</strong> (longitude, latitude) — c\'est l\'ordre standard GeoJSON, attention il est inversé par rapport à la convention courante.</p>
+                `)}
+
+                ${section('map-layers', '🌍 Fonds de carte', `
+                    <p>Le tableau de bord et les pages de projets affichent une carte Leaflet. L\'admin peut activer/désactiver les fonds de carte disponibles via <em>Configuration → Fonds de carte</em>.</p>
+                    <p><strong>Fonds actuellement actifs :</strong></p>
+                    ${mapLayers.length > 0 ? table(
+                        ['Nom affiché', 'Identifiant'],
+                        mapLayers.map(l => [esc(l.label || l.value), `<code>${esc(l.value)}</code>`])
+                    ) : '<p style="color:#62718D;font-size:12px;font-style:italic;">Aucun fond actif (vérifier la configuration).</p>'}
+                    <p style="font-size:12px;color:#62718D;">Les tuiles viennent de fournisseurs publics : OpenStreetMap, CartoDB, Esri/ArcGIS. Aucune donnée utilisateur ne leur est envoyée à part les coordonnées du carré visible.</p>
+                `)}
+
+                ${section('observations', '🗣️ Directives du Ministre (Observations)', `
+                    <p>Le rôle <strong>Superviseur</strong> publie des <em>directives</em> écrites adressées aux structures opérationnelles ou liées à un projet précis. Elles apparaissent en haut du tableau de bord des destinataires.</p>
                     <ul>
                         <li><strong>Priorité</strong> : Info, Importante, Urgente.</li>
-                        <li>Peuvent avoir une <strong>échéance</strong> (deadline).</li>
-                        <li>Peuvent être <em>globales</em> (visibles par tous) ou liées à un <em>projet précis</em>.</li>
-                        <li>Un badge compte les observations non lues par chaque utilisateur.</li>
-                        <li>Apparaissent en bannière en haut du tableau de bord.</li>
+                        <li><strong>Échéance</strong> (deadline) optionnelle — le bot et le tableau de bord la mettent en avant.</li>
+                        <li><strong>Portée</strong> : <em>globale</em> (visible par tous) ou <em>sur un projet</em>.</li>
+                        <li>Pièces jointes possibles (PDF, photos).</li>
+                        <li>Un badge sur l\'icône cloche indique les non-lues par utilisateur.</li>
                     </ul>
+                    ${note('#3794C4', '<strong>Différence avec une annonce broadcast</strong> : une observation est une <em>directive métier</em> archivée dans l\'historique du projet. Une annonce broadcast (cf. plus bas) est un message éphémère de service (« app down 5 min »).')}
                 `)}
 
-                ${section('📋 PV du Commandement Territorial', `
-                    <p>Le <strong>Commandement Territorial</strong> regroupe les autorités déconcentrées qui supervisent le terrain :</p>
+                ${section('pv', '📋 PV du Commandement Territorial', `
+                    <p>Le <strong>Commandement Territorial</strong> représente l\'État sur le terrain. Trois niveaux :</p>
                     ${table(
-                        ['Niveau territorial', 'Autorité', 'Champ <code>territorial_level</code>'],
+                        ['Niveau', 'Autorité', 'Champ <code>territorial_level</code>'],
                         [
                             ['Région', 'Gouverneur', '<code>region</code>'],
                             ['Département', 'Préfet', '<code>departement</code>'],
                             ['Arrondissement', 'Sous-préfet', '<code>arrondissement</code>']
                         ]
                     )}
-                    <p>Un <strong>PV</strong> (procès-verbal de visite) est un compte-rendu structuré :</p>
+                    <p>Un <strong>PV de visite</strong> (procès-verbal) est un compte-rendu structuré du terrain :</p>
                     <ul>
-                        <li><strong>Date de visite</strong>, titre, priorité.</li>
-                        <li><strong>Avancement constaté</strong> sur le terrain.</li>
-                        <li><strong>Observations</strong> et <strong>recommandations</strong>.</li>
-                        <li>Référence aux projets / mesures / sites / localités visités.</li>
-                        <li>Peut avoir des pièces jointes (photos, documents).</li>
+                        <li>Date de visite, titre, priorité.</li>
+                        <li>Avancement constaté (texte libre + pourcentage).</li>
+                        <li>Observations terrain et recommandations.</li>
+                        <li>Liens vers les projets / mesures / sites / localités visités.</li>
+                        <li>Pièces jointes (photos, croquis…).</li>
+                    </ul>
+                    <p style="font-size:12px;color:#62718D;">Le Préfet voit les PV de son département et ceux des sous-préfets de son département. Le Gouverneur voit en plus tous les PV de sa région.</p>
+                `)}
+
+                ${section('forms', '📝 Formulaires dynamiques', `
+                    <p>En complément des projets et mesures (modèle structuré), la plateforme permet de créer des <strong>formulaires dynamiques</strong> pour collecter de l\'information ad hoc auprès d\'une structure.</p>
+                    <ul>
+                        <li>L\'admin conçoit le formulaire (titre, champs, types) et l\'assigne à une structure.</li>
+                        <li>Les utilisateurs de cette structure remplissent le formulaire (= une <em>soumission</em>).</li>
+                        <li>L\'historique des soumissions est consultable et exportable.</li>
+                    </ul>
+                    <p style="font-size:12px;color:#62718D;">Cas d\'usage : enquête ponctuelle (« recensement des points noirs avant la saison des pluies »), questionnaire de capacité (« moyens humains par structure »), checklist d\'audit, etc.</p>
+                `)}
+
+                ${section('notifs', '🔔 Notifications et emails', `
+                    <p>La plateforme combine deux canaux de notification.</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Canal 1 : Notifications in-app (cloche)</h3>
+                    <p>Toujours actif. Stockées en base, comptées par utilisateur, marquées comme lues quand l\'utilisateur les consulte. Visible via l\'icône cloche en haut à droite.</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Canal 2 : Emails transactionnels (Resend)</h3>
+                    <p>Envoyés via le service <strong>Resend</strong>. Le mail expéditeur est <code>noreply@cngiri.com</code>. Trois événements déclencheurs :</p>
+                    ${table(
+                        ['Événement', 'Destinataire', 'Contenu'],
+                        [
+                            ['Création de compte', 'Le nouvel utilisateur', 'Bienvenue + identifiant + lien de connexion'],
+                            ['Mesure assignée', 'L\'utilisateur assigné', 'Projet + description + bouton "Voir mes mesures"'],
+                            ['Statut de mesure changé', 'Watchers (chef projet, directeur, admin, assigné)', 'Ancien et nouveau statut + lien projet']
+                        ]
+                    )}
+                    ${note('#3794C4', '<strong>Email facultatif :</strong> si un utilisateur n\'a pas d\'adresse email enregistrée, il continue à recevoir les notifications in-app, mais aucun email n\'est envoyé. Pas d\'erreur, pas de blocage.')}
+                    ${note('#f59e0b', '<strong>Côté technique :</strong> si la clé API Resend n\'est pas configurée sur le serveur, aucun email n\'est envoyé (no-op silencieux). Le code métier n\'est jamais bloqué par un échec d\'envoi.')}
+                `)}
+
+                ${section('sessions', '🔐 Sessions, mot de passe, sécurité', `
+                    <p>L\'authentification utilise des <strong>JWT</strong> signés côté serveur, valides 7 jours. Plusieurs mécanismes permettent de gérer les sessions actives.</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Pour l\'utilisateur</h3>
+                    <ul>
+                        <li><strong>Changer mon mot de passe</strong> (menu utilisateur en haut à droite) — invalide automatiquement toutes mes autres sessions.</li>
+                        <li><strong>Déconnecter mes autres appareils</strong> (même menu) — utile si on s\'est connecté sur un poste partagé. La session courante reste active grâce à un token frais renvoyé par le serveur.</li>
+                    </ul>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Pour l\'admin</h3>
+                    <ul>
+                        <li><strong>Onglet Sessions actives</strong> (Administration) : voit qui est en ligne (activité dans les 5 dernières minutes), qui a été actif dans les dernières 24h, 7j, qui ne s\'est jamais connecté.</li>
+                        <li><strong>Forcer la déconnexion</strong> d\'un utilisateur : un clic, ses sessions sont révoquées immédiatement, il bascule en "hors ligne" instantanément.</li>
+                        <li>L\'admin ne peut pas se kicker lui-même (garde-fou). Pour ça, utiliser "Déconnecter mes autres appareils".</li>
+                    </ul>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Activité utilisateur</h3>
+                    <p>L\'application enregistre <code>last_activity_at</code> à chaque requête authentifiée, avec un throttle d\'<strong>1 écriture par minute par utilisateur</strong> côté serveur — donc aucun impact sur la base même si un user fait beaucoup de clics.</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Sécurité côté navigateur</h3>
+                    <ul>
+                        <li><strong>Content-Security-Policy</strong> strict : la page ne peut se connecter qu\'à cngiri.com et aux fournisseurs de tuiles cartographiques. Aucune adresse IP locale n\'est joignable.</li>
+                        <li><strong>Permissions-Policy</strong> : caméra, micro, geo désactivés sauf si explicitement utilisés.</li>
+                        <li><strong>Service Worker</strong> : cache les assets statiques pour fonctionnement hors-ligne partiel.</li>
                     </ul>
                 `)}
 
-                ${section('📝 Formulaires', `
-                    <p>Les <strong>formulaires</strong> permettent aux administrateurs de créer des questionnaires dynamiques assignés
-                    à une structure. Les utilisateurs de cette structure les remplissent (<strong>soumissions</strong>) pour collecter
-                    des données structurées hors du modèle projet/mesure classique.</p>
+                ${section('announce', '📣 Annonces broadcast', `
+                    <p>L\'admin peut afficher un <strong>bandeau visible par tous les utilisateurs connectés</strong>. Pratique pour annoncer une maintenance ou un événement.</p>
+                    <ul>
+                        <li>3 niveaux : <span style="background:#dbeafe;color:#1e3a8a;padding:1px 8px;border-radius:8px;font-size:11px;">Info</span> · <span style="background:#fef3c7;color:#78350f;padding:1px 8px;border-radius:8px;font-size:11px;">Avertissement</span> · <span style="background:#fee2e2;color:#7f1d1d;padding:1px 8px;border-radius:8px;font-size:11px;">Critique</span></li>
+                        <li>Durée paramétrable : 15 min, 30 min, 1h, 4h, 1 jour, ou indéfinie (à révoquer manuellement).</li>
+                        <li>Masquable individuellement par chaque user via un bouton ×.</li>
+                        <li>Animation à la première apparition pour attirer l\'œil.</li>
+                        <li>Polling 60s côté front : le bandeau apparaît / disparaît dans la minute après la publication ou la révocation.</li>
+                    </ul>
+                    <p>Onglet <em>Administration → Annonces</em> : formulaire de publication + historique avec actions Révoquer / Supprimer.</p>
                 `)}
 
-                ${section('🔑 Clés API', `
-                    <p>Onglet <strong>Clés API</strong> : l'admin peut créer des clés d'accès pour des intégrations externes
-                    (monitoring, exports automatisés, etc.). Chaque clé est liée à un rôle et expire à une date définie.</p>
+                ${section('api-keys', '🔑 Clés API', `
+                    <p>L\'admin peut créer des <strong>clés d\'API</strong> pour permettre à des outils externes de lire les données CNGIRI (monitoring, dashboard tiers, exports automatisés…).</p>
+                    <ul>
+                        <li>Chaque clé est liée à un <strong>utilisateur propriétaire</strong> et hérite de son rôle.</li>
+                        <li>Une <strong>date d\'expiration</strong> peut être définie ; passé cette date, la clé est rejetée.</li>
+                        <li>La clé n\'est affichée <strong>qu\'une seule fois</strong> à la création — la copier immédiatement.</li>
+                        <li>Documentation OpenAPI : <a href="/api/v1/docs" target="_blank" style="color:#3794C4;">/api/v1/docs</a></li>
+                    </ul>
+                    ${note('#dc2626', '<strong>Sécurité :</strong> une clé API a les mêmes droits que son utilisateur propriétaire. Pour des intégrations à droits limités, créer un utilisateur dédié avec rôle <em>auditeur</em> ou <em>lecteur</em> (lecture seule).')}
                 `)}
 
-                ${section('🔐 Qui voit quoi — résumé', `
+                ${section('limits', '📏 Limites techniques', `
+                    <p>Récapitulatif des limites en vigueur sur la plateforme.</p>
                     ${table(
-                        ['Entité', 'Admin / Superviseur', 'Auditeur', 'Lecteur', 'Commandement Territorial', 'Directeur / Utilisateur'],
+                        ['Limite', 'Valeur', 'Configurable ?'],
                         [
-                            ['Projets', 'Tous', 'Tous', 'Tous', 'Ceux de son territoire', 'Ceux de sa structure'],
-                            ['Montants / Budgets', '✅', '✅', '🔒 masqué', '✅', '✅'],
-                            ['Mesures', 'Toutes', 'Toutes', 'Toutes', 'Via projets visibles', 'Via projets visibles'],
-                            ['Observations Ministre', 'Toutes', 'Toutes', 'Toutes', 'Globales ou de ses projets', 'Globales ou de ses projets'],
-                            ['PV Commandement', 'Tous', 'Tous', 'Tous', 'Les siens + ceux de son niveau', 'Ceux liés à ses projets'],
-                            ['Export Excel + Rapport IA', '✅', '✅', '❌', '✅', '✅'],
-                            ['Créer / modifier / supprimer', '✅ (selon scope)', '❌', '❌', '✅ (PV)', '✅ (ses projets)'],
-                            ['Section Administration', 'Admin uniquement', '❌', '❌', '❌', '❌']
+                            ['Taille max d\'un fichier joint', '<strong>${maxFileSizeMb} Mo</strong>', 'Oui — Configuration → Limites d\'upload'],
+                            ['Features par import GeoJSON', '<strong>${geometryMax}</strong>', 'Oui — Configuration → Limites d\'import'],
+                            ['Plafond serveur GeoJSON (sanity)', '50 000 features', 'Non (modifiable en code seulement)'],
+                            ['Body HTTP', '10 Mo', 'Non'],
+                            ['Durée de validité d\'un JWT', '7 jours', 'Variable d\'environnement <code>JWT_EXPIRES_IN</code>'],
+                            ['Seuil "en ligne" dans Sessions actives', '5 minutes', 'Paramètre query <code>?online_minutes=</code> (1-60)'],
+                            ['Throttle d\'écriture activité user', '1/minute/user', 'Non'],
+                            ['Polling bandeau d\'annonces', '60 secondes', 'Non'],
+                            ['Polling sessions actives (admin)', '30 secondes', 'Non'],
+                            ['Cap résultats des outils du chatbot', '100 lignes', 'Non']
+                        ]
+                    )}
+                `)}
+
+                ${section('glossary', '📖 Glossaire', `
+                    ${table(
+                        ['Terme', 'Définition'],
+                        [
+                            ['<strong>Mesure</strong>', 'Action concrète à mener sur un projet, assignable à un utilisateur. Unité de suivi élémentaire.'],
+                            ['<strong>Site</strong>', 'Point géolocalisé (lat/lng) rattaché à un projet.'],
+                            ['<strong>Localité</strong>', 'Zone administrative (Région/Département/Arrondissement/Commune).'],
+                            ['<strong>Géométrie</strong>', 'Tracé sur la carte : LineString (ligne) ou Polygon (zone).'],
+                            ['<strong>PCS</strong>', 'Plan Communal de Sauvegarde. Marqueur spécial sur les sites DPGI.'],
+                            ['<strong>FeatureCollection</strong>', 'Format racine d\'un fichier GeoJSON, contient un tableau <code>features[]</code>.'],
+                            ['<strong>JWT</strong>', 'Token signé qui prouve l\'identité de l\'utilisateur à chaque requête.'],
+                            ['<strong>token_version</strong>', 'Compteur sur l\'utilisateur : incrémenté à chaque révocation, invalide tous les anciens JWT.'],
+                            ['<strong>Chef de projet</strong>', 'Désignation par projet (pas un rôle). Donne des droits étendus sur ce projet précis.'],
+                            ['<strong>Watchers</strong>', 'Ensemble des utilisateurs notifiés d\'un événement sur une mesure (chef projet, directeur, admin, assigné).'],
+                            ['<strong>Soft delete</strong>', 'Suppression "logique" (champ <code>deleted_at</code>) : la donnée reste en base et peut être restaurée depuis la corbeille.']
                         ]
                     )}
                 `)}
 
                 <div style="background:#f0f4f8;padding:16px;border-radius:8px;margin-top:32px;font-size:12px;color:#62718D;text-align:center;">
-                    Documentation générée à partir de la structure actuelle de la plateforme. Si un rôle, une structure ou un processus évolue, pense à mettre à jour cet onglet dans <code>public/js/pages/admin.js</code>.
+                    Documentation générée à partir de la structure actuelle de la plateforme et des paramètres en base.
+                    Mettre à jour cet onglet dans <code>public/js/pages/admin.js</code> à chaque feature ajoutée.
                 </div>
             </div>
         `;
