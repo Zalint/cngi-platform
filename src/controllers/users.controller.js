@@ -1,5 +1,6 @@
 const UserModel = require('../models/user.model');
 const db = require('../config/db');
+const trackActivity = require('../middlewares/trackActivity');
 const { validateUserData } = require('../utils/validators');
 
 /**
@@ -24,10 +25,17 @@ exports.forceLogout = async (req, res, next) => {
                 message: 'Utilisez "Déconnecter mes autres appareils" pour votre propre compte.'
             });
         }
-        const newVersion = await UserModel.bumpTokenVersion(targetId);
+        // revokeAllSessions = bump token_version + reset last_activity_at, pour
+        // que le user passe immédiatement "hors ligne" dans la liste admin
+        // (sinon il reste affiché "en ligne" tant que les 5 min de seuil
+        // d'activité ne sont pas écoulées, ce qui est trompeur).
+        const newVersion = await UserModel.revokeAllSessions(targetId);
         if (newVersion === null) {
             return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
         }
+        // Purge l'entrée du throttle pour que sa prochaine activité (post
+        // reconnexion) soit écrite immédiatement, sans attendre la fenêtre de 1 min.
+        trackActivity.clearUser(targetId);
         res.json({
             success: true,
             message: 'Sessions de l\'utilisateur révoquées'
