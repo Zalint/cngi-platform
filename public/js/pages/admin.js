@@ -1169,6 +1169,10 @@ const AdminPage = {
             .find(c => c.category === 'upload_limits' && c.value === 'max_file_size_mb');
         const maxFileSizeMb = maxFileSizeRow ? parseInt(maxFileSizeRow.label, 10) : 5;
 
+        const geometryMaxRow = this.data.configItems
+            .find(c => c.category === 'import_limits' && c.value === 'geometry_max_features');
+        const geometryMax = geometryMaxRow ? parseInt(geometryMaxRow.label, 10) : 2000;
+
         const renderTable = (title, category, items) => `
             <div style="margin-bottom: 32px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -1274,6 +1278,27 @@ const AdminPage = {
             </div>
         ` : '';
 
+        const renderImportLimits = () => geometryMaxRow ? `
+            <div style="margin-bottom: 32px;">
+                <h3 style="margin:0 0 8px;color:#202B5D;">Limites d'import</h3>
+                <p style="color:#62718D;font-size:13px;margin:0 0 16px;">
+                    Nombre maximum de features (entités géographiques) qu'un utilisateur peut importer en une seule fois via un fichier GeoJSON. Au-delà, il devra splitter son fichier. Le changement est pris en compte immédiatement.
+                </p>
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <label for="cfg-geometry-max" style="color:#202B5D;font-weight:600;">Max features par import</label>
+                    <input type="number" id="cfg-geometry-max" min="1" max="50000" step="100"
+                           value="${geometryMax}"
+                           style="width:110px;padding:8px 10px;border:1px solid #dce3ed;border-radius:6px;font-size:14px;outline:none;" />
+                    <button class="btn btn-primary"
+                            onclick="AdminPage.saveGeometryMaxFeatures(${geometryMaxRow.id})"
+                            style="font-size:13px;">
+                        Enregistrer
+                    </button>
+                    <span style="color:#8896AB;font-size:12px;">Plage : 1 – 50 000</span>
+                </div>
+            </div>
+        ` : '';
+
         return `
             <div class="card">
                 <h2 style="margin-bottom:24px;">Configuration des listes</h2>
@@ -1282,6 +1307,7 @@ const AdminPage = {
                 ${renderTable('Statuts de mesure', 'measure_status', statuses)}
                 ${renderMapLayers()}
                 ${renderUploadLimits()}
+                ${renderImportLimits()}
             </div>
         `;
     },
@@ -1298,6 +1324,23 @@ const AdminPage = {
             const item = this.data.configItems.find(c => c.id === id);
             if (item) item.label = String(mb);
             Toast.success(`Taille max upload : ${mb} Mo.`);
+        } catch (err) {
+            Toast.error('Erreur : ' + (err.message || 'Impossible de mettre à jour'));
+        }
+    },
+
+    async saveGeometryMaxFeatures(id) {
+        const input = document.getElementById('cfg-geometry-max');
+        const n = parseInt(input.value, 10);
+        if (!Number.isFinite(n) || n < 1 || n > 50000) {
+            Toast.warning('Valeur invalide (1 – 50 000).');
+            return;
+        }
+        try {
+            await API.config.update(id, { label: String(n) });
+            const item = this.data.configItems.find(c => c.id === id);
+            if (item) item.label = String(n);
+            Toast.success(`Max features par import : ${n}.`);
         } catch (err) {
             Toast.error('Erreur : ' + (err.message || 'Impossible de mettre à jour'));
         }

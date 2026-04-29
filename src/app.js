@@ -43,11 +43,44 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    
+
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
         return res.sendStatus(200);
     }
+    next();
+});
+
+// Headers de sécurité — empêchent le navigateur de joindre le réseau local
+// ou des origines tierces inattendues. Liste précise des CDN autorisés :
+// - leaflet (CDN unpkg) pour la lib carte
+// - tiles cartographiques (osm, carto, openstreetmap.fr, arcgisonline)
+// - chart.js (CDN cdnjs)
+app.use((req, res, next) => {
+    // Permissions-Policy : désactive explicitement tout ce qui pourrait scanner
+    // le réseau local (mics/cams n'ont rien à faire dans cette app).
+    res.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), interest-cohort=()');
+
+    // CSP appliqué uniquement sur les réponses HTML pour ne pas casser les
+    // assets statiques eux-mêmes.
+    if (req.method === 'GET' && (req.path === '/' || req.path.endsWith('.html') || !req.path.includes('.'))) {
+        const csp = [
+            "default-src 'self'",
+            // Pas de inline-scripts à part les onclick existants → 'unsafe-inline' pour les onload/onclick attributs
+            "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com",
+            "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",
+            "font-src 'self' data: https://fonts.gstatic.com",
+            "img-src 'self' data: blob: https:",
+            // Tiles cartographiques + nos endpoints API
+            "connect-src 'self' https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.fr https://server.arcgisonline.com",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'"
+        ].join('; ');
+        res.header('Content-Security-Policy', csp);
+    }
+    res.header('X-Content-Type-Options', 'nosniff');
+    res.header('Referrer-Policy', 'strict-origin-when-cross-origin');
     next();
 });
 

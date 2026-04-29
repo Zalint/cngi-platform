@@ -4,10 +4,44 @@ const ALLOWED_KINDS = ['linestring', 'polygon'];
 const ALLOWED_USAGE = ['drainage', 'intervention', 'zone_inondable', 'autre'];
 const ALLOWED_VULN = ['normal', 'elevee', 'tres_elevee'];
 
-// Cap dur sur le nombre de features importées en une seule requête.
-// Empêche un payload pathologique (10 MB de features) de saturer la DB dans une
-// transaction unique. Au-delà, l'utilisateur doit splitter son fichier.
-const MAX_FEATURES_PER_IMPORT = 500;
+// Cap sur le nombre de features importées en une seule requête, configurable
+// par l'admin via app_config (category='import_limits', value='geometry_max_features').
+// Cache 30s pour éviter une requête SQL à chaque import.
+// Fallback : env var GEOMETRY_MAX_IMPORT, sinon 2000.
+const DEFAULT_MAX_FEATURES = 2000;
+const FALLBACK_ENV_MAX = parseInt(process.env.GEOMETRY_MAX_IMPORT, 10) || DEFAULT_MAX_FEATURES;
+const MAX_FEATURES_HARD_CAP = 50000; // sanity côté serveur — protège la DB.
+const CACHE_TTL_MS = 30_000;
+let _cachedMaxFeatures = null;
+let _cachedAt = 0;
+
+async function getMaxFeatures() {
+    const now = Date.now();
+    if (_cachedMaxFeatures !== null && (now - _cachedAt) < CACHE_TTL_MS) {
+        return _cachedMaxFeatures;
+    }
+    try {
+        const r = await db.query(
+            `SELECT label FROM app_config
+             WHERE category = 'import_limits' AND value = 'geometry_max_features' AND is_active = true
+             LIMIT 1`
+        );
+        const n = r.rows[0] ? parseInt(r.rows[0].label, 10) : NaN;
+        const safe = (Number.isFinite(n) && n >= 1 && n <= MAX_FEATURES_HARD_CAP) ? n : null;
+        _cachedMaxFeatures = safe ?? FALLBACK_ENV_MAX;
+        _cachedAt = now;
+    } catch (err) {
+        console.error('getMaxFeatures failed, fallback to env/default:', err.message);
+        _cachedMaxFeatures = FALLBACK_ENV_MAX;
+        _cachedAt = now;
+    }
+    return _cachedMaxFeatures;
+}
+
+function invalidateMaxFeaturesCache() {
+    _cachedMaxFeatures = null;
+    _cachedAt = 0;
+}
 
 /**
  * Modèle des géométries projet (polylignes et polygones).
@@ -213,10 +247,11 @@ class GeometryModel {
             throw err;
         }
 
-        if (geojson.features.length > MAX_FEATURES_PER_IMPORT) {
+        const maxFeatures = await getMaxFeatures();
+        if (geojson.features.length > maxFeatures) {
             const err = new Error(
-                `Trop de features à importer : ${geojson.features.length} reçues, maximum autorisé ${MAX_FEATURES_PER_IMPORT}. `
-                + `Splitte ton fichier en plusieurs imports.`
+                `Trop de features à importer : ${geojson.features.length} reçues, maximum autorisé ${maxFeatures}. `
+                + `Splitte ton fichier en plusieurs imports (un admin peut augmenter cette limite dans Configuration).`
             );
             err.statusCode = 413; // Payload Too Large (sémantique 13/413)
             throw err;
@@ -297,3 +332,5 @@ class GeometryModel {
 }
 
 module.exports = GeometryModel;
+module.exports.getMaxFeatures = getMaxFeatures;
+module.exports.invalidateMaxFeaturesCache = invalidateMaxFeaturesCache;

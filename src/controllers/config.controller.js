@@ -1,5 +1,6 @@
 const ConfigModel = require('../models/config.model');
 const storage = require('../config/storage');
+const GeometryModel = require('../models/geometry.model');
 
 exports.getByCategory = async (req, res, next) => {
     try {
@@ -38,10 +39,13 @@ exports.update = async (req, res, next) => {
         if (!data) {
             return res.status(404).json({ success: false, message: 'Config entry not found' });
         }
-        // Si on touche aux limites d'upload, invalider le cache pour que le
-        // changement soit appliqué immédiatement (sinon TTL 30s).
+        // Si on touche à des limites cachées côté serveur, invalider le cache
+        // pour que le changement soit appliqué immédiatement (sinon TTL 30s).
         if (data.category === 'upload_limits') {
             try { storage.invalidateMaxUploadBytesCache(); } catch {}
+        }
+        if (data.category === 'import_limits') {
+            try { GeometryModel.invalidateMaxFeaturesCache(); } catch {}
         }
         res.json({ success: true, data });
     } catch (error) {
