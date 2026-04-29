@@ -489,11 +489,15 @@ async function initDatabase() {
                 CONSTRAINT announcements_valid_window CHECK (expires_at IS NULL OR expires_at >= starts_at)
             )
         `);
-        // Migration : la contrainte est ajoutée si la table existait déjà sans elle.
+        // Migration : la contrainte est ajoutée si la table existait déjà sans
+        // elle. NOT VALID = on ne valide pas les lignes existantes (au cas où
+        // un legacy violerait la règle), seulement les futures INSERT/UPDATE.
+        // Une migration manuelle pourra ensuite faire VALIDATE CONSTRAINT
+        // une fois les données legacy nettoyées.
         await client.query(`
             DO $$ BEGIN
                 ALTER TABLE announcements ADD CONSTRAINT announcements_valid_window
-                    CHECK (expires_at IS NULL OR expires_at >= starts_at);
+                    CHECK (expires_at IS NULL OR expires_at >= starts_at) NOT VALID;
             EXCEPTION WHEN duplicate_object THEN NULL;
             END $$
         `);

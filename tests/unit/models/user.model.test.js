@@ -72,6 +72,9 @@ describe('UserModel', () => {
         const sql = db.query.mock.calls[0][0];
         const params = db.query.mock.calls[0][1];
         expect(sql).toMatch(/token_version\s*=\s*token_version\s*\+\s*1/);
+        // Le contrat du modèle exige RETURNING token_version pour que les
+        // callers (auth.controller) puissent re-signer un JWT avec la bonne version.
+        expect(sql).toMatch(/RETURNING[\s\S]*token_version/i);
         expect(params[1]).toBe(1);
         expect(await bcrypt.compare('NewPass123', params[0])).toBe(true);
         expect(result.token_version).toBe(7);

@@ -148,7 +148,13 @@ exports.changePassword = async (req, res, next) => {
         // seule requête atomique (évite l'état partiel si la 2e requête échoue).
         const updated = await UserModel.updatePasswordAndBumpVersion(req.user.id, newPassword);
         if (!updated) {
-            return res.status(500).json({ success: false, message: 'Échec de la mise à jour' });
+            // Aucune ligne mise à jour = user introuvable / supprimé pendant la
+            // requête (race entre `protect` et le UPDATE). Ce n'est pas une
+            // erreur serveur : on demande au client de se reconnecter.
+            return res.status(401).json({
+                success: false,
+                message: 'Session invalide, veuillez vous reconnecter'
+            });
         }
         const newVersion = updated.token_version;
 

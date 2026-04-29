@@ -58,12 +58,21 @@ const AnnouncementBanner = {
         this.render();
     },
 
+    teardown() {
+        this.cache = [];
+        this.stopPolling();
+        this.render();
+        // Retirer le root DOM pour qu'un futur init() (re-login) puisse le
+        // recréer proprement (init() bail si le root existe déjà).
+        this.clearOffset();
+        const root = document.getElementById('announcement-banner-root');
+        if (root) root.remove();
+    },
+
     async refresh() {
         if (!Auth.isAuthenticated()) {
-            // Logout / token révoqué : nettoyer affichage et stopper le polling.
-            this.cache = [];
-            this.stopPolling();
-            this.render();
+            // Logout / token révoqué : tout nettoyer, root inclus.
+            this.teardown();
             return;
         }
         try {
@@ -71,11 +80,9 @@ const AnnouncementBanner = {
             this.cache = res.data || [];
             this.render();
         } catch (err) {
-            // Si l'API renvoie 401 (session révoquée), faire le ménage.
+            // Si l'API renvoie 401 (session révoquée), faire le ménage complet.
             if (err && (err.status === 401 || /401/.test(String(err.message || '')))) {
-                this.cache = [];
-                this.stopPolling();
-                this.render();
+                this.teardown();
             }
             // sinon silencieux : ne pas spammer la console si réseau down
         }
