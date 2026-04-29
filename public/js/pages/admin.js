@@ -706,7 +706,7 @@ const AdminPage = {
                             ['<strong>Admin</strong>', 'Administrateur système / DSI', 'Tout', 'Tout : utilisateurs, structures, configuration, clés API, tous projets, annonces, sessions'],
                             ['<strong>Superviseur</strong>', 'Ministre, cabinet', 'Tous les projets', 'Observations (directives au format texte adressées aux structures, avec échéance optionnelle)'],
                             ['<strong>Commandement Territorial</strong>', 'Gouverneur (région), Préfet (département), Sous-préfet (arrondissement)', 'Projets/sites/mesures de son territoire', 'PV de visite (compte-rendu structuré du terrain)'],
-                            ['<strong>Directeur</strong>', 'Directeur de structure (ex. DG ONAS)', 'Projets de sa structure', 'Tout sur les projets de sa structure : création, mesures, assignations, géométries'],
+                            ['<strong>Directeur</strong>', 'Directeur de structure (ex. DG ONAS)', '<strong>Tous</strong> les projets (lecture globale, comme admin)', 'Création / modification des projets de sa structure. Sur les projets dont sa structure est <em>pilote</em>, droits étendus type chef de projet : assigner / réassigner les mesures, changer leur statut.'],
                             ['<strong>Utilisateur</strong>', 'Agent opérationnel d\'une structure', 'Projets de sa structure', 'Crée des projets pour sa structure ; met à jour le statut des mesures qui lui sont assignées'],
                             ['<strong>Auditeur</strong> 🔍', 'Cour des Comptes, IGE, bailleur (BM, BAD, AFD), conseiller', 'Tout, <em>budgets compris</em>. Optionnellement scopé sur une structure.', '<em>Rien</em>. Lecture seule. Peut exporter Excel et générer un rapport IA.'],
                             ['<strong>Lecteur</strong> 👁', 'Communicant, journaliste, personnel interne, visiteur', 'Tout <em>sauf les montants financiers</em>. Optionnellement scopé sur une structure.', '<em>Rien</em>. Lecture seule, pas d\'export, pas de rapport IA.']
@@ -731,17 +731,19 @@ const AdminPage = {
 
                     <h3 style="color:#202B5D;font-size:15px;margin-top:20px;">Synthèse : qui voit quoi</h3>
                     ${table(
-                        ['Donnée', 'Admin · Superviseur', 'Auditeur', 'Lecteur', 'Commandement', 'Directeur · Utilisateur'],
+                        ['Donnée', 'Admin · Superviseur', 'Directeur', 'Auditeur', 'Lecteur', 'Commandement', 'Utilisateur'],
                         [
-                            ['Projets', 'Tous', 'Tous (ou structure)', 'Tous (ou structure)', 'Son territoire', 'Sa structure'],
-                            ['Budgets / financements', '✅', '✅', '🔒 masqué', '✅', '✅'],
-                            ['Mesures', 'Toutes', 'Toutes', 'Toutes', 'Via ses projets', 'Via ses projets'],
-                            ['Sites & géométries', 'Tous', 'Tous', 'Tous', 'Son territoire', 'Sa structure'],
-                            ['Directives ministère', 'Toutes', 'Toutes', 'Toutes', 'Globales ou ses projets', 'Globales ou ses projets'],
-                            ['PV du Commandement', 'Tous', 'Tous', 'Tous', 'Les siens + son niveau', 'Liés à ses projets'],
-                            ['Export Excel & rapport IA', '✅', '✅', '❌', '✅', '✅'],
-                            ['Créer / modifier / supprimer', '✅', '❌', '❌', '✅ (PV)', '✅ (ses projets)'],
-                            ['Onglet Administration', '✅ Admin', '❌', '❌', '❌', '❌']
+                            ['Projets', 'Tous', 'Tous (lecture globale)', 'Tous (ou scope structure)', 'Tous (ou scope structure)', 'Son territoire', 'Sa structure'],
+                            ['Budgets / financements', '✅', '✅', '✅', '🔒 masqué', '✅', '✅'],
+                            ['Mesures', 'Toutes', 'Toutes', 'Toutes', 'Toutes', 'Via ses projets', 'Via ses projets'],
+                            ['Sites & géométries', 'Tous', 'Tous', 'Tous', 'Tous', 'Son territoire', 'Sa structure'],
+                            ['Directives ministère', 'Toutes', 'Toutes', 'Toutes', 'Toutes', 'Globales ou ses projets', 'Globales ou ses projets'],
+                            ['PV du Commandement', 'Tous', 'Tous', 'Tous', 'Tous', 'Les siens + son niveau', 'Liés à ses projets'],
+                            ['Export Excel & rapport IA', '✅', '✅', '✅', '❌', '✅', '✅'],
+                            ['Créer / modifier projet', '✅', '✅ (sa structure)', '❌', '❌', '❌', '✅ (sa structure)'],
+                            ['Assigner / changer statut mesure', '✅', '✅ (sa structure pilote)', '❌', '❌', '❌', '⚠ uniquement les siennes'],
+                            ['Publier PV de visite', '❌', '❌', '❌', '❌', '✅ (son territoire)', '❌'],
+                            ['Onglet Administration', '✅ Admin uniquement', '❌', '❌', '❌', '❌', '❌']
                         ]
                     )}
                 `)}
