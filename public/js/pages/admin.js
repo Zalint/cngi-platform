@@ -657,7 +657,7 @@ const AdminPage = {
             ['create-proj', '📦 Créer un projet (pas-à-pas)'],
             ['measures',    '🔧 Mesures : créer, assigner, suivre'],
             ['cartography', '🗺️ Sites, localités, géométries'],
-            ['geojson',     '📥 Import GeoJSON'],
+            ['geojson',     '📥 Import GeoJSON / KML / Shapefile'],
             ['map-layers',  '🌍 Fonds de carte'],
             ['observations','🗣️ Directives du Ministre'],
             ['pv',          '📋 PV du Commandement Territorial'],
@@ -856,11 +856,22 @@ const AdminPage = {
                     <p style="font-size:12px;color:#62718D;">Les Points GeoJSON ne sont <strong>pas</strong> supportés en géométrie : un point est un <em>site</em>, pas une géométrie.</p>
                 `)}
 
-                ${section('geojson', '📥 Import GeoJSON (procédure et limites)', `
-                    <p>Pour ajouter beaucoup de tracés d\'un coup, on importe un fichier <strong>GeoJSON</strong>. C\'est le format standard pour échanger des données géographiques (export QGIS, ArcGIS, geojson.io, etc.).</p>
+                ${section('geojson', '📥 Import GeoJSON / KML / Shapefile', `
+                    <p>Pour ajouter beaucoup de tracés d\'un coup, on importe un fichier SIG. La plateforme accepte les trois formats les plus courants. La conversion en GeoJSON se fait <strong>côté navigateur</strong> avant envoi : aucun fichier binaire ne transite par le serveur.</p>
 
-                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Format attendu</h3>
-                    <p>Le fichier doit être un <code>FeatureCollection</code>. Chaque feature porte une <code>geometry</code> (LineString ou Polygon) et des <code>properties</code> qui sont mappées sur le modèle CNGIRI :</p>
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Formats acceptés</h3>
+                    ${table(
+                        ['Format', 'Extension', 'Notes'],
+                        [
+                            ['<strong>GeoJSON</strong>', '<code>.geojson</code>, <code>.json</code>', 'Format natif. Coordonnées en WGS84 (longitude, latitude).'],
+                            ['<strong>KML</strong>', '<code>.kml</code>', 'Format Google Earth. Conversion automatique.'],
+                            ['<strong>Shapefile</strong>', '<code>.zip</code>', 'Format ESRI/QGIS. <strong>Zipper ensemble</strong> les fichiers <code>.shp</code>, <code>.shx</code>, <code>.dbf</code> et <code>.prj</code>. La projection est lue depuis le <code>.prj</code> et reprojetée automatiquement vers WGS84.']
+                        ]
+                    )}
+                    ${note('#3794C4', '<strong>Shapefile : pourquoi un zip ?</strong> Un Shapefile n\'est pas un fichier mais une <em>famille</em> de 4 à 6 fichiers qui doivent rester ensemble. Le <code>.prj</code> est essentiel — sans lui les coordonnées ne peuvent pas être reprojetées et les tracés s\'afficheront au mauvais endroit.')}
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Format interne (après conversion)</h3>
+                    <p>Quel que soit le format d\'entrée, on aboutit à un <code>FeatureCollection</code>. Chaque feature porte une <code>geometry</code> (LineString ou Polygon) et des <code>properties</code> mappées sur le modèle CNGIRI :</p>
                     ${table(
                         ['Propriété GeoJSON', 'Champ CNGIRI', 'Obligatoire ?'],
                         [

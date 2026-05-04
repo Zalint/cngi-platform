@@ -596,27 +596,63 @@ const ProjectDetailPage = {
             `;
         }).join('');
 
+        // Section collapsable. État persisté par projet dans localStorage.
+        // Défaut : replié si beaucoup de tracés (>10) pour éviter de noyer
+        // l'utilisateur, sinon ouvert.
+        const projectId = this.data.project?.id;
+        const storageKey = `cngi_geom_collapsed_${projectId}`;
+        const stored = localStorage.getItem(storageKey);
+        const collapsed = stored !== null ? stored === '1' : (geoms.length > 10);
+
         return `
             <div class="card mb-4">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-                    <div>
-                        <h2 style="margin:0;display:inline-flex;align-items:center;gap:8px;">${Icon.render('route', 20, 'currentColor')} Tracés / Géométries</h2>
-                        <div style="font-size:12px;color:#62718D;margin-top:4px;">${summary}</div>
+                    <div style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:0;" onclick="ProjectDetailPage.toggleGeometriesSection()">
+                        <button id="geom-section-chevron" type="button" aria-label="${collapsed ? 'Déplier' : 'Replier'}"
+                                style="background:transparent;border:none;cursor:pointer;padding:4px;display:inline-flex;align-items:center;color:#62718D;transition:transform 0.2s;${collapsed ? '' : 'transform:rotate(90deg);'}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <div>
+                            <h2 style="margin:0;display:inline-flex;align-items:center;gap:8px;">${Icon.render('route', 20, 'currentColor')} Tracés / Géométries <span style="background:#e0f2fe;color:#0c4a6e;padding:2px 10px;border-radius:12px;font-size:13px;font-weight:600;">${geoms.length}</span></h2>
+                            <div style="font-size:12px;color:#62718D;margin-top:4px;">${summary}</div>
+                        </div>
                     </div>
                     ${canManage ? `
                         <div style="display:flex;gap:8px;">
-                            <button class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:6px;" onclick="ProjectDetailPage.openImportGeometriesModal()">
-                                ${Icon.render('upload', 14, 'currentColor')} Importer GeoJSON
+                            <button class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:6px;" onclick="event.stopPropagation();ProjectDetailPage.openImportGeometriesModal()">
+                                ${Icon.render('upload', 14, 'currentColor')} Importer
                             </button>
                         </div>
                     ` : ''}
                 </div>
-                ${geoms.length === 0
-                    ? `<div style="padding:30px;background:#f8f9fa;border-radius:8px;text-align:center;color:#8896AB;font-size:13px;">Aucun tracé pour ce projet. Importe un fichier GeoJSON (depuis geojson.io, QGIS…) pour ajouter le réseau de drainage, les itinéraires d'intervention ou les zones inondables.</div>`
-                    : `<div style="display:flex;flex-wrap:wrap;gap:12px;">${cards}</div>`
-                }
+                <div id="geom-section-body" style="${collapsed ? 'display:none;' : ''}">
+                    ${geoms.length === 0
+                        ? `<div style="padding:30px;background:#f8f9fa;border-radius:8px;text-align:center;color:#8896AB;font-size:13px;">Aucun tracé pour ce projet. Importe un fichier GeoJSON, KML ou Shapefile (.zip depuis QGIS / ArcGIS) pour ajouter le réseau de drainage, les itinéraires d'intervention ou les zones inondables.</div>`
+                        : `<div style="display:flex;flex-wrap:wrap;gap:12px;">${cards}</div>`
+                    }
+                </div>
             </div>
         `;
+    },
+
+    toggleGeometriesSection() {
+        const body = document.getElementById('geom-section-body');
+        const chevron = document.getElementById('geom-section-chevron');
+        if (!body || !chevron) return;
+        const projectId = this.data.project?.id;
+        const storageKey = `cngi_geom_collapsed_${projectId}`;
+        const isHidden = body.style.display === 'none';
+        if (isHidden) {
+            body.style.display = '';
+            chevron.style.transform = 'rotate(90deg)';
+            chevron.setAttribute('aria-label', 'Replier');
+            localStorage.setItem(storageKey, '0');
+        } else {
+            body.style.display = 'none';
+            chevron.style.transform = '';
+            chevron.setAttribute('aria-label', 'Déplier');
+            localStorage.setItem(storageKey, '1');
+        }
     },
 
     openImportGeometriesModal() {
@@ -635,8 +671,8 @@ const ProjectDetailPage = {
             <div class="confirm-dialog" style="text-align:left;max-width:560px;">
                 <h3 style="margin-bottom:8px;color:var(--color-text);display:inline-flex;align-items:center;gap:8px;">${Icon.render('upload', 18, 'currentColor')} Importer un tracé</h3>
                 <p style="color:#62718D;font-size:13px;margin-bottom:16px;">
-                    Charge un fichier GeoJSON (depuis geojson.io, QGIS…) et renseigne la structure et le type ici.
-                    Le fichier n'a besoin de contenir que la géométrie — pas les propriétés.
+                    Formats acceptés : <strong>GeoJSON</strong> (.geojson, .json), <strong>KML</strong> (.kml) ou <strong>Shapefile</strong> (.zip contenant .shp/.shx/.dbf/.prj).
+                    Renseigne la structure et le type ici — le fichier n'a besoin de contenir que la géométrie.
                 </p>
 
                 <div style="background:linear-gradient(135deg,#e0f2fe 0%,#f0f9ff 100%);border-left:3px solid #3794C4;padding:12px 14px;border-radius:6px;margin-bottom:16px;">
@@ -693,7 +729,10 @@ const ProjectDetailPage = {
                         <button type="button" id="geom-src-tab-paste" class="btn btn-secondary" style="flex:1;padding:6px 10px;font-size:12px;background:#f0f4f8;color:#202B5D;border:none;border-radius:6px;cursor:pointer;">📋 Coller JSON</button>
                     </div>
                     <div id="geom-src-file-pane">
-                        <input type="file" id="geom-import-file" accept=".geojson,.json" class="form-control">
+                        <input type="file" id="geom-import-file" accept=".geojson,.json,.kml,.zip" class="form-control">
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">
+                            .geojson · .json · .kml · .zip (Shapefile QGIS/ArcGIS)
+                        </div>
                     </div>
                     <div id="geom-src-paste-pane" style="display:none;">
                         <textarea id="geom-import-paste" class="form-control" rows="10"
@@ -768,24 +807,36 @@ const ProjectDetailPage = {
 
         try {
             btn.disabled = true;
-            btn.textContent = '⏳ Import en cours...';
+            btn.textContent = '⏳ Lecture du fichier...';
 
-            const text = file ? await file.text() : pastedText;
             let geojson;
-            try { geojson = JSON.parse(text); } catch {
-                Toast.error('JSON invalide.');
-                btn.disabled = false; btn.textContent = 'Importer';
-                return;
+            if (file) {
+                // Détection automatique du format (geojson / kml / shapefile zip)
+                // et conversion côté navigateur. Voir public/js/utils/geoConverter.js.
+                btn.textContent = '⏳ Conversion en GeoJSON...';
+                try {
+                    geojson = await GeoConverter.fileToGeoJSON(file);
+                } catch (err) {
+                    Toast.error(err.message || 'Conversion du fichier échouée.');
+                    btn.disabled = false; btn.textContent = 'Importer';
+                    return;
+                }
+            } else {
+                try { geojson = JSON.parse(pastedText); } catch {
+                    Toast.error('JSON invalide.');
+                    btn.disabled = false; btn.textContent = 'Importer';
+                    return;
+                }
             }
 
-            // Injecte les métadonnées saisies dans la modale dans CHAQUE feature du fichier.
-            // Si le fichier contient plusieurs tracés, ils partagent tous ces métadonnées
-            // (sauf le nom, qui reçoit un suffixe #2, #3… pour distinguer).
+            // Validation finale (le converter renvoie déjà un FeatureCollection,
+            // mais on revérifie pour le cas du JSON collé qui est libre).
             if (!geojson || geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features)) {
-                Toast.error('Le fichier doit être un FeatureCollection GeoJSON.');
+                Toast.error('Le contenu doit être un FeatureCollection GeoJSON.');
                 btn.disabled = false; btn.textContent = 'Importer';
                 return;
             }
+            btn.textContent = `⏳ Import de ${geojson.features.length} tracé(s)...`;
 
             let counter = 0;
             for (const feat of geojson.features) {
