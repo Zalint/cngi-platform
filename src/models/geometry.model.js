@@ -231,6 +231,22 @@ class GeometryModel {
     }
 
     /**
+     * Supprime TOUS les tracés d'un projet en une seule requête. Utilisé
+     * pour le bouton "Tout supprimer" — utile après un import massif erroné
+     * ou pour repartir de zéro. La vérification d'accès est faite côté
+     * controller avant d'appeler cette méthode.
+     * @param {number} projectId
+     * @returns {Promise<number>} nombre de tracés supprimés
+     */
+    static async removeAllForProject(projectId) {
+        const result = await db.query(
+            `DELETE FROM geometries WHERE project_id = $1`,
+            [projectId]
+        );
+        return result.rowCount || 0;
+    }
+
+    /**
      * Import GeoJSON FeatureCollection : crée toutes les géométries d'un coup.
      * Map les propriétés GeoJSON vers notre schéma :
      *   - feature.properties.name         → name

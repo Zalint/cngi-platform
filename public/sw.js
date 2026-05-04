@@ -1,5 +1,5 @@
 // Bump à chaque release pour purger les anciens caches chez les utilisateurs.
-const CACHE_NAME = 'cngi-v2-2026-04-29';
+const CACHE_NAME = 'cngi-v3-2026-05-04';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -51,6 +51,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
+    // Filtre : ne traiter que http(s). Les schemes comme chrome-extension://
+    // ou moz-extension:// ne peuvent pas être stockés dans le Cache API et
+    // produisent des erreurs "Request scheme not supported" si on essaie.
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
     // API calls: network only (don't cache)
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
@@ -68,10 +73,19 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.match(event.request).then((cached) => {
             const networkFetch = fetch(event.request).then((response) => {
-                // Update cache with fresh version
-                if (response.ok) {
+                // Cache uniquement les réponses GET 2xx same-origin.
+                // - Les POST ne sont pas cachables.
+                // - Les réponses cross-origin opaques (status=0) ni les chrome-extension
+                //   ne peuvent pas être mises en cache → on évite le put pour
+                //   ne pas spammer les logs avec des "scheme not supported".
+                if (response.ok
+                    && event.request.method === 'GET'
+                    && response.type !== 'opaque'
+                    && response.type !== 'opaqueredirect') {
                     const clone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                    caches.open(CACHE_NAME)
+                        .then((cache) => cache.put(event.request, clone))
+                        .catch(() => {}); // silencieux : dernière protection
                 }
                 return response;
             }).catch(() => cached);

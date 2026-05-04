@@ -44,6 +44,7 @@ router.post('/:projectId/geometries', authorize('admin', 'utilisateur', 'directe
 router.post('/:projectId/geometries/import', authorize('admin', 'utilisateur', 'directeur'), geometriesController.importGeoJSON);
 router.put('/:projectId/geometries/:geomId', authorize('admin', 'utilisateur', 'directeur'), geometriesController.update);
 router.delete('/:projectId/geometries/:geomId', authorize('admin', 'utilisateur', 'directeur'), geometriesController.remove);
+router.delete('/:projectId/geometries', authorize('admin', 'utilisateur', 'directeur'), geometriesController.removeAll);
 
 // Project Comments
 router.get('/:id/comments', projectsController.getComments);

@@ -71,8 +71,10 @@ app.use((req, res, next) => {
             "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",
             "font-src 'self' data: https://fonts.gstatic.com",
             "img-src 'self' data: blob: https:",
-            // Tiles cartographiques + nos endpoints API
-            "connect-src 'self' https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.fr https://server.arcgisonline.com",
+            // Tiles cartographiques + nos endpoints API + sourcemaps des libs CDN
+            // (Leaflet, togeojson, shpjs) — sinon DevTools log un avertissement
+            // CSP au chargement de leaflet.js.map / shp.min.js.map / etc.
+            "connect-src 'self' https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.fr https://server.arcgisonline.com https://unpkg.com https://cdnjs.cloudflare.com",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'"

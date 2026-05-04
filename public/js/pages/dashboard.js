@@ -666,7 +666,12 @@ const DashboardPage = {
             zoomControl: true,
             scrollWheelZoom: true,
             maxBounds: senegalBounds.pad(0.1),
-            minZoom: 7
+            minZoom: 7,
+            // Renderer Canvas plutôt que SVG : indispensable au-delà de
+            // ~200 polylignes. Sur un import Shapefile à 500+ tracés, le
+            // SVG natif Leaflet fait ramer la carte ; le Canvas est 10x
+            // plus rapide à dessiner et reste fluide au pan/zoom.
+            preferCanvas: true
         }).fitBounds(senegalBounds);
 
         // Attribution ODbL : tous les fonds dérivés d'OSM doivent créditer
