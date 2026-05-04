@@ -169,7 +169,8 @@ const API = {
         createGeometry: (projectId, data) => API.post(`/projects/${projectId}/geometries`, data),
         importGeometries: (projectId, geojson) => API.post(`/projects/${projectId}/geometries/import`, geojson),
         updateGeometry: (projectId, geomId, data) => API.put(`/projects/${projectId}/geometries/${geomId}`, data),
-        deleteGeometry: (projectId, geomId) => API.delete(`/projects/${projectId}/geometries/${geomId}`)
+        deleteGeometry: (projectId, geomId) => API.delete(`/projects/${projectId}/geometries/${geomId}`),
+        deleteAllGeometries: (projectId) => API.delete(`/projects/${projectId}/geometries`)
     },
 
     // === Forms endpoints ===

@@ -622,6 +622,11 @@ const ProjectDetailPage = {
                             <button class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:6px;" onclick="event.stopPropagation();ProjectDetailPage.openImportGeometriesModal()">
                                 ${Icon.render('upload', 14, 'currentColor')} Importer
                             </button>
+                            ${geoms.length > 0 ? `
+                                <button class="btn btn-danger" style="display:inline-flex;align-items:center;gap:6px;" onclick="event.stopPropagation();ProjectDetailPage.deleteAllGeometries()">
+                                    ${Icon.render('trash', 14, 'white')} Tout supprimer
+                                </button>
+                            ` : ''}
                         </div>
                     ` : ''}
                 </div>
@@ -925,6 +930,33 @@ const ProjectDetailPage = {
                 Toast.error('Erreur : ' + (err.message || 'inconnue'));
             }
         }, { type: 'danger', confirmText: 'Supprimer' });
+    },
+
+    async deleteAllGeometries() {
+        const count = (this.data.geometries || []).length;
+        if (count === 0) return;
+
+        // Double confirmation : le user doit retaper le nombre exact pour
+        // valider, garde-fou contre les clics accidentels (1237 tracés ne se
+        // re-importent pas en 2 secondes).
+        const typed = await Toast.prompt(
+            `Supprimer définitivement les ${count} tracés de ce projet ?\n\nCette action est IRRÉVERSIBLE. Tape le nombre ${count} pour confirmer :`,
+            ''
+        );
+        if (typed === null) return; // annulé
+        if (String(typed).trim() !== String(count)) {
+            Toast.warning(`Confirmation annulée (il fallait taper ${count}).`);
+            return;
+        }
+
+        try {
+            const res = await API.projects.deleteAllGeometries(this.data.project.id);
+            const deleted = res?.data?.deleted || count;
+            Toast.success(`${deleted} tracé(s) supprimé(s).`);
+            App.router();
+        } catch (err) {
+            Toast.error('Erreur : ' + (err.message || 'suppression échouée'));
+        }
     },
 
     renderFinancingEditable() {

@@ -70,6 +70,31 @@ exports.remove = async (req, res, next) => {
     }
 };
 
+/**
+ * @route DELETE /api/projects/:projectId/geometries
+ * @desc  Supprime TOUS les tracés du projet. Action irréversible — la
+ *        confirmation est gérée côté UI.
+ */
+exports.removeAll = async (req, res, next) => {
+    try {
+        const projectId = parseInt(req.params.projectId);
+        if (!Number.isFinite(projectId)) {
+            return res.status(400).json({ success: false, message: 'projectId invalide' });
+        }
+        const access = await canUserModifyProject(req.user, projectId);
+        if (!access) return res.status(403).json({ success: false, message: 'Accès refusé au projet' });
+
+        const deleted = await GeometryModel.removeAllForProject(projectId);
+        res.json({
+            success: true,
+            message: deleted > 0 ? `${deleted} tracé(s) supprimé(s)` : 'Aucun tracé à supprimer',
+            data: { deleted }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 exports.importGeoJSON = async (req, res, next) => {
     try {
         const projectId = parseInt(req.params.projectId);
