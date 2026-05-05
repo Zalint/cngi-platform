@@ -659,6 +659,7 @@ const AdminPage = {
             ['cartography', '🗺️ Sites, localités, géométries'],
             ['geojson',     '📥 Import GeoJSON / KML / Shapefile'],
             ['map-layers',  '🌍 Fonds de carte'],
+            ['sovereignty', '🏛️ Souveraineté & roadmap cartographie'],
             ['observations','🗣️ Directives du Ministre'],
             ['pv',          '📋 PV du Commandement Territorial'],
             ['forms',       '📝 Formulaires dynamiques'],
@@ -918,13 +919,76 @@ const AdminPage = {
                 `)}
 
                 ${section('map-layers', '🌍 Fonds de carte', `
-                    <p>Le tableau de bord et les pages de projets affichent une carte Leaflet. L\'admin peut activer/désactiver les fonds de carte disponibles via <em>Configuration → Fonds de carte</em>.</p>
-                    <p><strong>Fonds actuellement actifs :</strong></p>
+                    <p>Le tableau de bord et les pages projet affichent une carte Leaflet. Chaque fond de carte (URL, type, attribution, clé API) est <strong>configurable depuis l'administration</strong> sans redéploiement, via <em>Configuration → Fonds de carte</em>.</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Fonds actuellement actifs</h3>
                     ${mapLayers.length > 0 ? table(
-                        ['Nom affiché', 'Identifiant'],
-                        mapLayers.map(l => [esc(l.label || l.value), `<code>${esc(l.value)}</code>`])
-                    ) : '<p style="color:#62718D;font-size:12px;font-style:italic;">Aucun fond actif (vérifier la configuration).</p>'}
-                    <p style="font-size:12px;color:#62718D;">Les tuiles viennent de fournisseurs publics : OpenStreetMap, CartoDB, Esri/ArcGIS. Aucune donnée utilisateur ne leur est envoyée à part les coordonnées du carré visible.</p>
+                        ['Nom affiché', 'Identifiant', 'Type'],
+                        mapLayers.map(l => [
+                            esc(l.label || l.value),
+                            `<code>${esc(l.value)}</code>`,
+                            `<code>${esc(l.metadata?.kind || 'xyz')}</code>`
+                        ])
+                    ) : '<p style="color:#62718D;font-size:12px;font-style:italic;">Aucun fond actif.</p>'}
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Deux types de fond supportés</h3>
+                    ${table(
+                        ['Type', 'Quoi', 'Cas d\'usage'],
+                        [
+                            ['<strong><code>xyz</code></strong>', 'Tuiles bitmap classiques avec template <code>{z}/{x}/{y}</code>', 'OSM, CARTO, ArcGIS, MapTiler, votre propre serveur de tuiles'],
+                            ['<strong><code>wms</code></strong>', 'Web Map Service (norme OGC)', 'Couches métier exposées par GeoServer/MapServer (réseau ONAS, zones inondables…)']
+                        ]
+                    )}
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Ajouter un fond de carte</h3>
+                    <ol style="font-size:13px;line-height:1.7;">
+                        <li>Aller dans <em>Configuration → Fonds de carte</em>.</li>
+                        <li>Cliquer <strong>+ Ajouter un fond de carte</strong>, donner un identifiant court (ex: <code>tiles_cngiri</code>) et un libellé.</li>
+                        <li>Choisir le type (<code>xyz</code> ou <code>wms</code>).</li>
+                        <li>Coller l'URL du serveur de tuiles. Pour XYZ, elle doit contenir <code>{z}/{x}/{y}</code>.</li>
+                        <li>Saisir l'attribution (obligatoire pour respecter les licences ODbL/CC).</li>
+                        <li>Clé API optionnelle : si l'URL contient <code>{apikey}</code>, la valeur saisie est injectée à l'exécution.</li>
+                        <li>Enregistrer puis activer la case à gauche.</li>
+                    </ol>
+                `)}
+
+                ${section('sovereignty', '🏛️ Souveraineté des données et des cartes', `
+                    <p>Aujourd'hui, l'application <strong>ne dépend plus d'aucun service tiers</strong> sauf pour l'affichage des tuiles cartographiques. Les bibliothèques JavaScript et les polices sont auto-hébergées sur cngiri.com.</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">État des dépendances</h3>
+                    ${table(
+                        ['Composant', 'Localisation', 'Souveraineté'],
+                        [
+                            ['Code applicatif', 'Render (cngiri.com)', '🟢 Maîtrisé'],
+                            ['Base de données', 'Render PostgreSQL', '🟢 Maîtrisé (export possible à tout moment)'],
+                            ['Bibliothèques JS (Leaflet, togeojson, shpjs)', '<code>/vendor/</code> sur cngiri.com', '🟢 Auto-hébergé'],
+                            ['Polices (Cabin, Roboto Slab)', '<code>/fonts/</code> sur cngiri.com', '🟢 Auto-hébergé'],
+                            ['<strong>Tuiles cartographiques</strong>', '<strong>OSM, CARTO, ArcGIS</strong> (externe)', '🟠 <strong>Dernière dépendance externe</strong>']
+                        ]
+                    )}
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Données OSM — gratuites et libres (ODbL)</h3>
+                    <p>Les <strong>données</strong> OpenStreetMap sont sous licence libre <strong>ODbL</strong> : utilisation commerciale autorisée, à condition de citer la source. Aucun coût, à vie. C'est <em>l'affichage</em> (les tuiles) qui peut devenir payant ou rate-limité chez certains fournisseurs.</p>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">Roadmap souveraineté</h3>
+                    <ul style="font-size:13px;line-height:1.7;">
+                        <li><strong>Phase 1 ✅ (faite)</strong> : URL et options de chaque fond stockées en base et éditables depuis l'admin. Support des couches WMS prêt.</li>
+                        <li><strong>Phase 2</strong> : déployer un <em>TileServer GL</em> sur l'infra CNGIRI avec les tuiles OSM Sénégal (générées avec <code>tilemaker</code>). Ajouter le fond <code>tiles_cngiri</code> depuis l'admin et désactiver les fonds externes. Coût : ~25 €/mois de VPS.</li>
+                        <li><strong>Phase 3</strong> : exposer les <strong>couches métier</strong> propriétaires (réseau ONAS, zones inondables historiques, bâti vulnérable, cours d'eau) via <em>GeoServer</em> en WMS. L'admin les ajoute comme couches WMS dans Configuration.</li>
+                        <li><strong>Phase 4</strong> : photo aérienne nationale (IGN Sénégal) si disponible.</li>
+                    </ul>
+
+                    <h3 style="color:#202B5D;font-size:15px;margin-top:16px;">État actuel des fournisseurs externes</h3>
+                    ${table(
+                        ['Fournisseur', 'Type', 'Limite', 'Risque'],
+                        [
+                            ['<code>tile.openstreetmap.org</code>', 'OSM standard', 'Usage léger uniquement', '🟠 Strict, prévoir alternative'],
+                            ['<code>tile.openstreetmap.fr</code>', 'OSM France / HOT', 'Usage léger uniquement', '🟠 Strict, infra bénévole'],
+                            ['<code>basemaps.cartocdn.com</code>', 'CARTO Voyager', '~75 000 vues/mois sans clé', '🟢 Confortable'],
+                            ['<code>server.arcgisonline.com</code>', 'Esri Satellite', 'Reasonable use', '🟢 OK'],
+                        ]
+                    )}
+                    ${note('#f59e0b', '<strong>Important</strong> : tant que le serveur maison n\'est pas en place, ne pas exposer la plateforme à un trafic massif (intégration dans un site grand public, crawler…). Les fournisseurs OSM peuvent <em>blacklister par IP</em> si l\'usage devient excessif.')}
                 `)}
 
                 ${section('observations', '🗣️ Directives du Ministre (Observations)', `
@@ -1516,33 +1580,58 @@ const AdminPage = {
                 <p style="color:#62718D;font-size:13px;margin:0 0 16px;">
                     Cochez les fonds de carte que les utilisateurs pourront sélectionner dans le sélecteur en haut à droite du dashboard.
                 </p>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style="width:40px;"></th>
-                                <th>Libellé</th>
-                                <th>Identifiant</th>
-                                <th>Ordre</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${mapLayers.map(item => `
-                                <tr>
-                                    <td>
-                                        <input type="checkbox" ${item.is_active ? 'checked' : ''}
-                                               onchange="AdminPage.toggleMapLayer(${item.id}, this.checked)"
-                                               style="width:16px;height:16px;cursor:pointer;">
-                                    </td>
-                                    <td>${item.label}</td>
-                                    <td><code style="background:#f0f4f8;padding:2px 8px;border-radius:4px;font-size:12px;">${item.value}</code></td>
-                                    <td>${item.sort_order}</td>
-                                </tr>
-                            `).join('')}
-                            ${mapLayers.length === 0 ? '<tr><td colspan="4" style="text-align:center;color:#8896AB;">Aucun fond de carte configuré (redémarrer le backend pour seeder)</td></tr>' : ''}
-                        </tbody>
-                    </table>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    ${mapLayers.map(item => {
+                        const meta = item.metadata || {};
+                        const kind = meta.kind || 'xyz';
+                        const url = meta.url || '';
+                        const apiKey = meta.api_key || '';
+                        const attribution = meta.attribution || '';
+                        return `
+                        <div class="card" style="padding:14px;border:1px solid var(--color-border);background:${item.is_active ? '#fff' : '#f8fafc'};">
+                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+                                <input type="checkbox" ${item.is_active ? 'checked' : ''}
+                                       onchange="AdminPage.toggleMapLayer(${item.id}, this.checked)"
+                                       style="width:16px;height:16px;cursor:pointer;" title="Activer/désactiver">
+                                <strong style="flex:1;color:#202B5D;">${item.label}</strong>
+                                <code style="background:#f0f4f8;padding:2px 8px;border-radius:4px;font-size:11px;">${item.value}</code>
+                                <span style="background:${kind === 'wms' ? '#dcfce7' : '#dbeafe'};color:${kind === 'wms' ? '#166534' : '#1e40af'};padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;text-transform:uppercase;">${kind}</span>
+                                <button class="btn-icon" onclick="AdminPage.deleteMapLayer(${item.id}, '${item.value.replace(/'/g, "\\'")}')" title="Supprimer">${Icon.render('trash', 14, 'var(--color-danger)')}</button>
+                            </div>
+                            <div style="display:grid;grid-template-columns:120px 1fr;gap:8px 12px;align-items:center;font-size:13px;">
+                                <label style="color:#62718D;">Type</label>
+                                <select id="ml-kind-${item.id}" style="padding:6px 8px;border:1px solid #dce3ed;border-radius:4px;font-size:13px;">
+                                    <option value="xyz" ${kind === 'xyz' ? 'selected' : ''}>XYZ (tuiles classiques)</option>
+                                    <option value="wms" ${kind === 'wms' ? 'selected' : ''}>WMS (Web Map Service)</option>
+                                </select>
+                                <label style="color:#62718D;">URL</label>
+                                <input type="text" id="ml-url-${item.id}" value="${(url+'').replace(/"/g, '&quot;')}"
+                                       placeholder="${kind === 'wms' ? 'https://geo.example.com/wms' : 'https://{s}.serveur.com/{z}/{x}/{y}.png'}"
+                                       style="padding:6px 8px;border:1px solid #dce3ed;border-radius:4px;font-size:12px;font-family:monospace;">
+                                <label style="color:#62718D;">Attribution</label>
+                                <input type="text" id="ml-attr-${item.id}" value="${(attribution+'').replace(/"/g, '&quot;')}"
+                                       placeholder="© Source des données"
+                                       style="padding:6px 8px;border:1px solid #dce3ed;border-radius:4px;font-size:12px;">
+                                <label style="color:#62718D;">Clé API</label>
+                                <input type="text" id="ml-key-${item.id}" value="${(apiKey+'').replace(/"/g, '&quot;')}"
+                                       placeholder="Optionnel — utilisée si {apikey} dans l'URL"
+                                       style="padding:6px 8px;border:1px solid #dce3ed;border-radius:4px;font-size:12px;font-family:monospace;">
+                            </div>
+                            <div style="margin-top:10px;text-align:right;">
+                                <button class="btn btn-primary" style="font-size:12px;padding:6px 14px;" onclick="AdminPage.saveMapLayer(${item.id})">Enregistrer</button>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                    ${mapLayers.length === 0 ? '<div style="text-align:center;color:#8896AB;padding:20px;">Aucun fond de carte configuré.</div>' : ''}
+                    <div>
+                        <button class="btn btn-secondary" style="font-size:13px;" onclick="AdminPage.addMapLayer()">
+                            + Ajouter un fond de carte
+                        </button>
+                    </div>
                 </div>
+                <p style="margin-top:10px;font-size:11px;color:#94a3b8;">
+                    Astuce : pour utiliser un serveur de tuiles maison (ex. <code>tiles.cngiri.com</code>), choisir <strong>XYZ</strong> et saisir l'URL avec <code>{z}/{x}/{y}</code>. Pour une couche métier (réseau ONAS, zones inondables…), choisir <strong>WMS</strong>.
+                </p>
             </div>
         `;
 
@@ -1652,6 +1741,70 @@ const AdminPage = {
                 document.getElementById('admin-content').innerHTML = this.renderConfig();
             } catch {}
         }
+    },
+
+    async saveMapLayer(id) {
+        const kind = document.getElementById(`ml-kind-${id}`)?.value || 'xyz';
+        const url = (document.getElementById(`ml-url-${id}`)?.value || '').trim();
+        const attribution = (document.getElementById(`ml-attr-${id}`)?.value || '').trim();
+        const apiKey = (document.getElementById(`ml-key-${id}`)?.value || '').trim();
+
+        if (!url) { Toast.warning('URL requise.'); return; }
+        if (kind === 'xyz' && !/\{z\}|\{x\}|\{y\}/.test(url)) {
+            Toast.warning('URL XYZ doit contenir {z}/{x}/{y}.');
+            return;
+        }
+
+        const item = this.data.configItems.find(c => c.id === id);
+        const newMeta = { ...(item?.metadata || {}), kind, url, attribution };
+        if (apiKey) newMeta.api_key = apiKey; else delete newMeta.api_key;
+
+        try {
+            await API.config.update(id, { metadata: newMeta });
+            if (item) item.metadata = newMeta;
+            Toast.success('Fond de carte enregistré (rechargez la page pour voir l\'effet sur la carte).');
+        } catch (err) {
+            Toast.error('Erreur : ' + (err.message || 'sauvegarde échouée'));
+        }
+    },
+
+    addMapLayer() {
+        Toast.prompt('Identifiant du nouveau fond (sans espaces, ex: tiles_cngiri) :', '').then(value => {
+            if (!value) return;
+            const code = String(value).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+            if (!code) { Toast.warning('Identifiant invalide.'); return; }
+            return Toast.prompt('Libellé affiché :', code).then(async (label) => {
+                if (!label) return;
+                try {
+                    await API.config.create({
+                        category: 'map_layers',
+                        value: code,
+                        label: String(label).trim(),
+                        sort_order: 99,
+                        metadata: { kind: 'xyz', url: '', attribution: '' }
+                    });
+                    const res = await API.config.getAll();
+                    this.data.configItems = res.data || [];
+                    document.getElementById('admin-content').innerHTML = this.renderConfig();
+                    Toast.success('Fond ajouté. Configure son URL puis active-le.');
+                } catch (err) {
+                    Toast.error('Erreur : ' + (err.message || 'création échouée'));
+                }
+            });
+        });
+    },
+
+    deleteMapLayer(id, value) {
+        Toast.confirm(`Supprimer le fond de carte "${value}" ? Cette action est irréversible.`, async () => {
+            try {
+                await API.config.delete(id);
+                this.data.configItems = this.data.configItems.filter(c => c.id !== id);
+                document.getElementById('admin-content').innerHTML = this.renderConfig();
+                Toast.success('Fond supprimé.');
+            } catch (err) {
+                Toast.error('Erreur : ' + (err.message || 'suppression échouée'));
+            }
+        }, { type: 'danger', confirmText: 'Supprimer' });
     },
 
     addConfigItem(category) {

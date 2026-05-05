@@ -362,10 +362,20 @@ async function initDatabase() {
                 label VARCHAR(150) NOT NULL,
                 sort_order INTEGER DEFAULT 0,
                 is_active BOOLEAN DEFAULT true,
+                metadata JSONB,
                 UNIQUE(category, value)
             )
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_app_config_category ON app_config(category)`);
+        // Migration : ajoute la colonne metadata si la table existait déjà sans.
+        // Utilisé par les map_layers pour stocker {url, kind, attribution, api_key, options}
+        // sans casser les autres catégories.
+        await client.query(`
+            DO $$ BEGIN
+                ALTER TABLE app_config ADD COLUMN IF NOT EXISTS metadata JSONB;
+            EXCEPTION WHEN others THEN NULL;
+            END $$
+        `);
 
         // Observations du Superviseur (Ministre) — directives adressées à tous
         await client.query(`
@@ -608,19 +618,74 @@ async function seedConfig(pool) {
     // Les fonds de carte sont seedés idempotemment (ON CONFLICT DO NOTHING) à chaque
     // démarrage, pour que l'admin puisse les activer/désactiver. Les autres
     // catégories ne sont seedées que si la table est vide.
+    // Fonds de carte. metadata stocke la config technique du layer :
+    //   - kind: 'xyz' (tile classique) ou 'wms' (Web Map Service)
+    //   - url:  template URL Leaflet (avec {z}/{x}/{y} pour XYZ, ou endpoint WMS)
+    //   - attribution: HTML d'attribution (obligatoire pour respecter les licences)
+    //   - options: objet d'options Leaflet additionnel (maxZoom, subdomains, layers WMS, etc.)
+    //   - api_key: chaîne optionnelle, injectée dans l'URL via {apikey}
+    //
+    // L'admin peut éditer ces champs depuis l'UI, ou ajouter de nouveaux layers
+    // (ex: serveur de tuiles maison `tiles.cngiri.com`) sans redéploiement.
+    const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
     const mapLayers = [
-        { category: 'map_layers', value: 'osm',        label: 'Plan (OSM standard)', sort_order: 1 },
-        { category: 'map_layers', value: 'carto',      label: 'Plan détaillé (CARTO Voyager)', sort_order: 2 },
-        { category: 'map_layers', value: 'osm_fr',     label: 'Plan français (OSM France)', sort_order: 3 },
-        { category: 'map_layers', value: 'hot',        label: 'Plan HOT (humanitaire)', sort_order: 4 },
-        { category: 'map_layers', value: 'satellite',  label: 'Satellite (Esri)', sort_order: 5 },
+        {
+            value: 'osm', label: 'Plan (OSM standard)', sort_order: 1,
+            metadata: {
+                kind: 'xyz',
+                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                attribution: OSM_ATTR,
+                options: { maxZoom: 19 }
+            }
+        },
+        {
+            value: 'carto', label: 'Plan détaillé (CARTO Voyager)', sort_order: 2,
+            metadata: {
+                kind: 'xyz',
+                url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                attribution: `${OSM_ATTR} &copy; <a href="https://carto.com/attributions">CARTO</a>`,
+                options: { maxZoom: 20, subdomains: 'abcd' }
+            }
+        },
+        {
+            value: 'osm_fr', label: 'Plan français (OSM France)', sort_order: 3,
+            metadata: {
+                kind: 'xyz',
+                url: 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+                attribution: `${OSM_ATTR} &copy; <a href="https://www.openstreetmap.fr/mentions-legales/">OSM France</a>`,
+                options: { maxZoom: 20 }
+            }
+        },
+        {
+            value: 'hot', label: 'Plan HOT (humanitaire)', sort_order: 4,
+            metadata: {
+                kind: 'xyz',
+                url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+                attribution: `${OSM_ATTR} Tiles &copy; <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>`,
+                options: { maxZoom: 20 }
+            }
+        },
+        {
+            value: 'satellite', label: 'Satellite (Esri)', sort_order: 5,
+            metadata: {
+                kind: 'xyz',
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                attribution: 'Tiles &copy; Esri — Maxar, Earthstar Geographics, GIS Community',
+                options: { maxZoom: 19 },
+                overlay_url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+                overlay_attribution: '&copy; Esri'
+            }
+        }
     ];
     for (const c of mapLayers) {
+        // INSERT idempotent + UPDATE pour rafraîchir les metadata si manquantes
+        // (cas d'une instance créée avant l'ajout de la colonne metadata).
         await pool.query(
-            `INSERT INTO app_config (category, value, label, sort_order, is_active)
-             VALUES ($1, $2, $3, $4, true)
-             ON CONFLICT (category, value) DO NOTHING`,
-            [c.category, c.value, c.label, c.sort_order]
+            `INSERT INTO app_config (category, value, label, sort_order, is_active, metadata)
+             VALUES ('map_layers', $1, $2, $3, true, $4::jsonb)
+             ON CONFLICT (category, value) DO UPDATE
+             SET metadata = COALESCE(app_config.metadata, EXCLUDED.metadata)`,
+            [c.value, c.label, c.sort_order, JSON.stringify(c.metadata)]
         );
     }
 
