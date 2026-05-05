@@ -62,19 +62,19 @@ app.use((req, res, next) => {
     res.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), interest-cohort=()');
 
     // CSP appliqué uniquement sur les réponses HTML pour ne pas casser les
-    // assets statiques eux-mêmes.
+    // assets statiques eux-mêmes. Toutes les libs JS, polices et styles
+    // sont auto-hébergés (cf. /public/vendor/ et /public/fonts/) ; les
+    // seules ressources externes restantes sont les tuiles cartographiques.
     if (req.method === 'GET' && (req.path === '/' || req.path.endsWith('.html') || !req.path.includes('.'))) {
         const csp = [
             "default-src 'self'",
-            // Pas de inline-scripts à part les onclick existants → 'unsafe-inline' pour les onload/onclick attributs
-            "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com",
-            "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",
-            "font-src 'self' data: https://fonts.gstatic.com",
+            // 'unsafe-inline' nécessaire pour les onclick/onload existants dans nos templates
+            "script-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline'",
+            "font-src 'self' data:",
             "img-src 'self' data: blob: https:",
-            // Tiles cartographiques + nos endpoints API + sourcemaps des libs CDN
-            // (Leaflet, togeojson, shpjs) — sinon DevTools log un avertissement
-            // CSP au chargement de leaflet.js.map / shp.min.js.map / etc.
-            "connect-src 'self' https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.fr https://server.arcgisonline.com https://unpkg.com https://cdnjs.cloudflare.com",
+            // Tiles cartographiques uniquement (le reste est self-hosted)
+            "connect-src 'self' https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.fr https://server.arcgisonline.com",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'"

@@ -12,7 +12,9 @@
    définies et aliasées dans public/css/tokens.css chargé avant ce fichier.
    Single source of truth + prêt pour un toggle dark mode futur. */
 
-@import url('https://fonts.googleapis.com/css2?family=Cabin:wght@400;500;600;700&family=Roboto+Slab:wght@300;400;500&display=swap');
+/* Polices auto-hébergées : <link rel="stylesheet" href="/fonts/fonts.css">
+   est posé dans public/index.html. Un @import ici serait ignoré car il vient
+   après la règle * { } (CSS exige les @import en tête de feuille). */
 
 body {
     font-family: 'Cabin', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

@@ -1,32 +1,31 @@
 // Conversion de fichiers SIG vers GeoJSON, côté navigateur.
 // Formats supportés :
 //   - .geojson / .json : passé tel quel
-//   - .kml             : converti via @tmcw/togeojson
+//   - .kml             : converti via @tmcw/togeojson (vendored)
 //   - .zip (Shapefile) : converti via shpjs (lit le .prj et reprojette en WGS84)
 //
-// Les libs sont chargées à la demande (CDN unpkg) pour ne pas alourdir
-// les pages qui ne font pas d'import.
+// Versions vendées actuellement (à conserver en phase avec /vendor/) :
+//   - @tmcw/togeojson : 5.8.1
+//   - shpjs           : 4.0.4
+//
+// Pour mettre à jour : changer la version dans les deux commandes ci-dessous,
+// les exécuter, et bumper CACHE_NAME dans public/sw.js.
+//   curl -L https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js \
+//        -o public/vendor/togeojson/togeojson.umd.js
+//   curl -L https://unpkg.com/shpjs@4.0.4/dist/shp.min.js \
+//        -o public/vendor/shpjs/shp.min.js
 
 const GeoConverter = {
-    // URLs CDN — unpkg est whitelisté dans le CSP.
-    // Versions pinnées + SRI (Subresource Integrity) : si unpkg sert un
-    // contenu modifié pour ces URLs, le navigateur refuse l'exécution.
-    // Pour mettre à jour une version : changer l'URL, recalculer le SHA-384
-    // avec `curl <url> | openssl dgst -sha384 -binary | openssl base64 -A`.
-    TOGEOJSON_URL: 'https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js',
-    TOGEOJSON_SRI: 'sha384-4a+9x4ql6wch9epMfqnC3bSjASMJDDqpSuVblbNd6thkfnwdBucHgePPyl0exaFY',
-    SHPJS_URL: 'https://unpkg.com/shpjs@4.0.4/dist/shp.min.js',
-    SHPJS_SRI: 'sha384-All+uTLkqRBeyGd6OkVGJGbq2ChIKDWUrewcZ+uQDZzF11/b9sgw5p714836LTKO',
+    TOGEOJSON_URL: '/vendor/togeojson/togeojson.umd.js',
+    SHPJS_URL: '/vendor/shpjs/shp.min.js',
 
     _loadedScripts: new Set(),
 
     /**
-     * Charge un script externe une seule fois et résout quand il est prêt.
-     * @param {string} url URL HTTPS du script
-     * @param {string} [integrity] Hash SRI (sha384-...). Si fourni, le navigateur
-     *   refuse l'exécution si le contenu a été altéré.
+     * Charge un script local une seule fois. Lazy-load pour ne pas peser
+     * sur les pages qui ne font pas d'import.
      */
-    loadScript(url, integrity) {
+    loadScript(url) {
         if (this._loadedScripts.has(url)) return Promise.resolve();
         return new Promise((resolve, reject) => {
             const existing = document.querySelector(`script[src="${url}"]`);
@@ -39,15 +38,8 @@ const GeoConverter = {
             const s = document.createElement('script');
             s.src = url;
             s.async = true;
-            // SRI + crossorigin sont indispensables ensemble : sans crossorigin,
-            // le navigateur n'a pas accès au contenu pour vérifier le hash et
-            // bloque l'exécution.
-            if (integrity) {
-                s.integrity = integrity;
-                s.crossOrigin = 'anonymous';
-            }
             s.onload = () => { s.dataset.loaded = '1'; this._loadedScripts.add(url); resolve(); };
-            s.onerror = () => reject(new Error(`Échec du chargement de ${url} (intégrité ou réseau)`));
+            s.onerror = () => reject(new Error(`Échec du chargement de ${url}`));
             document.head.appendChild(s);
         });
     },
@@ -87,7 +79,7 @@ const GeoConverter = {
         }
 
         if (fmt === 'kml') {
-            await this.loadScript(this.TOGEOJSON_URL, this.TOGEOJSON_SRI);
+            await this.loadScript(this.TOGEOJSON_URL);
             if (typeof toGeoJSON === 'undefined' || !toGeoJSON.kml) {
                 throw new Error('Bibliothèque KML non disponible (vérifier la connexion).');
             }
@@ -103,7 +95,7 @@ const GeoConverter = {
         }
 
         if (fmt === 'shapefile') {
-            await this.loadScript(this.SHPJS_URL, this.SHPJS_SRI);
+            await this.loadScript(this.SHPJS_URL);
             // shpjs s'expose en global "shp" et accepte un ArrayBuffer (zip).
             // Fallback : sur certaines versions UMD, l'export est dans window.shp.default.
             const shpFn = (typeof shp === 'function') ? shp

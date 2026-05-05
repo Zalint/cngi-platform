@@ -66,14 +66,16 @@ const DashboardPage = {
         const structureId = user.role === 'utilisateur' ? user.structure_id : null;
         // superviseur and commandement_territorial use structureId = null (backend handles territorial filtering)
 
-        // Charger les fonds de carte activés par l'admin (non bloquant — défaut = tous activés)
+        // Charger les fonds de carte configurés par l'admin (URL, kind, options
+        // dans `metadata`). Non bloquant — la carte affiche un fallback OSM si
+        // l'API tombe ou si la config est vide.
         try {
             const mapLayersRes = await API.config.getByCategory('map_layers');
-            const rows = mapLayersRes.data || [];
-            this.data.enabledMapLayers = new Set(rows.filter(r => r.is_active).map(r => r.value));
+            this.data.mapLayerConfigs = (mapLayersRes.data || [])
+                .filter(r => r.is_active && r.metadata && r.metadata.url)
+                .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
         } catch {
-            // En cas d'échec : on active tout par défaut pour ne pas casser la carte
-            this.data.enabledMapLayers = new Set(['osm', 'carto', 'osm_fr', 'hot', 'satellite']);
+            this.data.mapLayerConfigs = [];
         }
 
         // Charger les dernières observations (non bloquant)
@@ -649,6 +651,36 @@ const DashboardPage = {
         setTimeout(() => { if (this.map) this.map.invalidateSize(); }, 100);
     },
 
+    /**
+     * Construit un L.tileLayer (XYZ) ou L.tileLayer.wms depuis la config admin.
+     * Injecte la clé API dans l'URL via le placeholder `{apikey}` si présent.
+     * Retourne null si la config est invalide (URL manquante).
+     */
+    _buildTileLayer(meta) {
+        if (!meta || !meta.url) return null;
+        const opts = { attribution: meta.attribution || '', ...(meta.options || {}) };
+        // {apikey} dans l'URL est remplacé par api_key avant passage à Leaflet.
+        // Permet d'utiliser MapTiler/Stadia/etc avec une clé sans coder dur.
+        let url = meta.url;
+        if (meta.api_key) url = url.replace(/\{apikey\}/g, encodeURIComponent(meta.api_key));
+
+        if (meta.kind === 'wms') {
+            return L.tileLayer.wms(url, opts);
+        }
+        // Pour le mode satellite à 2 couches (imagery + labels), on accepte un
+        // champ optionnel meta.overlay_url qui est superposé.
+        const base = L.tileLayer(url, opts);
+        if (meta.overlay_url) {
+            const overlay = L.tileLayer(meta.overlay_url, {
+                ...(meta.options || {}),
+                attribution: meta.overlay_attribution || '',
+                pane: 'overlayPane'
+            });
+            return L.layerGroup([base, overlay]);
+        }
+        return base;
+    },
+
     initMap() {
         const mapEl = document.getElementById('senegal-map');
         if (!mapEl || typeof L === 'undefined') return;
@@ -674,60 +706,32 @@ const DashboardPage = {
             preferCanvas: true
         }).fitBounds(senegalBounds);
 
-        // Attribution ODbL : tous les fonds dérivés d'OSM doivent créditer
-        // "© OpenStreetMap contributors" avec lien vers la page copyright.
-        // Cf. https://www.openstreetmap.org/copyright.
-        const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-
-        // Plan OSM standard (densité de labels conservatrice — bon pour la vue d'ensemble)
-        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: OSM_ATTR,
-            maxZoom: 19
-        });
-        // Plan détaillé CARTO Voyager — labels plus denses (rues, POI, commerces).
-        // Gratuit sans clé API pour un usage raisonnable. Le {r} sert l'image @2x sur
-        // écrans haute densité. Basemaps publics CARTO : OK jusqu'à quelques dizaines
-        // de milliers de tuiles/mois ; passer à un compte CARTO payant en cas de fort
-        // trafic. Cf. https://carto.com/attributions.
-        const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: `${OSM_ATTR} &copy; <a href="https://carto.com/attributions">CARTO</a>`,
-            subdomains: 'abcd',
-            maxZoom: 20
-        });
-        // Plan OSM France — labels français, densité supérieure à OSM par défaut.
-        // Adapté au contexte sénégalais (Marché, Résidence, Imprimerie…).
-        const osmFrLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-            attribution: `${OSM_ATTR} &copy; <a href="https://www.openstreetmap.fr/mentions-legales/">OSM France</a>`,
-            maxZoom: 20
-        });
-        // Plan humanitaire (HOT OSM) — rendu utilisé par MSF / Croix-Rouge, densité
-        // remarquable sur le bâti africain (écoles, hôpitaux, points d'eau).
-        const hotLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-            attribution: `${OSM_ATTR} Tiles &copy; <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>`,
-            maxZoom: 20
-        });
-        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-            maxZoom: 19
-        });
-        const satelliteLabelsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-            attribution: '&copy; Esri',
-            maxZoom: 19,
-            pane: 'overlayPane'
-        });
-        const satelliteGroup = L.layerGroup([satelliteLayer, satelliteLabelsLayer]);
-
-        // Filtre selon la config admin : seuls les fonds marqués is_active sont
-        // proposés dans le switcher. Si aucun n'est activé (config anormale),
-        // fallback sur OSM pour que la carte reste utilisable.
-        const enabled = this.data.enabledMapLayers || new Set(['osm','carto','osm_fr','hot','satellite']);
+        // Construit dynamiquement les fonds de carte depuis la config admin.
+        // Chaque layer porte son URL, son kind (xyz / wms) et ses options dans
+        // app_config.metadata. Permet à l'admin d'ajouter un nouveau provider
+        // (serveur de tuiles maison, MapTiler, etc.) sans toucher au code.
         const layerChoices = {};
-        if (enabled.has('osm'))       layerChoices['Plan'] = osmLayer;
-        if (enabled.has('carto'))     layerChoices['Plan détaillé'] = cartoLayer;
-        if (enabled.has('osm_fr'))    layerChoices['Plan français'] = osmFrLayer;
-        if (enabled.has('hot'))       layerChoices['Plan HOT'] = hotLayer;
-        if (enabled.has('satellite')) layerChoices['Satellite'] = satelliteGroup;
-        if (Object.keys(layerChoices).length === 0) layerChoices['Plan'] = osmLayer;
+        const configs = this.data.mapLayerConfigs || [];
+        // Le label vient de la DB (saisi par l'admin) et Leaflet l'injecte
+        // tel quel dans le HTML du contrôle de layers — on échappe avant pour
+        // éviter une injection HTML/JS via Configuration → Fonds de carte.
+        const escapeHtml = (s) => String(s ?? '').replace(/[&<>"'`]/g, c => ({
+            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'
+        }[c]));
+        for (const cfg of configs) {
+            const meta = cfg.metadata || {};
+            const layer = this._buildTileLayer(meta);
+            if (layer) layerChoices[escapeHtml(cfg.label)] = layer;
+        }
+
+        // Fallback OSM si aucune config admin disponible (instance fraîche, DB
+        // injoignable…). Garantit que la carte s'affiche toujours.
+        if (Object.keys(layerChoices).length === 0) {
+            layerChoices['Plan'] = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            });
+        }
 
         // Layer par défaut = le premier activé
         Object.values(layerChoices)[0].addTo(this.map);

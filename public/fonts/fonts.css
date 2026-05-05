@@ -1,0 +1,29 @@
+/* Polices auto-hébergées (subset latin)
+ *
+ * Cabin et Roboto Slab sont des fontes VARIABLES : un seul fichier .woff2
+ * porte tous les poids via l'axe `wght`. On doit donc déclarer un seul
+ * @font-face par famille avec font-weight: <min> <max>, sinon le navigateur
+ * rend tous les poids à l'identique (poids par défaut du fichier).
+ *
+ * Sources Google Fonts (subset latin) :
+ *   Cabin       : range 400-700 (https://fonts.google.com/specimen/Cabin)
+ *   Roboto Slab : range 100-900 — on n'utilise que 300-500 dans l'UI
+ */
+
+@font-face {
+  font-family: 'Cabin';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url(/fonts/u-4i0qWljRw-PfU81xCKCpdpbgZJl6Xvqdns.woff2) format('woff2-variations'),
+       url(/fonts/u-4i0qWljRw-PfU81xCKCpdpbgZJl6Xvqdns.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Roboto Slab';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(/fonts/BngMUXZYTXPIvIBgJJSb6ufN5qU.woff2) format('woff2-variations'),
+       url(/fonts/BngMUXZYTXPIvIBgJJSb6ufN5qU.woff2) format('woff2');
+}
