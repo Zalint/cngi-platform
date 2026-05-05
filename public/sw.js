@@ -1,5 +1,5 @@
 // Bump à chaque release pour purger les anciens caches chez les utilisateurs.
-const CACHE_NAME = 'cngi-v3-2026-05-04';
+const CACHE_NAME = 'cngi-v4-2026-05-05';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -7,6 +7,7 @@ const STATIC_ASSETS = [
     '/js/utils/dateFormatter.js',
     '/js/utils/api.js',
     '/js/utils/auth.js',
+    '/js/utils/geoConverter.js',
     '/js/components/toast.js',
     '/js/components/navbar.js',
     '/js/pages/login.js',
@@ -21,7 +22,11 @@ const STATIC_ASSETS = [
     '/js/pages/users.js',
     '/js/pages/projectStructures.js',
     '/js/app.js',
-    '/manifest.json'
+    '/manifest.json',
+    // Vendored externes (auto-hébergés)
+    '/vendor/leaflet/leaflet.js',
+    '/vendor/leaflet/leaflet.css',
+    '/fonts/fonts.css'
 ];
 
 // Install: cache static assets
