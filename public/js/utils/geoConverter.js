@@ -4,10 +4,16 @@
 //   - .kml             : converti via @tmcw/togeojson (vendored)
 //   - .zip (Shapefile) : converti via shpjs (lit le .prj et reprojette en WGS84)
 //
-// Les libs sont auto-hébergées dans /vendor/ (zéro dépendance externe).
-// Pour mettre à jour, télécharger les versions cibles depuis unpkg :
-//   curl https://unpkg.com/@tmcw/togeojson@X.Y.Z/dist/togeojson.umd.js -o public/vendor/togeojson/togeojson.umd.js
-//   curl https://unpkg.com/shpjs@X.Y.Z/dist/shp.min.js              -o public/vendor/shpjs/shp.min.js
+// Versions vendées actuellement (à conserver en phase avec /vendor/) :
+//   - @tmcw/togeojson : 5.8.1
+//   - shpjs           : 4.0.4
+//
+// Pour mettre à jour : changer la version dans les deux commandes ci-dessous,
+// les exécuter, et bumper CACHE_NAME dans public/sw.js.
+//   curl -L https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js \
+//        -o public/vendor/togeojson/togeojson.umd.js
+//   curl -L https://unpkg.com/shpjs@4.0.4/dist/shp.min.js \
+//        -o public/vendor/shpjs/shp.min.js
 
 const GeoConverter = {
     TOGEOJSON_URL: '/vendor/togeojson/togeojson.umd.js',

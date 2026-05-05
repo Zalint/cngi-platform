@@ -18,12 +18,15 @@ class ConfigModel {
 
     static async create(data) {
         const { category, value, label, sort_order, metadata } = data;
+        // metadata: parité avec update() — undefined => NULL, mais false/0/""/{}
+        // sont des valeurs intentionnelles qu'on stocke telles quelles.
         const result = await db.query(
             `INSERT INTO app_config (category, value, label, sort_order, metadata)
              VALUES ($1, $2, $3, $4, $5::jsonb)
              ON CONFLICT DO NOTHING
              RETURNING *`,
-            [category, value, label, sort_order || 0, metadata ? JSON.stringify(metadata) : null]
+            [category, value, label, sort_order || 0,
+             metadata !== undefined ? JSON.stringify(metadata) : null]
         );
         return result.rows[0];
     }

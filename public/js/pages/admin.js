@@ -1582,6 +1582,12 @@ const AdminPage = {
                 </p>
                 <div style="display:flex;flex-direction:column;gap:12px;">
                     ${mapLayers.map(item => {
+                        // Helper local : neutralise tout caractère HTML dans les valeurs
+                        // venant de la DB (label/value saisis par admin, url/api_key, etc.)
+                        // Empêche un admin malveillant d'injecter <script> via Configuration.
+                        const escAttr = (v) => String(v ?? '').replace(/[&<>"'`]/g, c => ({
+                            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'
+                        }[c]));
                         const meta = item.metadata || {};
                         const kind = meta.kind || 'xyz';
                         const url = meta.url || '';
@@ -1593,10 +1599,10 @@ const AdminPage = {
                                 <input type="checkbox" ${item.is_active ? 'checked' : ''}
                                        onchange="AdminPage.toggleMapLayer(${item.id}, this.checked)"
                                        style="width:16px;height:16px;cursor:pointer;" title="Activer/désactiver">
-                                <strong style="flex:1;color:#202B5D;">${item.label}</strong>
-                                <code style="background:#f0f4f8;padding:2px 8px;border-radius:4px;font-size:11px;">${item.value}</code>
-                                <span style="background:${kind === 'wms' ? '#dcfce7' : '#dbeafe'};color:${kind === 'wms' ? '#166534' : '#1e40af'};padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;text-transform:uppercase;">${kind}</span>
-                                <button class="btn-icon" onclick="AdminPage.deleteMapLayer(${item.id}, '${item.value.replace(/'/g, "\\'")}')" title="Supprimer">${Icon.render('trash', 14, 'var(--color-danger)')}</button>
+                                <strong style="flex:1;color:#202B5D;">${escAttr(item.label)}</strong>
+                                <code style="background:#f0f4f8;padding:2px 8px;border-radius:4px;font-size:11px;">${escAttr(item.value)}</code>
+                                <span style="background:${kind === 'wms' ? '#dcfce7' : '#dbeafe'};color:${kind === 'wms' ? '#166534' : '#1e40af'};padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;text-transform:uppercase;">${escAttr(kind)}</span>
+                                <button class="btn-icon" data-id="${item.id}" data-value="${escAttr(item.value)}" onclick="AdminPage.deleteMapLayer(this.dataset.id, this.dataset.value)" title="Supprimer">${Icon.render('trash', 14, 'var(--color-danger)')}</button>
                             </div>
                             <div style="display:grid;grid-template-columns:120px 1fr;gap:8px 12px;align-items:center;font-size:13px;">
                                 <label style="color:#62718D;">Type</label>
@@ -1605,15 +1611,15 @@ const AdminPage = {
                                     <option value="wms" ${kind === 'wms' ? 'selected' : ''}>WMS (Web Map Service)</option>
                                 </select>
                                 <label style="color:#62718D;">URL</label>
-                                <input type="text" id="ml-url-${item.id}" value="${(url+'').replace(/"/g, '&quot;')}"
+                                <input type="text" id="ml-url-${item.id}" value="${escAttr(url)}"
                                        placeholder="${kind === 'wms' ? 'https://geo.example.com/wms' : 'https://{s}.serveur.com/{z}/{x}/{y}.png'}"
                                        style="padding:6px 8px;border:1px solid #dce3ed;border-radius:4px;font-size:12px;font-family:monospace;">
                                 <label style="color:#62718D;">Attribution</label>
-                                <input type="text" id="ml-attr-${item.id}" value="${(attribution+'').replace(/"/g, '&quot;')}"
+                                <input type="text" id="ml-attr-${item.id}" value="${escAttr(attribution)}"
                                        placeholder="© Source des données"
                                        style="padding:6px 8px;border:1px solid #dce3ed;border-radius:4px;font-size:12px;">
                                 <label style="color:#62718D;">Clé API</label>
-                                <input type="text" id="ml-key-${item.id}" value="${(apiKey+'').replace(/"/g, '&quot;')}"
+                                <input type="text" id="ml-key-${item.id}" value="${escAttr(apiKey)}"
                                        placeholder="Optionnel — utilisée si {apikey} dans l'URL"
                                        style="padding:6px 8px;border:1px solid #dce3ed;border-radius:4px;font-size:12px;font-family:monospace;">
                             </div>
@@ -1750,8 +1756,8 @@ const AdminPage = {
         const apiKey = (document.getElementById(`ml-key-${id}`)?.value || '').trim();
 
         if (!url) { Toast.warning('URL requise.'); return; }
-        if (kind === 'xyz' && !/\{z\}|\{x\}|\{y\}/.test(url)) {
-            Toast.warning('URL XYZ doit contenir {z}/{x}/{y}.');
+        if (kind === 'xyz' && !(url.includes('{z}') && url.includes('{x}') && url.includes('{y}'))) {
+            Toast.warning('URL XYZ doit contenir {z}, {x} ET {y}.');
             return;
         }
 
@@ -1795,10 +1801,12 @@ const AdminPage = {
     },
 
     deleteMapLayer(id, value) {
+        // id arrive en string (via data-id), on normalise pour la comparaison.
+        const numId = parseInt(id, 10);
         Toast.confirm(`Supprimer le fond de carte "${value}" ? Cette action est irréversible.`, async () => {
             try {
-                await API.config.delete(id);
-                this.data.configItems = this.data.configItems.filter(c => c.id !== id);
+                await API.config.delete(numId);
+                this.data.configItems = this.data.configItems.filter(c => c.id !== numId);
                 document.getElementById('admin-content').innerHTML = this.renderConfig();
                 Toast.success('Fond supprimé.');
             } catch (err) {

@@ -712,10 +712,16 @@ const DashboardPage = {
         // (serveur de tuiles maison, MapTiler, etc.) sans toucher au code.
         const layerChoices = {};
         const configs = this.data.mapLayerConfigs || [];
+        // Le label vient de la DB (saisi par l'admin) et Leaflet l'injecte
+        // tel quel dans le HTML du contrôle de layers — on échappe avant pour
+        // éviter une injection HTML/JS via Configuration → Fonds de carte.
+        const escapeHtml = (s) => String(s ?? '').replace(/[&<>"'`]/g, c => ({
+            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'
+        }[c]));
         for (const cfg of configs) {
             const meta = cfg.metadata || {};
             const layer = this._buildTileLayer(meta);
-            if (layer) layerChoices[cfg.label] = layer;
+            if (layer) layerChoices[escapeHtml(cfg.label)] = layer;
         }
 
         // Fallback OSM si aucune config admin disponible (instance fraîche, DB

@@ -83,17 +83,17 @@ Le champ `metadata` accepte :
 
 ### 2.3 Endpoint API utilisé
 
-```
+```http
 GET /api/config/category/map_layers
 Authorization: Bearer <jwt>
+```
 
-Response:
+```json
 {
   "success": true,
   "data": [
     { "value": "osm", "label": "Plan (OSM standard)", "is_active": true,
-      "sort_order": 1, "metadata": { "kind": "xyz", "url": "...", ... } },
-    ...
+      "sort_order": 1, "metadata": { "kind": "xyz", "url": "...", ... } }
   ]
 }
 ```
@@ -102,7 +102,7 @@ Response:
 
 ## 3. Architecture cible
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────┐
 │  Navigateur utilisateur                                       │
 │  ┌────────────────────────────────────────────────────────┐  │
@@ -243,7 +243,7 @@ couches superposables à la carte.
 
 ### 5.3 Architecture proposée
 
-```
+```text
                     ┌───────────────────────┐
                     │ PostGIS CNGIRI        │
                     │ (existant)            │

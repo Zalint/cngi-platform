@@ -1,5 +1,5 @@
 // Bump à chaque release pour purger les anciens caches chez les utilisateurs.
-const CACHE_NAME = 'cngi-v4-2026-05-05';
+const CACHE_NAME = 'cngi-v5-2026-05-05';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -23,9 +23,13 @@ const STATIC_ASSETS = [
     '/js/pages/projectStructures.js',
     '/js/app.js',
     '/manifest.json',
-    // Vendored externes (auto-hébergés)
+    // Vendored externes (auto-hébergés). togeojson/shpjs sont gros (~260 KB
+    // shpjs) mais on les pré-cache pour que l'import KML/Shapefile fonctionne
+    // hors-ligne dès la première visite.
     '/vendor/leaflet/leaflet.js',
     '/vendor/leaflet/leaflet.css',
+    '/vendor/togeojson/togeojson.umd.js',
+    '/vendor/shpjs/shp.min.js',
     '/fonts/fonts.css'
 ];
 
